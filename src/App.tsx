@@ -28,52 +28,48 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, setUser } = useStore()
-  const { isLoading, isError } = useQuery({
-    queryKey: ['me'],
-    queryFn: api.me.bind(api),
+export default function App() {
+  const { user, setUser, onboarded } = useStore()
+
+  // Check session on mount
+  const { isLoading } = useQuery({
+    queryKey: ['session'],
+    queryFn: async () => {
+      const u = await api.me()
+      setUser(u)
+      return u
+    },
     retry: false,
     enabled: !user,
   })
 
-  useEffect(() => {
-    if (isError) setUser(null)
-  }, [isError, setUser])
-
-  if (isLoading) return (
-    <div className="h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-      <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} />
-    </div>
-  )
-
-  return <>{children}</>
-}
-
-export default function App() {
-  const { user, onboarded } = useStore()
+  if (isLoading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid', borderColor: 'rgba(255,255,255,0.1) rgba(255,255,255,0.1) rgba(255,255,255,0.1) var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      </div>
+    )
+  }
 
   return (
     <ThemeProvider>
       <BrowserRouter>
-        <AuthGuard>
-          <Routes>
-            <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/" element={user ? <Layout /> : <Navigate to="/login" />}>
-              <Route index element={!onboarded ? <Navigate to="/onboarding" /> : <HomePage />} />
-              <Route path="movies" element={<MoviesPage />} />
-              <Route path="shows" element={<ShowsPage />} />
-              <Route path="music" element={<MusicPage />} />
-              <Route path="library" element={<LibraryPage />} />
-              <Route path="stats" element={<StatsPage />} />
-              <Route path="health" element={<HealthPage />} />
-              <Route path="playing" element={<NowPlayingPage />} />
-            </Route>
-            <Route path="/player" element={user ? <PlayerPage /> : <Navigate to="/login" />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </AuthGuard>
+        <Routes>
+          <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
+          <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/login" replace />} />
+          <Route path="/" element={user ? <Layout /> : <Navigate to="/login" replace />}>
+            <Route index element={!onboarded ? <Navigate to="/onboarding" replace /> : <HomePage />} />
+            <Route path="movies" element={<MoviesPage />} />
+            <Route path="shows" element={<ShowsPage />} />
+            <Route path="music" element={<MusicPage />} />
+            <Route path="library" element={<LibraryPage />} />
+            <Route path="stats" element={<StatsPage />} />
+            <Route path="health" element={<HealthPage />} />
+            <Route path="playing" element={<NowPlayingPage />} />
+          </Route>
+          <Route path="/player" element={user ? <PlayerPage /> : <Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </BrowserRouter>
     </ThemeProvider>
   )

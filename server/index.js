@@ -129,7 +129,9 @@ const server = http.createServer(async (req, res) => {
 
   // ── PUBLIC ASSETS ──
   const publicPaths = ['/', '/login', '/player'];
-  const isAsset = pathname.startsWith('/css/') || pathname.startsWith('/js/') || pathname.endsWith('.ico') || pathname.endsWith('.png');
+  // Serve any static file that actually exists on disk
+  const staticExts = ['.js','.css','.ico','.png','.jpg','.svg','.woff','.woff2','.ttf','.webp','.map']
+  const isAsset = pathname.startsWith('/assets/') || pathname.startsWith('/css/') || pathname.startsWith('/js/') || staticExts.some(e => pathname.endsWith(e));
 
   if (isAsset) {
     const filePath = path.join(PUBLIC_DIR, pathname);
