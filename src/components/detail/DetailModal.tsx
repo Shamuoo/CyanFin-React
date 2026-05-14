@@ -1,0 +1,151 @@
+import { useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X, Play, ExternalLink } from 'lucide-react'
+import { useStore } from '@/lib/store'
+import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/api'
+import type { MediaItem } from '@/types'
+import { useNavigate } from 'react-router-dom'
+
+export default function DetailModal() {
+  const { detailItemId, setDetailItemId, setPlayingItem, jellyfinUrl } = useStore()
+  const navigate = useNavigate()
+
+  const { data: item } = useQuery({
+    queryKey: ['item', detailItemId],
+    queryFn: () => api.item(detailItemId!),
+    enabled: !!detailItemId,
+  })
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setDetailItemId(null) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [setDetailItemId])
+
+  const handlePlay = async () => {
+    if (!item) return
+    try {
+      const info = await api.playbackInfo(item.id)
+      setPlayingItem({
+        id: item.id, title: item.title || "", streamUrl: info.streamUrl,
+        startTime: item.userData?.PlaybackPositionTicks ? item.userData.PlaybackPositionTicks / 10_000_000 : 0,
+      })
+      setDetailItemId(null)
+      navigate('/player')
+    } catch(e) { console.error(e) }
+  }
+
+  return (
+    <AnimatePresence>
+      {detailItemId && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-40 overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)' }}>
+          {item
+            ? <DetailContent item={item} onClose={() => setDetailItemId(null)} onPlay={handlePlay} jellyfinUrl={jellyfinUrl} />
+            : <div className="h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} /></div>
+          }
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+function DetailContent({ item, onClose, onPlay, jellyfinUrl }: { item: MediaItem; onClose: () => void; onPlay: () => void; jellyfinUrl: string }) {
+  const canPlay = item.type === 'Movie' || item.type === 'Episode'
+  const backdrop = item.backdropUrls?.[0] || item.backdropUrl
+
+  return (
+    <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }}>
+      {/* Backdrop */}
+      <div className="relative w-full" style={{ height: '55vh', minHeight: 320 }}>
+        {backdrop && <div className="absolute inset-0 bg-cover bg-top" style={{ backgroundImage: `url('${backdrop}')` }} />}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 60%, var(--bg) 100%)' }} />
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10 transition-all hover:bg-white/20"
+          style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Poster + info row */}
+      <div className="flex gap-6 relative z-10" style={{ padding: '0 var(--pad)', marginTop: -80 }}>
+        <div className="flex-shrink-0 w-36 h-52 rounded-xl overflow-hidden shadow-2xl" style={{ border: '2px solid rgba(255,255,255,0.08)', background: 'var(--bg3)' }}>
+          {item.posterUrl && <img src={item.posterUrl} alt={item.title} className="w-full h-full object-cover" />}
+        </div>
+        <div className="flex-1 min-w-0 pb-2 flex flex-col justify-end">
+          {item.logoUrl
+            ? <img src={item.logoUrl} alt={item.title} className="max-h-16 max-w-[240px] object-contain mb-3" style={{ filter: 'drop-shadow(0 2px 16px rgba(0,0,0,1)) brightness(1.1)' }} />
+            : <h1 className="text-4xl mb-2 leading-none" style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.08em', color: 'var(--cream)' }}>{item.title}</h1>
+          }
+          {item.tagline && <p className="text-sm italic mb-3" style={{ color: 'var(--muted)' }}>{item.tagline}</p>}
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {[item.year?.toString(), item.genre, item.rating].filter(Boolean).map(v => (
+              <span key={v} className="chip" style={{ background: 'var(--subtle)', color: 'var(--accent)', border: '1px solid var(--border)' }}>{v}</span>
+            ))}
+            {item.score && <span className="chip" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>★ {parseFloat(String(item.score)).toFixed(1)}</span>}
+            {(item.qualities || []).map(q => (
+              <span key={q} className="chip" style={{ background: q.startsWith('4K') ? 'var(--accent)' : q.includes('3D') ? 'rgba(46,204,113,0.12)' : 'rgba(93,173,226,0.12)', color: q.startsWith('4K') ? 'var(--bg)' : q.includes('3D') ? '#2ecc71' : 'var(--blue)', border: `1px solid ${q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.2)'}` }}>{q}</span>
+            ))}
+            {item.audio && <span className="chip" style={{ background: 'rgba(93,173,226,0.08)', color: 'var(--blue)', border: '1px solid rgba(93,173,226,0.2)' }}>🔊 {item.audio}</span>}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {canPlay && (
+              <button onClick={onPlay} className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase transition-all hover:opacity-85"
+                style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+                <Play size={14} fill="currentColor" /> Play
+              </button>
+            )}
+            {jellyfinUrl && (
+              <a href={`${jellyfinUrl}/web/#/details?id=${item.id}`} target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase transition-all hover:bg-white/10"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--cream)', border: '1px solid var(--border2)', textDecoration: 'none' }}>
+                <ExternalLink size={14} /> Jellyfin
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '20px var(--pad) 48px' }}>
+        {item.overview && <p className="text-sm leading-relaxed mb-5 max-w-3xl" style={{ color: 'var(--muted)' }}>{item.overview}</p>}
+        {item.director && <p className="text-xs mb-5" style={{ color: 'var(--muted)' }}>Directed by <span style={{ color: 'var(--cream)', opacity: 0.7 }}>{item.director}</span></p>}
+        {item.cast && item.cast.length > 0 && (
+          <div className="mb-5">
+            <h3 className="text-[9px] font-bold tracking-[0.25em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.5 }}>Cast</h3>
+            <div className="flex gap-3 flex-wrap">
+              {item.cast.map(actor => (
+                <div key={actor.id} className="flex flex-col items-center gap-1 w-14">
+                  {actor.imageTag
+                    ? <img src={`/proxy/image?id=${actor.id}&type=Primary&w=185`} alt={actor.name} className="w-12 h-12 rounded-full object-cover" style={{ border: '1px solid var(--border2)', background: 'var(--bg3)' }} />
+                    : <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg" style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--muted)' }}>{(actor.name || '?')[0]}</div>
+                  }
+                  <p className="text-[8px] text-center leading-tight" style={{ color: 'var(--muted)' }}>{actor.name}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {item.extras && item.extras.length > 0 && (
+          <div>
+            <h3 className="text-[9px] font-bold tracking-[0.25em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.5 }}>Extras</h3>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+              {item.extras.map(extra => (
+                <div key={extra.id} className="flex-shrink-0 w-40 cursor-pointer group">
+                  <div className="relative w-40 h-[90px] rounded overflow-hidden mb-1.5" style={{ background: 'var(--bg3)', border: '1px solid var(--border2)' }}>
+                    {extra.thumbUrl && <img src={extra.thumbUrl} alt={extra.title} className="w-full h-full object-cover" />}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                      <Play size={24} color="white" />
+                    </div>
+                  </div>
+                  <p className="text-[9px] font-bold truncate" style={{ color: 'rgba(240,232,213,0.65)' }}>{extra.title}</p>
+                  <p className="text-[8px]" style={{ color: 'var(--muted)' }}>{extra.type || 'Extra'}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+}

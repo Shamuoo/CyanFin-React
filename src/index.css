@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/* ── Themes as CSS custom properties ── */
+:root, [data-theme="cinema"] {
+  --bg: #0a0804;
+  --bg2: #111009;
+  --bg3: #1a1510;
+  --accent: #c9a84c;
+  --accent2: #e8c97a;
+  --cream: #f0e8d5;
+  --muted: rgba(240,232,213,0.4);
+  --subtle: rgba(240,232,213,0.05);
+  --border: rgba(201,168,76,0.15);
+  --border2: rgba(255,255,255,0.07);
+  --red: #e74c3c;
+  --green: #2ecc71;
+  --blue: #5dade2;
+  --orange: #f39c12;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --pad: 32px;
+  --radius: 6px;
+  --radius-lg: 12px;
+}
+
+[data-theme="midnight"] {
+  --bg: #050810; --bg2: #0a0e1a; --bg3: #111829;
+  --accent: #4a9eff; --accent2: #7bbfff;
+  --cream: #dde8ff; --muted: rgba(221,232,255,0.4);
+  --subtle: rgba(74,158,255,0.06); --border: rgba(74,158,255,0.15); --border2: rgba(255,255,255,0.07);
+  --red: #e74c3c; --green: #2ecc71; --blue: #4a9eff; --orange: #f39c12;
+}
+
+[data-theme="ember"] {
+  --bg: #0d0805; --bg2: #160f08; --bg3: #1f1510;
+  --accent: #e8602a; --accent2: #f4895a;
+  --cream: #f5e6d8; --muted: rgba(245,230,216,0.4);
+  --subtle: rgba(232,96,42,0.06); --border: rgba(232,96,42,0.15); --border2: rgba(255,255,255,0.07);
+  --red: #e74c3c; --green: #2ecc71; --blue: #5dade2; --orange: #f39c12;
+}
+
+[data-theme="arctic"] {
+  --bg: #e8eef5; --bg2: #f0f4f8; --bg3: #ffffff;
+  --accent: #1a6fd4; --accent2: #2d88f0;
+  --cream: #1a2030; --muted: rgba(26,32,48,0.5);
+  --subtle: rgba(26,111,212,0.06); --border: rgba(26,111,212,0.15); --border2: rgba(0,0,0,0.08);
+  --red: #d63031; --green: #00b894; --blue: #1a6fd4; --orange: #e17055;
+}
+
+[data-theme="neon"] {
+  --bg: #060608; --bg2: #0c0c10; --bg3: #141418;
+  --accent: #00ffe0; --accent2: #b24bff;
+  --cream: #e0f8ff; --muted: rgba(224,248,255,0.4);
+  --subtle: rgba(0,255,224,0.05); --border: rgba(0,255,224,0.15); --border2: rgba(255,255,255,0.07);
+  --red: #ff4757; --green: #00ffe0; --blue: #b24bff; --orange: #ffa502;
+}
+
+/* ── TV layout ── */
+[data-layout="tv"] { --pad: 48px; font-size: 18px; }
+[data-layout="mobile"] { --pad: 16px; }
+
+/* ── Simple mode ── */
+[data-mode="simple"] .advanced-only { display: none !important; }
+
+/* ── Base ── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  overflow: hidden;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── Scrollbar thin ── */
+.scrollbar-hide { scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Card hover ── */
+.media-card { cursor: pointer; }
+.media-card:hover .card-img { transform: translateY(-5px) scale(1.02); }
+.media-card:hover .card-frame { border-color: var(--accent); box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--accent); }
+.card-img { transition: transform 0.25s cubic-bezier(0.2,0,0,1); }
+.card-frame { transition: border-color 0.25s, box-shadow 0.25s; }
+
+/* ── Chip ── */
+.chip { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* ── Player cursor ── */
+.player-idle { cursor: none; }
+.player-active { cursor: default; }
