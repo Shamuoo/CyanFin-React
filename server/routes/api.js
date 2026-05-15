@@ -367,45 +367,81 @@ async function handleApi(pathname, query, session) {
       },
     };
 
+    const mediaSourceId = query.mediaSourceId || itemId;
+    const audioStreamIndex = query.audioStreamIndex ? parseInt(query.audioStreamIndex) : undefined;
+    const subtitleStreamIndex = query.subtitleStreamIndex ? parseInt(query.subtitleStreamIndex) : undefined;
+
     try {
       const info = await jf.post(
-        `/Items/${itemId}/PlaybackInfo?userId=${userId}&StartTimeTicks=0&IsPlayback=true&AutoOpenLiveStream=true&MediaSourceId=${itemId}`,
+        `/Items/${itemId}/PlaybackInfo?userId=${userId}&StartTimeTicks=0&IsPlayback=true&AutoOpenLiveStream=true&MediaSourceId=${mediaSourceId}`,
         deviceProfile,
         token
       );
 
       if (!info || !info.MediaSources || !info.MediaSources.length) {
-        return { error: 'No media sources returned', raw: info };
+        return { error: 'No media sources returned' };
       }
 
-      const source = info.MediaSources[0];
+      // Find matching source or use first
+      const source = info.MediaSources.find(s => s.Id === mediaSourceId) || info.MediaSources[0];
       const playSessionId = info.PlaySessionId;
-      const mediaSourceId = source.Id;
+      const resolvedSourceId = source.Id;
 
-      let streamUrl;
-      if (source.SupportsDirectPlay || source.SupportsDirectStream) {
-        // Direct play/stream - no transcoding needed
-        streamUrl = process.env.JELLYFIN_URL + '/Videos/' + itemId + '/stream?api_key=' + token + '&Static=true&MediaSourceId=' + mediaSourceId;
+      // Always build a direct stream URL - most reliable for browser
+      // Static=true = direct play the file as-is
+      let directUrl = process.env.JELLYFIN_URL + '/Videos/' + itemId + '/stream?api_key=' + token + '&Static=true&MediaSourceId=' + resolvedSourceId;
+      if (audioStreamIndex !== undefined) directUrl += '&AudioStreamIndex=' + audioStreamIndex;
+
+      // HLS transcode URL as fallback (when browser can't play the container/codec)
+      let hlsUrl = null;
+      if (source.TranscodingUrl) {
+        hlsUrl = process.env.JELLYFIN_URL + source.TranscodingUrl;
       } else {
-        // Transcoding required - use the URL Jellyfin gave us
-        streamUrl = source.TranscodingUrl ? (process.env.JELLYFIN_URL + source.TranscodingUrl) : (process.env.JELLYFIN_URL + '/Videos/' + itemId + '/stream?api_key=' + token + '&MediaSourceId=' + mediaSourceId + '&VideoCodec=h264&AudioCodec=aac&TranscodingProtocol=hls');
+        hlsUrl = process.env.JELLYFIN_URL + '/Videos/' + itemId + '/master.m3u8?api_key=' + token + '&MediaSourceId=' + resolvedSourceId + '&VideoCodec=h264&AudioCodec=aac&TranscodingProtocol=hls&MaxStreamingBitrate=20000000';
       }
+
+      // Return all media sources so client can show version picker
+      const mediaSources = info.MediaSources.map(s => ({
+        id: s.Id,
+        name: s.Name || s.Container,
+        container: s.Container,
+        size: s.Size,
+        videoCodec: (s.MediaStreams || []).find(ms => ms.Type === 'Video')?.Codec,
+        audioStreams: (s.MediaStreams || []).filter(ms => ms.Type === 'Audio').map(ms => ({
+          index: ms.Index,
+          codec: ms.Codec,
+          language: ms.Language,
+          title: ms.DisplayTitle || ms.Language || ms.Codec,
+          channels: ms.Channels,
+          isDefault: ms.IsDefault,
+        })),
+        subtitleStreams: (s.MediaStreams || []).filter(ms => ms.Type === 'Subtitle').map(ms => ({
+          index: ms.Index,
+          codec: ms.Codec,
+          language: ms.Language,
+          title: ms.DisplayTitle || ms.Language || 'Subtitle',
+          isDefault: ms.IsDefault,
+        })),
+      }));
 
       return {
-        streamUrl,
+        // Primary URL - always direct stream first
+        streamUrl: directUrl,
+        // HLS fallback for incompatible containers
+        hlsUrl,
         playSessionId,
-        mediaSourceId,
+        mediaSourceId: resolvedSourceId,
         playMethod: source.SupportsDirectPlay ? 'DirectPlay' : source.SupportsDirectStream ? 'DirectStream' : 'Transcode',
         container: source.Container,
-        videoCodec: source.VideoStream ? source.VideoStream.Codec : null,
-        audioCodec: source.AudioStream ? source.AudioStream.Codec : null,
+        mediaSources,
       };
     } catch(e) {
-      // Fallback to direct stream if PlaybackInfo fails
       return {
         streamUrl: process.env.JELLYFIN_URL + '/Videos/' + itemId + '/stream?api_key=' + token + '&Static=true',
+        hlsUrl: null,
         playMethod: 'DirectPlay',
         error: e.message,
+        mediaSources: [],
       };
     }
   }

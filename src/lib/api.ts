@@ -43,7 +43,7 @@ class ApiClient {
   search(q: string) { return this.get<MediaItem[]>(`/api/search?q=${encodeURIComponent(q)}`) }
   genres(type = 'Movie') { return this.get<string[]>(`/api/genres?type=${type}`) }
   item(id: string) { return this.get<MediaItem>(`/api/items/${id}`) }
-  playbackInfo(id: string) { return this.get<PlaybackInfo>(`/api/playback-info?id=${id}`) }
+  playbackInfo(id: string, mediaSourceId?: string, audioStreamIndex?: number) { return this.get<PlaybackInfo>(`/api/playback-info?id=${id}${mediaSourceId ? '&mediaSourceId='+mediaSourceId : ''}${audioStreamIndex !== undefined ? '&audioStreamIndex='+audioStreamIndex : ''}`) }
 
   // Movies
   movies(params: Record<string, string | number> = {}) { return this.get<{ total: number; items: MediaItem[] }>(`/api/movies?${new URLSearchParams(params as Record<string,string>)}`) }

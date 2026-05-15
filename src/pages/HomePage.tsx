@@ -75,13 +75,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Side poster */}
-        {heroItem?.posterUrl && (
-          <div className="absolute bottom-10 right-8 hidden lg:block">
-            <img src={heroItem.posterUrl} alt="" className="w-32 h-48 object-cover rounded-xl shadow-2xl"
-              style={{ border: '2px solid rgba(255,255,255,0.08)' }} />
-          </div>
-        )}
+        {/* Side poster removed - backdrop is enough */}
 
         {/* Content */}
         <div className="absolute bottom-0 left-0 right-0 pb-8" style={{ padding: '0 var(--pad) 32px' }}>

@@ -59,13 +59,41 @@ export interface User {
   isAdmin?: boolean
 }
 
+export interface AudioStream {
+  index: number
+  codec: string
+  language?: string
+  title: string
+  channels?: number
+  isDefault?: boolean
+}
+
+export interface SubtitleStream {
+  index: number
+  codec: string
+  language?: string
+  title: string
+  isDefault?: boolean
+}
+
+export interface MediaSource {
+  id: string
+  name: string
+  container?: string
+  size?: number
+  videoCodec?: string
+  audioStreams: AudioStream[]
+  subtitleStreams: SubtitleStream[]
+}
+
 export interface PlaybackInfo {
   streamUrl: string
-  directUrl?: string
+  hlsUrl?: string
   playSessionId?: string
   mediaSourceId?: string
   playMethod: string
   container?: string
+  mediaSources?: MediaSource[]
 }
 
 export interface NowPlaying {

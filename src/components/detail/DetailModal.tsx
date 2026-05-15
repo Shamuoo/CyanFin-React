@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Play, ExternalLink } from 'lucide-react'
+import { X, Play, ExternalLink, ChevronDown } from 'lucide-react'
+import type { MediaSource, AudioStream } from '@/types'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -51,9 +52,29 @@ export default function DetailModal() {
   )
 }
 
-function DetailContent({ item, onClose, onPlay, jellyfinUrl }: { item: MediaItem; onClose: () => void; onPlay: () => void; jellyfinUrl: string }) {
+function DetailContent({ item, onClose, onPlay, jellyfinUrl }: { item: MediaItem; onClose: () => void; onPlay: (mediaSourceId?: string, audioIndex?: number) => void; jellyfinUrl: string }) {
+  const [selectedSourceId, setSelectedSourceId] = useState<string | undefined>(undefined)
+  const [selectedAudioIndex, setSelectedAudioIndex] = useState<number | undefined>(undefined)
+  const [mediaSources, setMediaSources] = useState<MediaSource[]>([])
+  const [loadingInfo, setLoadingInfo] = useState(false)
+
+  useEffect(() => {
+    if (!item.id) return
+    setLoadingInfo(true)
+    api.playbackInfo(item.id).then(info => {
+      if (info.mediaSources?.length) {
+        setMediaSources(info.mediaSources)
+        setSelectedSourceId(info.mediaSources[0].id)
+        const def = info.mediaSources[0].audioStreams.find(a => a.isDefault)
+        if (def) setSelectedAudioIndex(def.index)
+      }
+    }).catch(() => {}).finally(() => setLoadingInfo(false))
+  }, [item.id])
+
+  const selectedSource = mediaSources.find(s => s.id === selectedSourceId) || mediaSources[0]
   const canPlay = item.type === 'Movie' || item.type === 'Episode'
   const backdrop = item.backdropUrls?.[0] || item.backdropUrl
+
 
   return (
     <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -88,9 +109,35 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: { item: MediaItem
             ))}
             {item.audio && <span className="chip" style={{ background: 'rgba(93,173,226,0.08)', color: 'var(--blue)', border: '1px solid rgba(93,173,226,0.2)' }}>🔊 {item.audio}</span>}
           </div>
+          {/* Version picker */}
+          {mediaSources.length > 1 && (
+            <div className="mb-3 flex gap-2 flex-wrap">
+              {mediaSources.map(src => (
+                <button key={src.id} onClick={() => { setSelectedSourceId(src.id); setSelectedAudioIndex(src.audioStreams.find(a => a.isDefault)?.index) }}
+                  className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all"
+                  style={{ background: selectedSourceId === src.id ? 'var(--accent)' : 'var(--subtle)', color: selectedSourceId === src.id ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${selectedSourceId === src.id ? 'var(--accent)' : 'var(--border2)'}` }}>
+                  {src.name || src.container}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Audio stream picker */}
+          {selectedSource?.audioStreams && selectedSource.audioStreams.length > 1 && (
+            <div className="mb-3 flex gap-2 flex-wrap items-center">
+              <span className="text-[8px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Audio:</span>
+              {selectedSource.audioStreams.map(a => (
+                <button key={a.index} onClick={() => setSelectedAudioIndex(a.index)}
+                  className="px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wide transition-all"
+                  style={{ background: selectedAudioIndex === a.index ? 'rgba(93,173,226,0.2)' : 'var(--subtle)', color: selectedAudioIndex === a.index ? 'var(--blue)' : 'var(--muted)', border: `1px solid ${selectedAudioIndex === a.index ? 'rgba(93,173,226,0.4)' : 'var(--border2)'}` }}>
+                  {a.title} {a.channels ? `${a.channels}ch` : ''}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 flex-wrap">
             {canPlay && (
-              <button onClick={onPlay} className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase transition-all hover:opacity-85"
+              <button onClick={() => onPlay(selectedSourceId, selectedAudioIndex)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase transition-all hover:opacity-85"
                 style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
                 <Play size={14} fill="currentColor" /> Play
               </button>
