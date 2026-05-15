@@ -41,7 +41,7 @@ export default function DetailModal() {
     <AnimatePresence>
       {detailItemId && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-x-0 bottom-0 z-30 overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)', top: '56px' }}>
+         className="fixed inset-x-0 bottom-0 overflow-y-auto scrollbar-hide z-30" style={{ background: 'var(--bg)', top: '56px' }}>
           {item
             ? <DetailContent item={item} onClose={() => setDetailItemId(null)} onPlay={handlePlay} jellyfinUrl={jellyfinUrl} />
             : <div className="h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} /></div>
