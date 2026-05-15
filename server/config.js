@@ -16,6 +16,8 @@ const CONFIGURABLE_KEYS = [
   'SONARR_API_KEY',
   'DISCORD_WEBHOOK_URL',
   'GEMINI_API_KEY',
+  'HOME_SECTIONS',
+  'STREAMYSTATS_URL',
 ];
 
 let _config = null;

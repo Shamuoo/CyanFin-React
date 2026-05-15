@@ -182,6 +182,16 @@ async function handleIntegrations(pathname, query, body, session) {
     };
   }
 
+  // ── Streamystats recommendations ──
+  if (pathname === '/api/integrations/streamystats-recommendations') {
+    const ssUrl = cfg.get('STREAMYSTATS_URL');
+    if (!ssUrl) return [];
+    try {
+      const data = await integrationGet(ssUrl, '', `/api/recommendations?userId=${session.userId}&limit=20`);
+      return (data.recommendations || data || []).slice(0, 20);
+    } catch(e) { return []; }
+  }
+
   // ── Test connections ──
   if (pathname === '/api/integrations/test') {
     const service = query.service;
@@ -221,6 +231,13 @@ async function handleIntegrations(pathname, query, body, session) {
           }); req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); }); req.write(body); req.end();
         });
         return d.status === 200 ? { ok: true, message: 'Claude connected' } : { ok: false, error: d.data && d.data.error ? d.data.error.message : 'Auth failed' };
+      }
+      if (service === 'streamystats') {
+        if (!cfg.get('STREAMYSTATS_URL')) return { ok: false, error: 'Not configured' };
+        try {
+          const d = await integrationGet(cfg.get('STREAMYSTATS_URL'), '', '/api/status');
+          return { ok: true, message: 'Streamystats connected' };
+        } catch(e) { return { ok: false, error: e.message }; }
       }
       if (service === 'gemini') {
         if (!cfg.get('GEMINI_API_KEY')) return { ok: false, error: 'Not configured' };

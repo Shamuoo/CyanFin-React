@@ -23,6 +23,7 @@ const integrationFields = [
   { key: 'TMDB_API_KEY',       label: 'TMDB API Key',       placeholder: '••••••••',                  secret: true, service: 'tmdb' },
   { key: 'ANTHROPIC_API_KEY',  label: 'Anthropic (AI)',     placeholder: 'sk-ant-...',                secret: true, service: 'anthropic' },
   { key: 'DISCORD_WEBHOOK_URL',label: 'Discord Webhook',    placeholder: 'https://discord.com/api/webhooks/...', service: 'discord' },
+  { key: 'STREAMYSTATS_URL', label: 'Streamystats URL',   placeholder: 'http://192.168.1.x:8082',   service: 'streamystats' },
   { key: 'GEMINI_API_KEY',      label: 'Gemini API Key',     placeholder: 'AIza... (Google AI Studio)', secret: true, service: 'gemini' },
 ]
 

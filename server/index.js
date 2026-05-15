@@ -102,6 +102,40 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   // ── AUTH ──
+
+  // Quick Connect - generate a code for TV/remote login
+  if (pathname === '/api/auth/quick-connect/initiate' && req.method === 'POST') {
+    try {
+      const result = await jf.get('/QuickConnect/Initiate', null);
+      return json(res, { code: result.Code, secret: result.Secret });
+    } catch(e) { return json(res, { error: e.message }, 500); }
+  }
+
+  // Quick Connect - check if authorized
+  if (pathname === '/api/auth/quick-connect/check') {
+    const secret = parsed.query.secret;
+    if (!secret) return json(res, { authorized: false });
+    try {
+      const result = await jf.get(`/QuickConnect/Connect?Secret=${secret}`, null);
+      if (result.Authenticated) {
+        // Exchange for a full token
+        const tokenResult = await jf.post('/Users/AuthenticateWithQuickConnect', { Secret: secret }, null);
+        if (tokenResult && tokenResult.AccessToken) {
+          const sessionData = {
+            token: tokenResult.AccessToken,
+            userId: tokenResult.User.Id,
+            username: tokenResult.User.Name,
+            isAdmin: tokenResult.User.Policy && tokenResult.User.Policy.IsAdministrator,
+          };
+          const sessionId = auth.createSession(sessionData);
+          auth.setSessionCookie(res, sessionId);
+          return json(res, { authorized: true, user: { id: tokenResult.User.Id, name: tokenResult.User.Name } });
+        }
+      }
+      return json(res, { authorized: false });
+    } catch(e) { return json(res, { authorized: false, error: e.message }); }
+  }
+
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     const body = await readBody(req);
     if (!body.username || !body.password) return json(res, { error: 'Username and password required' }, 400);

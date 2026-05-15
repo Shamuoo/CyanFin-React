@@ -28,6 +28,12 @@ export interface MediaItem {
   logoUrl?: string
   userData?: UserData
   extras?: ExtraItem[]
+  videoBackdropUrl?: string
+  themeSongUrl?: string
+  themeSongId?: string
+  introStart?: number
+  introEnd?: number
+  partCount?: number
 }
 
 export interface CastMember {

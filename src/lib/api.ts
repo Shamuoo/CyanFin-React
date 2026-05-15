@@ -73,6 +73,15 @@ class ApiClient {
   discordNotify(data: Record<string, string>) { return this.post('/api/integrations/discord-notify', data) }
   testIntegration(service: string) { return this.get<{ ok: boolean; message?: string; error?: string }>(`/api/integrations/test?service=${service}`) }
 
+  // Collections
+  collections() { return this.get<MediaItem[]>('/api/collections') }
+  collectionItems(id: string) { return this.get<MediaItem[]>(`/api/collections/${id}/items`) }
+  introSkip(id: string) { return this.get<{ hasIntro: boolean; introStart?: number; introEnd?: number }>(`/api/intro-skip?id=${id}`) }
+
+  // Quick Connect
+  quickConnectInitiate() { return this.post<{ code: string; secret: string }>('/api/auth/quick-connect/initiate', {}) }
+  quickConnectCheck(secret: string) { return this.get<{ authorized: boolean; user?: { id: string; name: string } }>(`/api/auth/quick-connect/check?secret=${secret}`) }
+
   // Library
   libQuality() { return this.get<Record<string, unknown>>('/api/library/quality-report') }
   libMissing() { return this.get<Record<string, unknown>>('/api/library/missing-content') }

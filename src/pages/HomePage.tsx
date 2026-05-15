@@ -19,7 +19,8 @@ export default function HomePage() {
     { key: 'history', label: 'Watch History', query: () => api.history() },
     { key: 'best3d',  label: 'Best in 3D',      query: () => api.best3D() },
     { key: 'shows',   label: 'TV Shows',         query: () => api.shows({ sort: 'DateCreated', order: 'Descending', limit: 20 }).then(r => r.items || []) },
-    { key: 'toprated',label: 'Top Rated',         query: () => api.movies({ sort: 'CommunityRating', order: 'Descending', limit: 20 }).then(r => r.items || []) },
+    { key: 'toprated',   label: 'Top Rated',          query: () => api.movies({ sort: 'CommunityRating', order: 'Descending', limit: 20 }).then(r => r.items || []) },
+    { key: 'collections', label: 'Collections',        query: () => api.collections() },
 
   ]
 

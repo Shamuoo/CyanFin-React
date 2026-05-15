@@ -135,9 +135,13 @@ export default function PlayerPage() {
   // Fetch skip segments (intro/credits)
   useEffect(() => {
     if (!playingItem?.id) return
-    fetch(`/api/stats/segments?itemId=${playingItem.id}`)
+fetch(`/api/intro-skip?id=${playingItem.id}`)
       .then(r => r.json())
-      .then(d => { if (d.segments) setSegments(d.segments) })
+      .then(d => {
+        if (d.hasIntro && d.introStart !== undefined && d.introEnd !== undefined) {
+          setSegments([{ type: 'Intro', start: d.introStart, end: d.introEnd }])
+        }
+      })
       .catch(() => {})
   }, [playingItem?.id])
 

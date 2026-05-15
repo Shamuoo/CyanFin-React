@@ -317,23 +317,93 @@ async function handleApi(pathname, query, session) {
   // Item detail
   if (pathname.match(/^\/api\/items\/[^/]+$/)) {
     const itemId = pathname.split('/')[3];
-    const [data, extras] = await Promise.all([
-      jf.get(`/Items/${itemId}?userId=${userId}&fields=Overview,Taglines,Genres,OfficialRating,CommunityRating,People,MediaStreams,MediaSources,Studios,Tags,ExternalUrls,ProviderIds,BackdropImageTags,ImageTags`, token),
+    const [data, extras, themeSongs, introSkip] = await Promise.all([
+      jf.get(`/Items/${itemId}?userId=${userId}&fields=Overview,Taglines,Genres,OfficialRating,CommunityRating,People,MediaStreams,MediaSources,Studios,Tags,ExternalUrls,ProviderIds,BackdropImageTags,ImageTags,PartCount`, token),
       jf.get(`/Users/${userId}/Items/${itemId}/SpecialFeatures`, token).catch(() => []),
+      jf.get(`/Items/${itemId}/ThemeMedia?userId=${userId}&InheritFromParent=true`, token).catch(() => ({})),
+      jf.get(`/Episode/GetIntros?itemId=${itemId}&userId=${userId}`, token).catch(() => null),
     ]);
     const mapped = mapItem(data, token);
+
     // All backdrop URLs
     mapped.backdropUrls = (data.BackdropImageTags || []).map((_, idx) =>
       jf.imageUrl(data.Id, `Backdrop/${idx}`, { token, maxWidth: 1920 })
     );
     if (!mapped.backdropUrls.length && mapped.backdropUrl) mapped.backdropUrls = [mapped.backdropUrl];
-    // Extras (behind the scenes, trailers, etc)
-    mapped.extras = (Array.isArray(extras) ? extras : (extras.Items || [])).map(e => ({
+
+    // Video backdrop (muted autoplay behind detail)
+    const videoBackdrops = (extras.Items || (Array.isArray(extras) ? extras : [])).filter(e =>
+      e.ExtraType === 'BackdropVideo' || e.ExtraType === 'ThemeVideo'
+    );
+    if (videoBackdrops.length) {
+      mapped.videoBackdropUrl = `${process.env.JELLYFIN_URL || require('../config').get('JELLYFIN_URL')}/Videos/${videoBackdrops[0].Id}/stream?api_key=${token}&Static=true`;
+    }
+
+    // Theme song (plays when detail opens)
+    const themes = themeSongs.ThemeVideos || themeSongs.ThemeSongs || [];
+    if (themes && themes.Items && themes.Items.length) {
+      mapped.themeSongUrl = jf.audioUrl(themes.Items[0].Id, token);
+      mapped.themeSongId = themes.Items[0].Id;
+    }
+
+    // Intro skip data (from Intro Skipper plugin)
+    if (introSkip && introSkip.Items && introSkip.Items.length) {
+      mapped.introStart = introSkip.Items[0].StartPositionTicks;
+      mapped.introEnd = introSkip.Items[0].EndPositionTicks;
+    }
+
+    // Part count for multi-part items (box sets)
+    mapped.partCount = data.PartCount || null;
+
+    // Extras
+    mapped.extras = (Array.isArray(extras) ? extras : (extras.Items || [])).filter(e =>
+      e.ExtraType !== 'BackdropVideo' && e.ExtraType !== 'ThemeVideo'
+    ).map(e => ({
       id: e.Id, title: e.Name, type: e.ExtraType || e.Type,
       runtime: e.RunTimeTicks,
       thumbUrl: e.ImageTags && e.ImageTags.Primary ? jf.imageUrl(e.Id, 'Primary', { token, maxWidth: 400 }) : null,
     }));
+
     return mapped;
+  }
+
+  // Collections / Box Sets
+  if (pathname === '/api/collections') {
+    const data = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=BoxSet&Recursive=true&SortBy=SortName&fields=ImageTags,BackdropImageTags&Limit=50`, token);
+    return (data.Items || []).map(i => ({
+      id: i.Id, title: i.Name, type: i.Type,
+      posterUrl: i.ImageTags && i.ImageTags.Primary ? jf.imageUrl(i.Id, 'Primary', { token, maxWidth: 400 }) : null,
+      backdropUrl: i.BackdropImageTags && i.BackdropImageTags.length ? jf.imageUrl(i.Id, 'Backdrop/0', { token, maxWidth: 1920 }) : null,
+    }));
+  }
+
+  // Collection items
+  if (pathname.match(/^\/api\/collections\/[^/]+\/items$/)) {
+    const colId = pathname.split('/')[3];
+    const data = await jf.get(`/Users/${userId}/Items?ParentId=${colId}&fields=Overview,ImageTags,MediaSources,BackdropImageTags&SortBy=SortName`, token);
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  // Intro Skipper - get intro data for an episode (uses dedicated plugin endpoint)
+  if (pathname === '/api/intro-skip') {
+    const itemId = query.id;
+    if (!itemId) return null;
+    // Try Intro Skipper plugin endpoint first
+    const pluginResult = await jf.get(`/Episode/GetIntros?itemId=${itemId}&userId=${userId}`, token).catch(() => null);
+    if (pluginResult && pluginResult.Items && pluginResult.Items.length) {
+      return {
+        hasIntro: true,
+        introStart: pluginResult.Items[0].StartPositionTicks,
+        introEnd: pluginResult.Items[0].EndPositionTicks,
+      };
+    }
+    // Fall back to Jellyfin's built-in segments API
+    const segResult = await jf.get(`/MediaSegments/${itemId}`, token).catch(() => null);
+    if (segResult && segResult.Items && segResult.Items.length) {
+      const intro = segResult.Items.find(s => s.Type === 'Intro');
+      if (intro) return { hasIntro: true, introStart: intro.StartTicks, introEnd: intro.EndTicks };
+    }
+    return { hasIntro: false };
   }
 
   // PlaybackInfo - negotiate stream URL with Jellyfin (like official client)
