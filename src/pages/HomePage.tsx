@@ -17,9 +17,10 @@ export default function HomePage() {
     { key: 'recent', label: 'Recently Added', query: () => api.recentlyAdded() },
     { key: 'popular', label: 'Most Popular', query: () => api.popular() },
     { key: 'history', label: 'Watch History', query: () => api.history() },
-    { key: 'best3d', label: 'Best in 3D', query: () => api.best3D() },
-    { key: 'onthisday', label: 'On This Day', query: () => api.onThisDay() },
-    { key: 'coming', label: 'Coming Soon', query: () => api.comingSoon() },
+    { key: 'best3d',  label: 'Best in 3D',      query: () => api.best3D() },
+    { key: 'shows',   label: 'TV Shows',         query: () => api.shows({ sort: 'DateCreated', order: 'Descending', limit: 20 }).then(r => r.items || []) },
+    { key: 'toprated',label: 'Top Rated',         query: () => api.movies({ sort: 'CommunityRating', order: 'Descending', limit: 20 }).then(r => r.items || []) },
+
   ]
 
   const { data: stats } = useQuery({ queryKey: ['stats'], queryFn: api.stats.bind(api), staleTime: 60_000 })

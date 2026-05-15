@@ -48,6 +48,20 @@ function qualitiesFromSource(streams, source) {
   return res ? [res] : [];
 }
 
+
+const LANG_FLAGS = {
+  eng: '🇬🇧', english: '🇬🇧', fre: '🇫🇷', fra: '🇫🇷', french: '🇫🇷',
+  ger: '🇩🇪', deu: '🇩🇪', german: '🇩🇪', spa: '🇪🇸', esp: '🇪🇸', spanish: '🇪🇸',
+  jpn: '🇯🇵', japanese: '🇯🇵', kor: '🇰🇷', korean: '🇰🇷', chi: '🇨🇳', zho: '🇨🇳',
+  ita: '🇮🇹', italian: '🇮🇹', por: '🇵🇹', portuguese: '🇵🇹', rus: '🇷🇺', russian: '🇷🇺',
+  ara: '🇸🇦', arabic: '🇸🇦', hin: '🇮🇳', hindi: '🇮🇳', dut: '🇳🇱', nld: '🇳🇱',
+  swe: '🇸🇪', nor: '🇳🇴', fin: '🇫🇮', dan: '🇩🇰', pol: '🇵🇱', tur: '🇹🇷',
+  und: '🌐', mul: '🌐',
+};
+function langFlag(lang) {
+  if (!lang) return '';
+  return LANG_FLAGS[lang.toLowerCase()] || '';
+}
 function audioFromStreams(streams) {
   if (!streams) return null;
   const a = streams.find(s => s.Type === 'Audio' && s.IsDefault && s.Language === 'eng')
@@ -411,27 +425,7 @@ async function handleApi(pathname, query, session) {
           index: ms.Index,
           codec: ms.Codec,
           language: ms.Language,
-          title: (() => {
-            const ch = ms.Channels || 0;
-            const chLabel = ch >= 8 ? '7.1' : ch >= 6 ? '5.1' : ch === 2 ? '2ch' : ch === 1 ? 'Mono' : '';
-            const spatial = (ms.AudioSpatialFormat || '').toLowerCase();
-            const profile = (ms.Profile || '').toLowerCase();
-            const codec = (ms.Codec || '').toLowerCase();
-            const lang = ms.Language ? ms.Language.charAt(0).toUpperCase() + ms.Language.slice(1) : '';
-            let format = '';
-            if (spatial.includes('atmos') || profile.includes('atmos')) format = 'Atmos';
-            else if (spatial.includes('dtsx')) format = 'DTS:X';
-            else if (profile.includes('truehd')) format = 'TrueHD';
-            else if (profile.includes('dts-hd ma')) format = 'DTS-HD MA';
-            else if (codec === 'dts') format = 'DTS';
-            else if (codec === 'eac3') format = 'DD+';
-            else if (codec === 'ac3') format = 'DD';
-            else if (codec === 'aac') format = 'AAC';
-            else if (codec === 'flac') format = 'FLAC';
-            else if (codec === 'opus') format = 'Opus';
-            const parts = [lang, format, chLabel].filter(Boolean);
-            return parts.length ? parts.join(' ') : ms.DisplayTitle || ms.Codec || '?';
-          })(),
+          title: formatAudioStream(ms) || ms.DisplayTitle || ms.Codec || '?',
           channels: ms.Channels,
           isDefault: ms.IsDefault,
         })),

@@ -52,11 +52,11 @@ export default function DetailModal() {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.25 }}
             className="fixed inset-x-0 bottom-0 z-[101] overflow-y-auto scrollbar-hide rounded-t-2xl"
-            style={{ background: 'var(--bg)', top: '56px' }}
+            style={{ background: 'rgba(10,8,4,0.92)', backdropFilter: 'blur(24px)', top: '56px', WebkitBackdropFilter: 'blur(24px)' }}
           >
             {/* Close bar at top */}
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3"
-              style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border2)' }}>
+              style={{ background: 'rgba(10,8,4,0.8)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border2)' }}>
               <button onClick={() => setDetailItemId(null)}
                 className="flex items-center gap-2 text-sm font-bold tracking-wide transition-all hover:opacity-70"
                 style={{ color: 'var(--muted)' }}>
@@ -203,9 +203,9 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
             <p className="text-[9px] font-bold tracking-[0.25em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.5 }}>Cast</p>
             <div className="flex gap-3 flex-wrap">
               {item.cast.slice(0, 12).map(actor => (
-                <div key={actor.id} className="flex flex-col items-center gap-1 w-14">
+                <div key={actor.id} className="flex flex-col items-center gap-1.5" style={{ width: 72 }}>
                   {actor.imageTag
-                    ? <img src={`/proxy/image?id=${actor.id}&type=Primary&w=185`} alt={actor.name} className="w-12 h-12 rounded-full object-cover" style={{ border: '1px solid var(--border2)', background: 'var(--bg3)' }} />
+                    ? <img src={`/proxy/image?id=${actor.id}&type=Primary&w=185`} alt={actor.name} className="w-16 h-16 rounded-full object-cover" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg3)' }} />
                     : <div className="w-12 h-12 rounded-full flex items-center justify-center text-base" style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--muted)' }}>{(actor.name || '?')[0]}</div>
                   }
                   <p className="text-[8px] text-center leading-tight truncate w-full" style={{ color: 'var(--muted)' }}>{actor.name}</p>

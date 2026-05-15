@@ -11,11 +11,13 @@ import AudioBar from '@/components/player/AudioBar'
 import AINavigator from '@/components/ui/AINavigator'
 
 export default function Layout() {
-  const { user, setUser, showMusic, mode } = useStore()
+  const { user, setUser, showMusic, mode, showWeather, city } = useStore()
+  const store = useStore()
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  const { data: weather } = useQuery({ queryKey: ['weather-nav', store.city], queryFn: () => api.weather(store.city || 'Brisbane'), enabled: store.showWeather, staleTime: 15 * 60_000 })
 
   // Listen for auth expiry
   useEffect(() => {
