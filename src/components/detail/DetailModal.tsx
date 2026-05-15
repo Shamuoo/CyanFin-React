@@ -41,7 +41,7 @@ export default function DetailModal() {
     <AnimatePresence>
       {detailItemId && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)' }}>
+          className="fixed inset-x-0 bottom-0 z-30 overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)', top: '56px' }}>
           {item
             ? <DetailContent item={item} onClose={() => setDetailItemId(null)} onPlay={handlePlay} jellyfinUrl={jellyfinUrl} />
             : <div className="h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} /></div>
@@ -79,12 +79,12 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: { item: MediaItem
   return (
     <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Backdrop */}
-      <div className="relative w-full" style={{ height: '55vh', minHeight: 320 }}>
+      <div className="relative w-full" style={{ height: '50vh', minHeight: 280 }}>
         {backdrop && <div className="absolute inset-0 bg-cover bg-top" style={{ backgroundImage: `url('${backdrop}')` }} />}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 60%, var(--bg) 100%)' }} />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10 transition-all hover:bg-white/20"
-          style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
-          <X size={16} />
+        <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all hover:bg-white/20"
+          style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }}>
+          <X size={18} />
         </button>
       </div>
 

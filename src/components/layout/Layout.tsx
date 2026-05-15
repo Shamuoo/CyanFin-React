@@ -36,11 +36,9 @@ export default function Layout() {
     { to: '/movies', icon: <Film size={14} />, label: 'Movies' },
     { to: '/shows', icon: <Tv size={14} />, label: 'TV Shows' },
     ...(showMusic ? [{ to: '/music', icon: <Music size={14} />, label: 'Music' }] : []),
-    ...(mode === 'advanced' ? [
-      { to: '/library', icon: <Wrench size={14} />, label: 'Library' },
-      { to: '/stats', icon: <BarChart2 size={14} />, label: 'Stats' },
-      { to: '/health', icon: <Activity size={14} />, label: 'Health' },
-    ] : []),
+    { to: '/library', icon: <Wrench size={14} />, label: 'Library' },
+    { to: '/stats', icon: <BarChart2 size={14} />, label: 'Stats' },
+    { to: '/health', icon: <Activity size={14} />, label: 'Health' },
   ]
 
   return (
