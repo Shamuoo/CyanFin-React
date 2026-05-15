@@ -336,7 +336,7 @@ async function handleApi(pathname, query, session) {
       e.ExtraType === 'BackdropVideo' || e.ExtraType === 'ThemeVideo'
     );
     if (videoBackdrops.length) {
-      mapped.videoBackdropUrl = `${process.env.JELLYFIN_URL || require('../config').get('JELLYFIN_URL')}/Videos/${videoBackdrops[0].Id}/stream?api_key=${token}&Static=true`;
+      mapped.videoBackdropUrl = jf.directUrl(videoBackdrops[0].Id, token);
     }
 
     // Theme song (plays when detail opens)
@@ -365,6 +365,31 @@ async function handleApi(pathname, query, session) {
     }));
 
     return mapped;
+  }
+
+
+  // Toggle favourite
+  if (pathname === '/api/user/favorite' && req.method === 'POST') {
+    const { itemId, favorite } = body;
+    if (!itemId) return { error: 'No itemId' };
+    if (favorite) {
+      await jf.post(`/Users/${userId}/FavoriteItems/${itemId}`, {}, token);
+    } else {
+      await fetch(`${process.env.JELLYFIN_URL || require('./config').get('JELLYFIN_URL')}/Users/${userId}/FavoriteItems/${itemId}?api_key=${token}`, { method: 'DELETE' }).catch(() => {});
+    }
+    return { success: true, favorite };
+  }
+
+  // Toggle watched / played
+  if (pathname === '/api/user/watched' && req.method === 'POST') {
+    const { itemId, watched } = body;
+    if (!itemId) return { error: 'No itemId' };
+    if (watched) {
+      await jf.post(`/Users/${userId}/PlayedItems/${itemId}`, {}, token);
+    } else {
+      await fetch(`${process.env.JELLYFIN_URL || require('./config').get('JELLYFIN_URL')}/Users/${userId}/PlayedItems/${itemId}?api_key=${token}`, { method: 'DELETE' }).catch(() => {});
+    }
+    return { success: true, watched };
   }
 
   // Collections / Box Sets

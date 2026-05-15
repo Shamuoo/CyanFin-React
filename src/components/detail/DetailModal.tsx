@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Play, ExternalLink, ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import type { MediaItem, MediaSource } from '@/types'
 import { useNavigate } from 'react-router-dom'
@@ -80,6 +80,71 @@ export default function DetailModal() {
   )
 }
 
+
+function IntegrationActions({ item }: { item: MediaItem }) {
+  const { jellyfinUrl } = useStore()
+  const [requested, setRequested] = useState(false)
+  const [shared, setShared] = useState(false)
+  const [isFav, setIsFav] = useState(item.userData?.IsFavorite || false)
+  const [isWatched, setIsWatched] = useState((item.userData?.PlayedPercentage || 0) >= 90)
+
+  const { data: intCfg } = useQuery({ queryKey: ['integrations-config'], queryFn: api.integrationsConfig.bind(api), staleTime: 60_000 })
+
+  const toggleFav = async () => {
+    try {
+      await api.post(`/api/user/favorite`, { itemId: item.id, favorite: !isFav })
+      setIsFav(f => !f)
+    } catch(e) {}
+  }
+
+  const toggleWatched = async () => {
+    try {
+      await api.post(`/api/user/watched`, { itemId: item.id, watched: !isWatched })
+      setIsWatched(w => !w)
+    } catch(e) {}
+  }
+
+  const requestMedia = async () => {
+    try {
+      await api.requestMedia(item.type === 'Movie' ? 'movie' : 'tv', item.id)
+      setRequested(true)
+    } catch(e) {}
+  }
+
+  const shareDiscord = async () => {
+    try {
+      await api.discordNotify({ title: item.title ?? '', overview: item.overview || '', posterUrl: item.posterUrl || '', type: item.type, year: String(item.year || '') })
+      setShared(true)
+    } catch(e) {}
+  }
+
+  const btnStyle = (active?: boolean) => ({
+    padding: '6px 14px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+    letterSpacing: '0.08em', textTransform: 'uppercase' as const, cursor: 'pointer',
+    border: '1px solid rgba(255,255,255,0.1)',
+    background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
+    color: active ? 'var(--cream)' : 'var(--muted)',
+    transition: 'all 0.15s',
+  })
+
+  return (
+    <div className="flex gap-2 flex-wrap mb-5 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <button onClick={toggleFav} style={btnStyle(isFav)}>{isFav ? '♥ Favourited' : '♡ Favourite'}</button>
+      <button onClick={toggleWatched} style={btnStyle(isWatched)}>{isWatched ? '✓ Watched' : '○ Mark Watched'}</button>
+      {intCfg?.jellyseerr && (item.type === 'Movie' || item.type === 'Series') && (
+        <button onClick={requestMedia} disabled={requested} style={btnStyle(requested)}>
+          {requested ? '✓ Requested' : '+ Request'}
+        </button>
+      )}
+      {intCfg?.discord && (
+        <button onClick={shareDiscord} disabled={shared} style={btnStyle(shared)}>
+          {shared ? '✓ Shared' : '📢 Share'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   item: MediaItem; onClose: () => void
   onPlay: (mediaSourceId?: string, audioIndex?: number) => void
@@ -95,7 +160,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   const backdrop = item.backdropUrls?.[0] || item.backdropUrl
   const selectedSource = mediaSources.find(s => s.id === selectedSourceId) || mediaSources[0]
 
-  // Load playback info for version/audio picker
+  // Load playback info for version/audio picker (cached - reused by handlePlay)
   useEffect(() => {
     if (!item.id) return
     api.playbackInfo(item.id).then(info => {
@@ -239,6 +304,9 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
             </a>
           )}
         </div>
+
+        {/* Integration actions */}
+        <IntegrationActions item={item} />
 
         {/* Overview */}
         {item.overview && (

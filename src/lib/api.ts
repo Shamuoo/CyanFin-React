@@ -73,6 +73,10 @@ class ApiClient {
   discordNotify(data: Record<string, string>) { return this.post('/api/integrations/discord-notify', data) }
   testIntegration(service: string) { return this.get<{ ok: boolean; message?: string; error?: string }>(`/api/integrations/test?service=${service}`) }
 
+  // User actions
+  toggleFavorite(itemId: string, favorite: boolean) { return this.post('/api/user/favorite', { itemId, favorite }) }
+  toggleWatched(itemId: string, watched: boolean) { return this.post('/api/user/watched', { itemId, watched }) }
+
   // Collections
   collections() { return this.get<MediaItem[]>('/api/collections') }
   collectionItems(id: string) { return this.get<MediaItem[]>(`/api/collections/${id}/items`) }
