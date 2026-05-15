@@ -31,7 +31,7 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
- const navLinks = [
+  const navLinks = [
     { to: '/', icon: <Home size={14} />, label: 'Home', end: true },
     { to: '/movies', icon: <Film size={14} />, label: 'Movies' },
     { to: '/shows', icon: <Tv size={14} />, label: 'TV Shows' },
@@ -40,6 +40,7 @@ export default function Layout() {
     { to: '/stats', icon: <BarChart2 size={14} />, label: 'Stats' },
     { to: '/health', icon: <Activity size={14} />, label: 'Health' },
   ]
+
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
       {/* Nav */}
