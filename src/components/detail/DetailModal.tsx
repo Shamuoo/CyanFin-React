@@ -41,7 +41,7 @@ export default function DetailModal() {
     <AnimatePresence>
       {detailItemId && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-40 overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)' }}>
+          className="fixed inset-0 z-[60] overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)' }}>
           {item
             ? <DetailContent item={item} onClose={() => setDetailItemId(null)} onPlay={handlePlay} jellyfinUrl={jellyfinUrl} />
             : <div className="h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} /></div>
@@ -88,11 +88,8 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: { item: MediaItem
         </button>
       </div>
 
-      {/* Poster + info row */}
-      <div className="flex gap-6 relative z-10" style={{ padding: '0 var(--pad)', marginTop: -80 }}>
-        <div className="flex-shrink-0 w-36 h-52 rounded-xl overflow-hidden shadow-2xl" style={{ border: '2px solid rgba(255,255,255,0.08)', background: 'var(--bg3)' }}>
-          {item.posterUrl && <img src={item.posterUrl} alt={item.title} className="w-full h-full object-cover" />}
-        </div>
+      {/* Info row - no poster, just text overlapping backdrop */}
+      <div className="relative z-10" style={{ padding: '0 var(--pad)', marginTop: -100 }}>
         <div className="flex-1 min-w-0 pb-2 flex flex-col justify-end">
           {item.logoUrl
             ? <img src={item.logoUrl} alt={item.title} className="max-h-16 max-w-[240px] object-contain mb-3" style={{ filter: 'drop-shadow(0 2px 16px rgba(0,0,0,1)) brightness(1.1)' }} />

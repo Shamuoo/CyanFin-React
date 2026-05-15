@@ -77,6 +77,7 @@ class ApiClient {
   libQuality() { return this.get<Record<string, unknown>>('/api/library/quality-report') }
   libMissing() { return this.get<Record<string, unknown>>('/api/library/missing-content') }
   libVersions() { return this.get<Record<string, unknown>>('/api/library/versions-report') }
+  libRefreshAll() { return this.get('/api/library/refresh-all') }
   libScan() { return this.get('/api/library/scan') }
   libRefreshMeta(id: string) { return this.get(`/api/library/refresh-metadata?id=${id}`) }
   libRefreshImages(id: string) { return this.get(`/api/library/refresh-images?id=${id}`) }
