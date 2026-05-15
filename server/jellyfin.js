@@ -60,6 +60,10 @@ function streamUrl(itemId, token) {
   return `${JELLYFIN_URL}/Videos/${itemId}/master.m3u8?api_key=${token || DEFAULT_TOKEN}&VideoCodec=h264&AudioCodec=aac&TranscodingProtocol=hls&MaxStreamingBitrate=20000000`;
 }
 
+function audioUrl(itemId, token) {
+  return `${JELLYFIN_URL}/Audio/${itemId}/universal?api_key=${token || DEFAULT_TOKEN}&MaxStreamingBitrate=10000000&Container=opus,mp3,aac,flac,ogg&AudioCodec=aac`;
+}
+
 function directUrl(itemId, token) {
   return `${JELLYFIN_URL}/Videos/${itemId}/stream?api_key=${token || DEFAULT_TOKEN}&Static=true`;
 }
@@ -123,4 +127,4 @@ function proxyImage(imageUrl, res) {
   });
 }
 
-module.exports = { init, get, post, authenticate, imageUrl, streamUrl, directUrl, proxyImage };
+module.exports = { init, get, post, authenticate, imageUrl, streamUrl, directUrl, audioUrl, proxyImage };

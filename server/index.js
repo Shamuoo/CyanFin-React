@@ -183,7 +183,7 @@ const server = http.createServer(async (req, res) => {
   // ── CONFIG SAVE ──
   if (pathname === '/api/config/save' && req.method === 'POST') {
     const session = auth.getSessionFromRequest(req);
-    if (!session || !session.isAdmin) return json(res, { error: 'Admin required' }, 403);
+    if (!session) return json(res, { error: 'Not logged in' }, 401);
     const body = await readBody(req);
     const result = cfg.saveConfig(body);
     if (result.success) {

@@ -289,7 +289,7 @@ async function handleApi(pathname, query, session) {
     return (data.Items || []).map(i => ({
       id: i.Id, title: i.Name, trackNumber: i.IndexNumber, duration: i.RunTimeTicks,
       artist: i.AlbumArtist, album: i.Album,
-      streamUrl: jf.streamUrl(i.Id, token),
+      streamUrl: jf.audioUrl(i.Id, token),
     }));
   }
 
@@ -411,7 +411,27 @@ async function handleApi(pathname, query, session) {
           index: ms.Index,
           codec: ms.Codec,
           language: ms.Language,
-          title: ms.DisplayTitle || ms.Language || ms.Codec,
+          title: (() => {
+            const ch = ms.Channels || 0;
+            const chLabel = ch >= 8 ? '7.1' : ch >= 6 ? '5.1' : ch === 2 ? '2ch' : ch === 1 ? 'Mono' : '';
+            const spatial = (ms.AudioSpatialFormat || '').toLowerCase();
+            const profile = (ms.Profile || '').toLowerCase();
+            const codec = (ms.Codec || '').toLowerCase();
+            const lang = ms.Language ? ms.Language.charAt(0).toUpperCase() + ms.Language.slice(1) : '';
+            let format = '';
+            if (spatial.includes('atmos') || profile.includes('atmos')) format = 'Atmos';
+            else if (spatial.includes('dtsx')) format = 'DTS:X';
+            else if (profile.includes('truehd')) format = 'TrueHD';
+            else if (profile.includes('dts-hd ma')) format = 'DTS-HD MA';
+            else if (codec === 'dts') format = 'DTS';
+            else if (codec === 'eac3') format = 'DD+';
+            else if (codec === 'ac3') format = 'DD';
+            else if (codec === 'aac') format = 'AAC';
+            else if (codec === 'flac') format = 'FLAC';
+            else if (codec === 'opus') format = 'Opus';
+            const parts = [lang, format, chLabel].filter(Boolean);
+            return parts.length ? parts.join(' ') : ms.DisplayTitle || ms.Codec || '?';
+          })(),
           channels: ms.Channels,
           isDefault: ms.IsDefault,
         })),

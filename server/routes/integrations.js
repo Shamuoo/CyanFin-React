@@ -222,6 +222,26 @@ async function handleIntegrations(pathname, query, body, session) {
         });
         return d.status === 200 ? { ok: true, message: 'Claude connected' } : { ok: false, error: d.data && d.data.error ? d.data.error.message : 'Auth failed' };
       }
+      if (service === 'gemini') {
+        if (!cfg.get('GEMINI_API_KEY')) return { ok: false, error: 'Not configured' };
+        const https = require('https');
+        const body = JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }], generationConfig: { maxOutputTokens: 5 } });
+        const d = await new Promise((resolve, reject) => {
+          const req = https.request({
+            hostname: 'generativelanguage.googleapis.com',
+            path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${cfg.get('GEMINI_API_KEY')}`,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+            timeout: 10000,
+          }, res => {
+            let data = ''; res.on('data', c => data += c);
+            res.on('end', () => { try { resolve({ status: res.statusCode, data: JSON.parse(data) }); } catch(e) { resolve({ status: res.statusCode }); } });
+          });
+          req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+          req.write(body); req.end();
+        });
+        return d.status === 200 ? { ok: true, message: 'Gemini connected' } : { ok: false, error: d.data?.error?.message || 'Invalid API key' };
+      }
       if (service === 'discord') {
         if (!cfg.get('DISCORD_WEBHOOK_URL')) return { ok: false, error: 'Not configured' };
         const r = await discordPost(cfg.get('DISCORD_WEBHOOK_URL'), { content: '✅ CyanFin connection test' });

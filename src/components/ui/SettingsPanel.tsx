@@ -37,15 +37,21 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
   const [testResults, setTestResults] = useState<Record<string, 'loading' | 'ok' | 'fail'>>({})
+  const [testMessages, setTestMessages] = useState<Record<string, string>>({})
 
   const testConnection = async (service: string) => {
     setTestResults(prev => ({ ...prev, [service]: 'loading' }))
     try {
       const r = await api.testIntegration(service)
       setTestResults(prev => ({ ...prev, [service]: r.ok ? 'ok' : 'fail' }))
-      setTimeout(() => setTestResults(prev => { const n = {...prev}; delete n[service]; return n }), 4000)
-    } catch {
+      setTestMessages(prev => ({ ...prev, [service]: r.message || r.error || '' }))
+      setTimeout(() => {
+        setTestResults(prev => { const n = {...prev}; delete n[service]; return n })
+        setTestMessages(prev => { const n = {...prev}; delete n[service]; return n })
+      }, 5000)
+    } catch(e: any) {
       setTestResults(prev => ({ ...prev, [service]: 'fail' }))
+      setTestMessages(prev => ({ ...prev, [service]: e.message }))
     }
   }
 
@@ -162,12 +168,10 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                       <button onClick={() => testConnection(f.service!)}
                         className="text-[8px] px-2 py-0.5 rounded-full flex items-center gap-1 transition-all hover:opacity-80"
                         style={{ border: '1px solid var(--border2)', color: 'var(--muted)' }}>
-                        {testResults[f.service] === 'loading' && <Loader size={8} className="animate-spin" />}
-                        {testResults[f.service] === 'ok' && <CheckCircle size={8} color="#2ecc71" />}
-                        {testResults[f.service] === 'fail' && <XCircle size={8} color="#e74c3c" />}
-                        {!testResults[f.service] && 'Test'}
-                        {testResults[f.service] === 'ok' && <span style={{ color: '#2ecc71' }}>OK</span>}
-                        {testResults[f.service] === 'fail' && <span style={{ color: '#e74c3c' }}>Fail</span>}
+                        {testResults[f.service] === 'loading' ? <Loader size={8} className="animate-spin" /> :
+                         testResults[f.service] === 'ok' ? <><CheckCircle size={8} color="#2ecc71" /><span style={{ color: '#2ecc71' }}>OK</span></> :
+                         testResults[f.service] === 'fail' ? <><XCircle size={8} color="#e74c3c" /><span style={{ color: '#e74c3c' }}>Fail</span></> :
+                         'Test'}
                       </button>
                     )}
                   </div>
@@ -179,6 +183,11 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     className="w-full px-3 py-2 rounded text-xs outline-none"
                     style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }}
                   />
+                {f.service && testMessages[f.service] && (
+                    <p className="text-[8px] mt-1" style={{ color: testResults[f.service] === 'ok' ? '#2ecc71' : '#e74c3c' }}>
+                      {testMessages[f.service]}
+                    </p>
+                  )}
                 </div>
               ))}
 
