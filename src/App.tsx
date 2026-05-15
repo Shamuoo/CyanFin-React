@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
+import { useDpadNavigation } from '@/hooks/useDpadNavigation'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 
@@ -29,7 +30,8 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { user, setUser, onboarded } = useStore()
+  const { user, setUser, onboarded, layout } = useStore()
+  if (layout === 'tv') useDpadNavigation()
 
   // Check session on mount
   const { isLoading } = useQuery({

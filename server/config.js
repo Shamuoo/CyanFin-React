@@ -15,6 +15,7 @@ const CONFIGURABLE_KEYS = [
   'SONARR_URL',
   'SONARR_API_KEY',
   'DISCORD_WEBHOOK_URL',
+  'GEMINI_API_KEY',
 ];
 
 let _config = null;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Hls from 'hls.js'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, ArrowLeft, PictureInPicture2 } from 'lucide-react'
 
@@ -28,6 +29,9 @@ export default function PlayerPage() {
   const [playMethod, setPlayMethod] = useState('')
   const [error, setError] = useState('')
   const [fullscreen, setFullscreen] = useState(false)
+  const [segments, setSegments] = useState<{type:string;start:number;end:number}[]>([])
+  const [showSkip, setShowSkip] = useState(false)
+  const [skipLabel, setSkipLabel] = useState('')
 
   const showControls = () => {
     setControlsVisible(true)
@@ -128,6 +132,28 @@ export default function PlayerPage() {
       })
   }
 
+  // Fetch skip segments (intro/credits)
+  useEffect(() => {
+    if (!playingItem?.id) return
+    fetch(`/api/stats/segments?itemId=${playingItem.id}`)
+      .then(r => r.json())
+      .then(d => { if (d.segments) setSegments(d.segments) })
+      .catch(() => {})
+  }, [playingItem?.id])
+
+  // Check if current time is in a skippable segment
+  useEffect(() => {
+    if (!segments.length) return
+    const ticks = currentTime * 10_000_000
+    const seg = segments.find(s => ticks >= s.start && ticks < s.end)
+    if (seg) {
+      setShowSkip(true)
+      setSkipLabel(seg.type === 'Intro' ? 'Skip Intro' : seg.type === 'Credits' ? 'Skip Credits' : 'Skip')
+    } else {
+      setShowSkip(false)
+    }
+  }, [currentTime, segments])
+
   useEffect(() => {
     if (!playingItem) return
     loadVideo(
@@ -224,6 +250,23 @@ export default function PlayerPage() {
           {playMethod}
         </div>
       )}
+
+      {/* Skip intro/credits button */}
+      <AnimatePresence>
+        {showSkip && controlsVisible && (
+          <motion.button
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+            onClick={() => {
+              const ticks = currentTime * 10_000_000
+              const seg = segments.find(s => ticks >= s.start && ticks < s.end)
+              if (seg && videoRef.current) videoRef.current.currentTime = seg.end / 10_000_000
+            }}
+            className="absolute bottom-24 right-8 px-5 py-2.5 rounded-full text-sm font-bold tracking-wide uppercase transition-all hover:opacity-80"
+            style={{ background: 'rgba(0,0,0,0.8)', color: 'white', border: '2px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(8px)' }}>
+            {skipLabel} →
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Controls */}
       <div className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}

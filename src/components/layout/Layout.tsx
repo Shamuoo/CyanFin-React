@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2, Activity } from 'lucide-react'
+import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2, Activity, Sparkles } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -8,12 +8,14 @@ import SearchOverlay from '@/components/ui/SearchOverlay'
 import SettingsPanel from '@/components/ui/SettingsPanel'
 import DetailModal from '@/components/detail/DetailModal'
 import AudioBar from '@/components/player/AudioBar'
+import AINavigator from '@/components/ui/AINavigator'
 
 export default function Layout() {
   const { user, setUser, showMusic, mode } = useStore()
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
 
   // Listen for auth expiry
   useEffect(() => {
@@ -26,6 +28,7 @@ export default function Layout() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') { e.preventDefault(); setAiOpen(true) }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -62,6 +65,11 @@ export default function Layout() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs" style={{ color: 'var(--muted)' }}>{user?.name}</span>
+          <button onClick={() => setAiOpen(true)}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-[--subtle]"
+            style={{ border: '1px solid var(--border)', color: 'var(--accent)' }} title="AI Navigator (⌘I)">
+            <Sparkles size={14} />
+          </button>
           <button onClick={() => setSearchOpen(true)}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-[--subtle]"
             style={{ border: '1px solid var(--border2)', color: 'var(--muted)' }}>
@@ -86,6 +94,7 @@ export default function Layout() {
       </main>
 
       {/* Overlays */}
+      {aiOpen && <AINavigator onClose={() => setAiOpen(false)} />}
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <DetailModal />

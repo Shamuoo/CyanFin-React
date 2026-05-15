@@ -92,3 +92,33 @@ body {
 /* ── Player cursor ── */
 .player-idle { cursor: none; }
 .player-active { cursor: default; }
+
+/* ── TV / D-pad navigation ── */
+[data-layout="tv"] {
+  --pad: 48px;
+  font-size: 18px;
+}
+
+/* TV focus rings - visible when using D-pad */
+[data-layout="tv"] *:focus {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 3px !important;
+}
+[data-layout="tv"] *:focus:not(:focus-visible) {
+  outline: none !important;
+}
+[data-layout="tv"] *:focus-visible {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 3px !important;
+}
+
+/* TV larger cards */
+[data-layout="tv"] .media-card { min-width: 160px; }
+
+/* TV player controls bigger */
+[data-layout="tv"] button { min-height: 44px; min-width: 44px; }
+
+/* ── PWA safe areas ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .fixed.bottom-0 { padding-bottom: env(safe-area-inset-bottom); }
+}

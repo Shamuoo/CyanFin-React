@@ -12,6 +12,7 @@ const { handleApi } = require('./routes/api');
 const { handleLibrary, handleLibraryPost } = require('./routes/library');
 const { handleIntegrations } = require('./routes/integrations');
 const { handleStats } = require('./routes/stats');
+const { handleAI } = require('./routes/ai');
 
 const PORT = parseInt(process.env.PORT || '3000');
 cfg.loadConfig();
@@ -242,6 +243,15 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/library/')) {
       try {
         const result = await handleLibrary(pathname, parsed.query, session, req);
+        if (result !== null) return json(res, result);
+      } catch(e) { return json(res, { error: e.message }, 500); }
+    }
+
+    // AI Navigator
+    if (pathname.startsWith('/api/ai/')) {
+      const body = await readBody(req);
+      try {
+        const result = await handleAI(pathname, body, session);
         if (result !== null) return json(res, result);
       } catch(e) { return json(res, { error: e.message }, 500); }
     }

@@ -23,6 +23,7 @@ const integrationFields = [
   { key: 'TMDB_API_KEY',       label: 'TMDB API Key',       placeholder: '••••••••',                  secret: true, service: 'tmdb' },
   { key: 'ANTHROPIC_API_KEY',  label: 'Anthropic (AI)',     placeholder: 'sk-ant-...',                secret: true, service: 'anthropic' },
   { key: 'DISCORD_WEBHOOK_URL',label: 'Discord Webhook',    placeholder: 'https://discord.com/api/webhooks/...', service: 'discord' },
+  { key: 'GEMINI_API_KEY',      label: 'Gemini API Key',     placeholder: 'AIza... (Google AI Studio)', secret: true, service: 'gemini' },
 ]
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -129,6 +130,16 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
 
+              <SectionTitle>AI Navigator Provider</SectionTitle>
+              <div className="flex gap-2 mb-4">
+                {(['claude', 'gemini'] as const).map(p => (
+                  <button key={p} onClick={() => store.setSetting('aiProvider', p)}
+                    className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wide rounded transition-all"
+                    style={{ background: store.aiProvider === p ? 'var(--subtle)' : 'transparent', color: store.aiProvider === p ? 'var(--accent)' : 'var(--muted)', border: `1px solid ${store.aiProvider === p ? 'var(--border)' : 'var(--border2)'}` }}>
+                    {p === 'claude' ? '✦ Claude' : '◆ Gemini'}
+                  </button>
+                ))}
+              </div>
               <SectionTitle>Weather City</SectionTitle>
               <input value={store.city} onChange={e => store.setSetting('city', e.target.value)}
                 className="w-full px-3 py-2 rounded text-sm outline-none"

@@ -20,6 +20,7 @@ interface AppState {
   playSounds: boolean
   showMusic: boolean
   jellyfinUrl: string
+  aiProvider: 'claude' | 'gemini'
 
   setTheme: (t: Theme) => void
   setLayout: (l: Layout) => void
@@ -57,6 +58,7 @@ export const useStore = create<AppState>()(
       playSounds: true,
       showMusic: true,
       jellyfinUrl: '',
+      aiProvider: 'claude',
 
       setTheme: (theme) => set({ theme }),
       setLayout: (layout) => set({ layout }),
@@ -88,6 +90,7 @@ export const useStore = create<AppState>()(
         showMusic: state.showMusic,
         onboarded: state.onboarded,
         jellyfinUrl: state.jellyfinUrl,
+        aiProvider: state.aiProvider,
       }),
     }
   )
