@@ -65,10 +65,10 @@ export default function App() {
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
           <Route path="/setup" element={<SetupPage />} />
+          <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
           <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/login" replace />} />
-          <Route path="/" element={user ? <Layout /> : <Navigate to="/login" replace />}>
+          <Route path="/" element={user ? <Layout /> : <Navigate to={!onboarded ? "/setup" : "/login"} replace />}>
             <Route index element={!onboarded ? <Navigate to="/setup" replace /> : <HomePage />} />
             <Route path="movies" element={<MoviesPage />} />
             <Route path="shows" element={<ShowsPage />} />
@@ -79,7 +79,7 @@ export default function App() {
             <Route path="playing" element={<NowPlayingPage />} />
           </Route>
           <Route path="/player" element={user ? <PlayerPage /> : <Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={!onboarded ? "/setup" : "/"} replace />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
