@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import api from '@/lib/api'
 import type { MediaItem } from '@/types'
 
-const IDLE_TIMEOUT = 5 * 60 * 1000 // 5 minutes
-const SLIDE_DURATION = 8000 // 8s per slide
+const IDLE_TIMEOUT = 5 * 60 * 1000
+const SLIDE_DURATION = 8000
 
 export default function Screensaver() {
   const { user } = useStore()
@@ -14,22 +14,18 @@ export default function Screensaver() {
   const [idx, setIdx] = useState(0)
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  // Load backdrop items once
   useEffect(() => {
     if (!user) return
     api.movies({ sort: 'CommunityRating', order: 'Descending', limit: 30 })
-      .then(r => setItems((r.items || []).filter(i => i.backdropUrl)))
+      .then(r => setItems((r.items || []).filter((i: MediaItem) => i.backdropUrl)))
       .catch(() => {})
   }, [user])
 
-  // Idle detection
   const resetTimer = useCallback(() => {
     setActive(false)
     clearTimeout(idleTimer.current)
-    idleTimer.current = setTimeout(() => {
-      if (items.length) setActive(true)
-    }, IDLE_TIMEOUT)
-  }, [items.length])
+    idleTimer.current = setTimeout(() => setActive(true), IDLE_TIMEOUT)
+  }, [])
 
   useEffect(() => {
     const events = ['mousemove','keydown','mousedown','touchstart','scroll']
@@ -41,14 +37,12 @@ export default function Screensaver() {
     }
   }, [resetTimer])
 
-  // Slideshow
   useEffect(() => {
     if (!active || !items.length) return
     const t = setInterval(() => setIdx(i => (i + 1) % items.length), SLIDE_DURATION)
     return () => clearInterval(t)
   }, [active, items.length])
 
-  // Click to dismiss
   useEffect(() => {
     if (!active) return
     const dismiss = () => setActive(false)
@@ -81,20 +75,15 @@ export default function Screensaver() {
               style={{ backgroundImage: `url('${current.backdropUrl}')` }} />
           </AnimatePresence>
 
-          {/* Gradient overlays */}
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%, rgba(0,0,0,0.2) 100%)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%, rgba(0,0,0,0.2) 100%)' }} />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.6) 0%, transparent 60%)' }} />
 
-          {/* Clock */}
           <Clock />
 
-          {/* Item info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
             className="absolute bottom-16 left-16">
             {current.logoUrl
-              ? <img src={current.logoUrl} alt={current.title}
-                  className="max-h-20 max-w-xs object-contain mb-3"
+              ? <img src={current.logoUrl} alt={current.title} className="max-h-20 max-w-xs object-contain mb-3"
                   style={{ filter: 'drop-shadow(0 2px 16px rgba(0,0,0,1))' }} />
               : <h2 className="text-4xl mb-2"
                   style={{ fontFamily: 'var(--font-display)', color: 'var(--cream)', letterSpacing: '0.1em', textShadow: '0 2px 20px rgba(0,0,0,0.9)' }}>
@@ -106,7 +95,6 @@ export default function Screensaver() {
             </p>
           </motion.div>
 
-          {/* Slide dots */}
           <div className="absolute bottom-16 right-16 flex gap-1.5">
             {items.slice(0, 8).map((_, i) => (
               <div key={i} className="rounded-full transition-all duration-500"
@@ -114,19 +102,13 @@ export default function Screensaver() {
             ))}
           </div>
 
-          {/* Dismiss hint */}
           <p className="absolute top-8 right-8 text-[10px] tracking-widest uppercase"
-            style={{ color: 'rgba(255,255,255,0.2)' }}>
-            Click or press any key to dismiss
-          </p>
+            style={{ color: 'rgba(255,255,255,0.2)' }}>Click or press any key to dismiss</p>
         </motion.div>
       )}
     </AnimatePresence>
   )
 }
-
-// Need useRef for idleTimer - add it
-import { useRef } from 'react'
 
 function Clock() {
   const [time, setTime] = useState(new Date())
@@ -136,8 +118,7 @@ function Clock() {
   }, [])
   return (
     <div className="absolute top-12 left-16">
-      <p className="text-7xl font-thin tracking-tight"
-        style={{ color: 'rgba(255,255,255,0.85)', fontFamily: 'var(--font-display)', letterSpacing: '0.05em' }}>
+      <p className="text-7xl font-thin" style={{ color: 'rgba(255,255,255,0.85)', fontFamily: 'var(--font-display)', letterSpacing: '0.05em' }}>
         {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
       <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em' }}>

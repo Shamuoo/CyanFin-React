@@ -241,6 +241,54 @@ export default function PlayerPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [navigate, setPlayingItem, openPanel, showControls])
 
+
+  // ── Jellyfin playback session reporting ──
+  const reportingRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+
+  useEffect(() => {
+    if (!playingItem?.id) return
+    const itemId = playingItem.id
+    const mediaSourceId = (playingItem as any).mediaSourceId
+
+    // Report start
+    fetch('/api/playback/start', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, mediaSourceId, positionTicks: Math.round((playingItem.startTime || 0) * 10_000_000) }),
+    }).catch(() => {})
+
+    // Report progress every 10s
+    reportingRef.current = setInterval(() => {
+      const video = videoRef.current
+      if (!video) return
+      fetch('/api/playback/progress', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId, mediaSourceId,
+          positionTicks: Math.round(video.currentTime * 10_000_000),
+          isPaused: video.paused,
+          isMuted: video.muted,
+          volumeLevel: Math.round(video.volume * 100),
+        }),
+      }).catch(() => {})
+    }, 10_000)
+
+    // Report stop on unmount
+    return () => {
+      clearInterval(reportingRef.current)
+      const video = videoRef.current
+      fetch('/api/playback/stop', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId, mediaSourceId,
+          positionTicks: Math.round((video?.currentTime || 0) * 10_000_000),
+        }),
+      }).catch(() => {})
+    }
+  }, [playingItem?.id])
+
   useEffect(() => {
     const h = () => setFullscreen(!!document.fullscreenElement)
     document.addEventListener('fullscreenchange', h)

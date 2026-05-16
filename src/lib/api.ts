@@ -73,6 +73,17 @@ class ApiClient {
   discordNotify(data: Record<string, string>) { return this.post('/api/integrations/discord-notify', data) }
   testIntegration(service: string) { return this.get<{ ok: boolean; message?: string; error?: string }>(`/api/integrations/test?service=${service}`) }
 
+  // Playback session reporting
+  playbackStart(itemId: string, mediaSourceId?: string, positionTicks?: number) {
+    return this.post('/api/playback/start', { itemId, mediaSourceId, positionTicks })
+  }
+  playbackProgress(itemId: string, positionTicks: number, isPaused: boolean, mediaSourceId?: string) {
+    return this.post('/api/playback/progress', { itemId, mediaSourceId, positionTicks, isPaused })
+  }
+  playbackStop(itemId: string, positionTicks: number, mediaSourceId?: string) {
+    return this.post('/api/playback/stop', { itemId, mediaSourceId, positionTicks })
+  }
+
   // Next episode
   nextEpisode(seriesId: string, seasonId: string, indexNumber: number, parentIndexNumber: number) {
     return this.get<{ hasNext: boolean; episode?: import('@/types').MediaItem }>(`/api/next-episode?seriesId=${seriesId}&seasonId=${seasonId}&indexNumber=${indexNumber}&parentIndexNumber=${parentIndexNumber}`)

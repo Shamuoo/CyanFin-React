@@ -447,6 +447,60 @@ async function handleApi(pathname, query, session) {
   }
 
 
+
+  // ── Playback session reporting (so Jellyfin knows what's playing) ──
+
+  // Report playback started
+  if (pathname === '/api/playback/start' && req.method === 'POST') {
+    const { itemId, mediaSourceId, audioStreamIndex, subtitleStreamIndex, positionTicks = 0 } = body;
+    if (!itemId) return { error: 'No itemId' };
+    await jf.post(`/Sessions/Playing`, {
+      ItemId: itemId,
+      MediaSourceId: mediaSourceId,
+      AudioStreamIndex: audioStreamIndex,
+      SubtitleStreamIndex: subtitleStreamIndex,
+      PositionTicks: positionTicks,
+      IsPaused: false,
+      IsMuted: false,
+      PlayMethod: 'DirectPlay',
+      RepeatMode: 'RepeatNone',
+    }, token).catch(e => console.warn('[playback/start]', e.message));
+    return { ok: true };
+  }
+
+  // Report playback progress
+  if (pathname === '/api/playback/progress' && req.method === 'POST') {
+    const { itemId, mediaSourceId, positionTicks, isPaused, isMuted, volumeLevel, audioStreamIndex, subtitleStreamIndex } = body;
+    if (!itemId) return { error: 'No itemId' };
+    await jf.post(`/Sessions/Playing/Progress`, {
+      ItemId: itemId,
+      MediaSourceId: mediaSourceId,
+      PositionTicks: positionTicks || 0,
+      IsPaused: isPaused || false,
+      IsMuted: isMuted || false,
+      VolumeLevel: volumeLevel || 100,
+      AudioStreamIndex: audioStreamIndex,
+      SubtitleStreamIndex: subtitleStreamIndex,
+      PlayMethod: 'DirectPlay',
+      RepeatMode: 'RepeatNone',
+      EventName: isPaused ? 'pause' : 'timeupdate',
+    }, token).catch(e => console.warn('[playback/progress]', e.message));
+    return { ok: true };
+  }
+
+  // Report playback stopped + save position
+  if (pathname === '/api/playback/stop' && req.method === 'POST') {
+    const { itemId, mediaSourceId, positionTicks } = body;
+    if (!itemId) return { error: 'No itemId' };
+    await jf.post(`/Sessions/Playing/Stopped`, {
+      ItemId: itemId,
+      MediaSourceId: mediaSourceId,
+      PositionTicks: positionTicks || 0,
+      PlayMethod: 'DirectPlay',
+    }, token).catch(e => console.warn('[playback/stop]', e.message));
+    return { ok: true };
+  }
+
   // Toggle favourite
   if (pathname === '/api/user/favorite' && req.method === 'POST') {
     const { itemId, favorite } = body;
