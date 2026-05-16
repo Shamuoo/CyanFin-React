@@ -269,8 +269,12 @@ const server = http.createServer(async (req, res) => {
 
   // ── CONFIG SAVE ──
   if (pathname === '/api/config/save' && req.method === 'POST') {
-    const session = auth.getSessionFromRequest(req);
-    if (!session) return json(res, { error: 'Not logged in' }, 401);
+    // Allow unauthenticated save ONLY during initial setup (no Jellyfin URL configured yet)
+    const isInitialSetup = !cfg.get('JELLYFIN_URL') && !JELLYFIN_URL;
+    if (!isInitialSetup) {
+      const session = auth.getSessionFromRequest(req);
+      if (!session) return json(res, { error: 'Not logged in' }, 401);
+    }
     const body = await readBody(req);
     const result = cfg.saveConfig(body);
     if (result.success) {
@@ -279,9 +283,32 @@ const server = http.createServer(async (req, res) => {
       jf.init(newJfUrl, cfg.get('JELLYFIN_API_KEY') || '');
       const newTmdb = cfg.get('TMDB_API_KEY') || '';
       tmdb.init(newTmdb);
+      sm.start(); // restart server manager with new URLs
       console.log('[config] Saved and reloaded:', result.saved.join(', '));
     }
     return json(res, result);
+  }
+
+  // ── JELLYFIN CONNECTION TEST (public - used during setup) ──
+  if (pathname === '/api/test/jellyfin') {
+    const urlToTest = (parsed.query.url || '').replace(/\/$/, '');
+    if (!urlToTest) return json(res, { ok: false, error: 'No URL provided' });
+    try {
+      const https = require('https');
+      const http = require('http');
+      const testUrl = new URL(urlToTest + '/System/Info/Public');
+      const lib = testUrl.protocol === 'https:' ? https : http;
+      const result = await new Promise((resolve, reject) => {
+        const req = lib.request({ hostname: testUrl.hostname, port: testUrl.port || (testUrl.protocol === 'https:' ? 443 : 80), path: testUrl.pathname, method: 'GET', timeout: 8000 }, res => {
+          let d = ''; res.on('data', c => d += c);
+          res.on('end', () => { try { resolve({ ok: res.statusCode < 400, data: JSON.parse(d) }); } catch(e) { resolve({ ok: res.statusCode < 400 }); } });
+        });
+        req.on('error', e => resolve({ ok: false, error: e.message }));
+        req.on('timeout', () => { req.destroy(); resolve({ ok: false, error: 'Timeout' }); });
+        req.end();
+      });
+      return json(res, { ok: result.ok, serverName: result.data?.ServerName, version: result.data?.Version, error: result.error });
+    } catch(e) { return json(res, { ok: false, error: e.message }); }
   }
 
   // ── CONFIG READ (public fields only) ──

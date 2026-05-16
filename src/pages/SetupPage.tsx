@@ -68,10 +68,22 @@ export default function SetupPage() {
     if (!form.JELLYFIN_URL) return
     setTesting(true); setTestResult(null)
     try {
-      await api.saveConfig({ JELLYFIN_URL: form.JELLYFIN_URL.replace(/\/$/, '') })
-      const r = await fetch(`${form.JELLYFIN_URL.replace(/\/$/, '')}/System/Info/Public`).then(r => r.json())
-      setTestResult('ok')
-      setTestMsg(`Connected to ${r.ServerName || 'Jellyfin'} v${r.Version || ''}`)
+      const url = form.JELLYFIN_URL.replace(/\/$/, '')
+      // Save URL first so server can reinit
+      await fetch('/api/config/save', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ JELLYFIN_URL: url }),
+      })
+      // Use server-side test (avoids CORS)
+      const r = await fetch(`/api/test/jellyfin?url=${encodeURIComponent(url)}`).then(r => r.json())
+      if (r.ok) {
+        setTestResult('ok')
+        setTestMsg(`Connected to ${r.serverName || 'Jellyfin'} v${r.version || ''}`)
+      } else {
+        setTestResult('fail')
+        setTestMsg(r.error || 'Could not connect. Check the URL.')
+      }
     } catch(e: any) {
       setTestResult('fail')
       setTestMsg('Could not connect. Check the URL and make sure Jellyfin is running.')
@@ -83,9 +95,13 @@ export default function SetupPage() {
     setSaving(true)
     const toSave: Record<string, string> = {}
     Object.entries(form).forEach(([k, v]) => { if (v.trim()) toSave[k] = v.trim() })
-    await api.saveConfig(toSave).catch(() => {})
-    // Small delay to let server reinit with new Jellyfin URL
-    await new Promise(r => setTimeout(r, 500))
+    await fetch('/api/config/save', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toSave),
+    }).catch(() => {})
+    // Let server reinit with new Jellyfin URL
+    await new Promise(r => setTimeout(r, 800))
     setOnboarded(true)
     navigate('/login')
   }
