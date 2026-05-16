@@ -6,9 +6,12 @@
 const http = require('http')
 const https = require('https')
 const cfg = require('./config')
+const plex = require('./plexClient')
 
 let _state = {
-  active: 'primary',        // which server is currently active
+  active: 'primary',
+  plexOk: false,
+  plexLatency: null,        // which server is currently active
   primaryOk: true,
   backupOk: false,
   primaryLatency: null,
@@ -52,15 +55,20 @@ async function checkBoth() {
   const { primary, backup, hasBackup } = getServers()
   const mode = cfg.get('JELLYFIN_MODE') || 'fastest'
 
-  const [primaryResult, backupResult] = await Promise.all([
+  const plexUrl = cfg.get('PLEX_URL')
+  const plexToken = cfg.get('PLEX_TOKEN')
+  const [primaryResult, backupResult, plexResult] = await Promise.all([
     pingServer(primary),
     hasBackup ? pingServer(backup) : Promise.resolve({ ok: false, latency: null }),
+    plexUrl ? plex.ping(plexUrl, plexToken) : Promise.resolve({ ok: false, latency: null }),
   ])
 
   _state.primaryOk = primaryResult.ok
   _state.backupOk = backupResult.ok
   _state.primaryLatency = primaryResult.latency
   _state.backupLatency = backupResult.latency
+  _state.plexOk = plexResult.ok
+  _state.plexLatency = plexResult.latency
   _state.lastCheck = Date.now()
 
   // Determine active server
@@ -118,6 +126,7 @@ function getStatus() {
       ok: _state.backupOk,
       latency: _state.backupLatency,
     } : null,
+    plex: plexUrl ? { url: plexUrl, ok: _state.plexOk, latency: _state.plexLatency } : null,
     lastCheck: _state.lastCheck,
   }
 }

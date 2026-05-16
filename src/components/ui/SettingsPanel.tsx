@@ -56,8 +56,8 @@ function ServerStatusPanel() {
         <p className="text-[8px] font-bold tracking-[0.2em] uppercase" style={{ color: 'var(--accent)', opacity: 0.5 }}>Server Status</p>
         <button onClick={() => { api.serversCheck(); refetch() }} className="text-[8px]" style={{ color: 'var(--muted)' }}>↻ Check</button>
       </div>
-      {['primary', 'backup'].map(s => {
-        const srv = s === 'primary' ? status.primary : status.backup
+      {['primary', 'backup', 'plex'].map(s => {
+        const srv = s === 'primary' ? status.primary : s === 'backup' ? status.backup : status.plex
         const isActive = status.active === s
         return (
           <div key={s} className="flex items-center gap-2 mb-2">
@@ -66,7 +66,7 @@ function ServerStatusPanel() {
               {s.charAt(0).toUpperCase() + s.slice(1)} {isActive ? '(active)' : ''}
               {srv.latency ? ` · ${srv.latency}ms` : srv.ok === false ? ' · DOWN' : ''}
             </span>
-            {!isActive && srv.ok && (
+            {s !== 'plex' && !isActive && srv.ok && (
               <button onClick={() => switchServer(s as 'primary' | 'backup')} disabled={switching}
                 className="text-[8px] px-2 py-0.5 rounded-full" style={{ border: '1px solid var(--border)', color: 'var(--muted)' }}>
                 Switch

@@ -22,6 +22,8 @@ const CONFIGURABLE_KEYS = [
   'OMDB_API_KEY',
   'OLLAMA_MODEL',
   'JELLYFIN_BACKUP_URL',
+  'PLEX_URL',
+  'PLEX_TOKEN',
   'JELLYFIN_BACKUP_API_KEY',
   'JELLYFIN_MODE',  // 'fastest' | 'primary' | 'backup'
 ];

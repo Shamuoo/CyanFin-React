@@ -232,6 +232,16 @@ async function handleIntegrations(pathname, query, body, session) {
         });
         return d.status === 200 ? { ok: true, message: 'Claude connected' } : { ok: false, error: d.data && d.data.error ? d.data.error.message : 'Auth failed' };
       }
+      if (service === 'plex') {
+        const plexUrl = cfg.get('PLEX_URL');
+        const plexToken = cfg.get('PLEX_TOKEN');
+        if (!plexUrl) return { ok: false, error: 'Not configured' };
+        try {
+          const plex = require('./plexClient');
+          const res = await plex.ping(plexUrl, plexToken);
+          return res.ok ? { ok: true, message: `Plex connected · ${res.latency}ms` } : { ok: false, error: 'Could not connect' };
+        } catch(e) { return { ok: false, error: e.message }; }
+      }
       if (service === 'ollama') {
         const ollamaUrl = cfg.get('OLLAMA_URL') || 'http://localhost:11434';
         try {

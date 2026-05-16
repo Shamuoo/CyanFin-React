@@ -16,7 +16,7 @@ COPY server/package*.json ./server/
 RUN cd server && npm install --production
 
 # Copy server source (excluding public/ - we use the built version)
-COPY server/index.js server/jellyfin.js server/auth.js server/config.js server/tmdb.js server/serverManager.js ./server/
+COPY server/index.js server/jellyfin.js server/auth.js server/config.js server/tmdb.js server/serverManager.js server/plexClient.js ./server/
 COPY server/routes/ ./server/routes/
 
 # Copy freshly built frontend (overrides anything in server/public)

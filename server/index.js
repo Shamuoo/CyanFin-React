@@ -34,6 +34,7 @@ const MIME = {
   '.css':  'text/css; charset=utf-8',
   '.js':   'application/javascript; charset=utf-8',
   '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
   '.ico':  'image/x-icon',
   '.png':  'image/png',
   '.jpg':  'image/jpeg',
@@ -198,6 +199,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+
+  // ── PWA MANIFEST (must serve as application/manifest+json) ──
+  if (pathname === '/manifest.json') {
+    const manifestPath = path.join(PUBLIC_DIR, 'manifest.json');
+    fs.readFile(manifestPath, (err, data) => {
+      if (err) { res.writeHead(404); res.end(); return; }
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json' });
+      res.end(data);
+    });
+    return;
+  }
 
   // ── SUBTITLE PROXY ──
   if (pathname === '/proxy/subtitle') {
