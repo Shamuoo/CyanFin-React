@@ -168,6 +168,54 @@ async function callGemini(messages, toolResults) {
   })
 }
 
+
+// ── Call Ollama (local AI) ──
+async function callOllama(messages, toolSummary) {
+  const ollamaUrl = cfg.get('OLLAMA_URL') || 'http://localhost:11434';
+  const model = cfg.get('OLLAMA_MODEL') || 'llama3';
+  
+  const systemPrompt = `You are an AI navigator for CyanFin, a Jellyfin media frontend. Help users find movies and TV shows from their personal library. Be concise and friendly.`;
+  
+  // Build a simple prompt since Ollama doesn't support tool calling natively
+  const userMsg = messages[messages.length - 1]?.content || '';
+  const historyText = messages.slice(-4, -1).map(m => `${m.role}: ${m.content}`).join('\n');
+  
+  const prompt = [
+    systemPrompt,
+    historyText && '\nConversation so far:\n' + historyText,
+    toolSummary && '\nLibrary results:\n' + JSON.stringify(toolSummary).slice(0, 1000),
+    '\nUser: ' + userMsg,
+    'Assistant:'
+  ].filter(Boolean).join('\n');
+
+  const body = JSON.stringify({
+    model,
+    prompt,
+    stream: false,
+    options: { temperature: 0.7, num_predict: 256 },
+  });
+
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(ollamaUrl.replace(/\/$/, '') + '/api/generate');
+    const lib = parsed.protocol === 'https:' ? require('https') : require('http');
+    const req = lib.request({
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 30000,
+    }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Ollama timeout - is it running?')); });
+    req.write(body); req.end();
+  });
+}
+
 // ── Main handler ──
 async function handleAI(pathname, body, session) {
   if (pathname !== '/api/ai/navigate') return null
@@ -181,6 +229,20 @@ async function handleAI(pathname, body, session) {
     ...history.map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: message }
   ]
+
+  if (provider === 'ollama') {
+    try {
+      // For Ollama: do a library search first, then pass results to model
+      const searchResults = await executeTool('search_library', { query: message, type: 'all' }, token, userId).catch(() => []);
+      const ollamaRes = await callOllama(messages, Array.isArray(searchResults) ? searchResults.slice(0, 5) : null);
+      return {
+        reply: ollamaRes.response || 'I found some results for you.',
+        items: Array.isArray(searchResults) ? searchResults : [],
+      };
+    } catch(e) {
+      return { reply: `Ollama error: ${e.message}. Make sure Ollama is running at ${cfg.get('OLLAMA_URL') || 'http://localhost:11434'}`, items: [] };
+    }
+  }
 
   if (provider === 'gemini') {
     // Simple Gemini path — no tool calling, just do a library search and return

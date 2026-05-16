@@ -20,7 +20,7 @@ interface AppState {
   playSounds: boolean
   showMusic: boolean
   jellyfinUrl: string
-  aiProvider: 'claude' | 'gemini'
+  aiProvider: 'claude' | 'gemini' | 'ollama'
 
   setTheme: (t: Theme) => void
   setLayout: (l: Layout) => void

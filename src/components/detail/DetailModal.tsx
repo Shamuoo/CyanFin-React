@@ -255,7 +255,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
         </div>
 
         {/* Version picker */}
-        {mediaSources.length > 1 && (
+        {mediaSources.length >= 1 && (
           <div className="mb-3">
             <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>Version</p>
             <div className="flex gap-2 flex-wrap">
@@ -270,8 +270,8 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
           </div>
         )}
 
-        {/* Audio picker */}
-        {selectedSource?.audioStreams && selectedSource.audioStreams.length > 1 && (
+        {/* Audio picker - show if any audio streams exist */}
+        {selectedSource?.audioStreams && selectedSource.audioStreams.length >= 1 && (
           <div className="mb-5">
             <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>Audio</p>
             <div className="flex gap-2 flex-wrap">

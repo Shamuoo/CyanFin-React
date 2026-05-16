@@ -199,11 +199,11 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 
               <SectionTitle>AI Navigator Provider</SectionTitle>
               <div className="flex gap-2 mb-4">
-                {(['claude', 'gemini'] as const).map(p => (
+                {(['claude', 'gemini', 'ollama'] as const).map(p => (
                   <button key={p} onClick={() => store.setSetting('aiProvider', p)}
                     className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wide rounded transition-all"
                     style={{ background: store.aiProvider === p ? 'var(--subtle)' : 'transparent', color: store.aiProvider === p ? 'var(--accent)' : 'var(--muted)', border: `1px solid ${store.aiProvider === p ? 'var(--border)' : 'var(--border2)'}` }}>
-                    {p === 'claude' ? '✦ Claude' : '◆ Gemini'}
+                    {p === 'claude' ? '✦ Claude' : p === 'gemini' ? '◆ Gemini' : '⬡ Ollama'}
                   </button>
                 ))}
               </div>

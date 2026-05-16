@@ -232,6 +232,14 @@ async function handleIntegrations(pathname, query, body, session) {
         });
         return d.status === 200 ? { ok: true, message: 'Claude connected' } : { ok: false, error: d.data && d.data.error ? d.data.error.message : 'Auth failed' };
       }
+      if (service === 'ollama') {
+        const ollamaUrl = cfg.get('OLLAMA_URL') || 'http://localhost:11434';
+        try {
+          const d = await integrationGet(ollamaUrl, '', '/api/tags');
+          const models = (d.models || []).map(m => m.name).join(', ');
+          return { ok: true, message: `Ollama running · models: ${models || 'none'}` };
+        } catch(e) { return { ok: false, error: e.message }; }
+      }
       if (service === 'streamystats') {
         if (!cfg.get('STREAMYSTATS_URL')) return { ok: false, error: 'Not configured' };
         try {

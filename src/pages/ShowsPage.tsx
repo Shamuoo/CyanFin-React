@@ -154,7 +154,7 @@ export default function ShowsPage() {
                   </div>
                   {/* Play button */}
                   <button onClick={e => { e.stopPropagation(); playEpisode(ep) }}
-                    className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:opacity-85"
+                    className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all hover:opacity-85 active:scale-95"
                     style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
                     <Play size={14} fill="currentColor" />
                   </button>
