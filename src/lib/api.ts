@@ -7,7 +7,9 @@ class ApiClient {
       ...options,
     })
     if (res.status === 401) {
-      window.dispatchEvent(new CustomEvent('auth:expired'))
+      // Only fire auth:expired for non-polling endpoints to avoid logout loops
+      const isPolling = path.includes('now-playing') || path.includes('servers/status')
+      if (!isPolling) window.dispatchEvent(new CustomEvent('auth:expired'))
       throw new Error('Unauthorized')
     }
     if (!res.ok) {

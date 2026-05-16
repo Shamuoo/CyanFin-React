@@ -283,7 +283,7 @@ const server = http.createServer(async (req, res) => {
       jf.init(newJfUrl, cfg.get('JELLYFIN_API_KEY') || '');
       const newTmdb = cfg.get('TMDB_API_KEY') || '';
       tmdb.init(newTmdb);
-      sm.start(); // restart server manager with new URLs
+      sm.stop(); sm.start(); // restart server manager with new URLs
       console.log('[config] Saved and reloaded:', result.saved.join(', '));
     }
     return json(res, result);
