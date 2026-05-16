@@ -635,8 +635,8 @@ async function handleApi(pathname, query, session) {
     const active = (sessions||[]).filter(s=>s.NowPlayingItem);
     return {
       latency, jellyfinUrl: process.env.JELLYFIN_URL,
-      cyanFinVersion: process.env.CYANFIN_VERSION || '0.10.1',
-      github: (gh && gh.tag_name) ? { latestRelease: gh.tag_name, releaseName: gh.name, publishedAt: gh.published_at, isLatest: gh.tag_name === 'v0.9.0' } : null,
+      cyanFinVersion: process.env.CYANFIN_VERSION || (() => { try { return require('../package.json').version; } catch(e) { return '0.12.3'; } })(),
+      github: (gh && gh.tag_name) ? { latestRelease: gh.tag_name, releaseName: gh.name, publishedAt: gh.published_at, isLatest: gh.tag_name === `v${process.env.CYANFIN_VERSION || (() => { try { return require('../package.json').version; } catch(e) { return '0.12.3'; } })()}` } : null,
       serverName: info.ServerName, version: info.Version, os: info.OperatingSystem, arch: info.SystemArchitecture,
       localAddress: info.LocalAddress, wanAddress: info.WanAddress, hasUpdate: info.HasUpdateAvailable,
       activeSessions: active.length, totalSessions: (sessions||[]).length,

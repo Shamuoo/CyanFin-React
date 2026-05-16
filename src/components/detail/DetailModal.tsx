@@ -160,17 +160,19 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   const backdrop = item.backdropUrls?.[0] || item.backdropUrl
   const selectedSource = mediaSources.find(s => s.id === selectedSourceId) || mediaSources[0]
 
-  // Load playback info for version/audio picker (cached - reused by handlePlay)
+  // Load playback info for version/audio picker
   useEffect(() => {
     if (!item.id) return
     api.playbackInfo(item.id).then(info => {
-      if (info.mediaSources?.length) {
-        setMediaSources(info.mediaSources)
-        setSelectedSourceId(info.mediaSources[0].id)
-        const def = info.mediaSources[0].audioStreams?.find(a => a.isDefault)
+      const sources = info.mediaSources || []
+      if (sources.length) {
+        setMediaSources(sources)
+        setSelectedSourceId(sources[0].id)
+        const def = sources[0].audioStreams?.find((a: any) => a.isDefault)
         if (def) setSelectedAudioIndex(def.index)
+        else if (sources[0].audioStreams?.length) setSelectedAudioIndex(sources[0].audioStreams[0].index)
       }
-    }).catch(() => {})
+    }).catch(e => console.warn('[CyanFin] PlaybackInfo failed:', e.message))
   }, [item.id])
 
   // Theme song - play muted on open, unmute after 1s
@@ -255,23 +257,28 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
         </div>
 
         {/* Version picker */}
-        {mediaSources.length >= 1 && (
+        {mediaSources.length > 0 && (
           <div className="mb-3">
             <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>Version</p>
             <div className="flex gap-2 flex-wrap">
               {mediaSources.map(src => (
-                <button key={src.id} onClick={() => { setSelectedSourceId(src.id); setSelectedAudioIndex(src.audioStreams?.find(a => a.isDefault)?.index) }}
-                  className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all"
+                <button key={src.id}
+                  onClick={() => {
+                    setSelectedSourceId(src.id)
+                    const def = src.audioStreams?.find((a: any) => a.isDefault)
+                    setSelectedAudioIndex(def?.index ?? src.audioStreams?.[0]?.index)
+                  }}
+                  className="px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide transition-all"
                   style={{ background: selectedSourceId === src.id ? 'var(--accent)' : 'rgba(255,255,255,0.06)', color: selectedSourceId === src.id ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${selectedSourceId === src.id ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}` }}>
-                  {src.name || src.container}
+                  {[src.videoCodec?.toUpperCase(), src.name || src.container?.toUpperCase()].filter(Boolean).join(' · ') || 'Version 1'}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Audio picker - show if any audio streams exist */}
-        {selectedSource?.audioStreams && selectedSource.audioStreams.length >= 1 && (
+        {/* Audio picker */}
+        {selectedSource?.audioStreams && selectedSource.audioStreams.length > 0 && (
           <div className="mb-5">
             <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>Audio</p>
             <div className="flex gap-2 flex-wrap">
