@@ -5,6 +5,7 @@ const path = require('path');
 const url = require('url');
 
 const jf = require('./jellyfin');
+const sm = require('./serverManager');
 const cfg = require('./config');
 const auth = require('./auth');
 const tmdb = require('./tmdb');
@@ -102,6 +103,23 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   // ── AUTH ──
+
+  // Server status / failover
+  if (pathname === '/api/servers/status') {
+    return json(res, sm.getStatus());
+  }
+  if (pathname === '/api/servers/switch' && req.method === 'POST') {
+    const body2 = await readBody(req);
+    sm.forceServer(body2.server);
+    // Re-init jellyfin with new active URL
+    jf.init(sm.getActiveUrl(), '');
+    return json(res, sm.getStatus());
+  }
+  if (pathname === '/api/servers/check') {
+    const status = await sm.checkBoth();
+    jf.init(sm.getActiveUrl(), '');
+    return json(res, sm.getStatus());
+  }
 
   // Quick Connect - generate a code for TV/remote login
   if (pathname === '/api/auth/quick-connect/initiate' && req.method === 'POST') {
@@ -331,6 +349,7 @@ server.listen(PORT, () => {
   console.log(`   http://localhost:${PORT}`);
   console.log(`   Jellyfin: ${JELLYFIN_URL || '(not set)'}`);
   console.log(`   TMDB: ${TMDB_API_KEY ? 'enabled' : 'disabled'}\n`);
+  sm.start();
 });
 
 process.on('SIGTERM', () => server.close(() => process.exit(0)));

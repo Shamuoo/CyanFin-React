@@ -19,6 +19,7 @@ export default function Layout() {
   const [aiOpen, setAiOpen] = useState(false)
   const { data: weather } = useQuery({ queryKey: ['weather-nav', store.city], queryFn: () => api.weather(store.city || 'Brisbane'), enabled: store.showWeather, staleTime: 15 * 60_000 })
   const { data: nowPlaying } = useQuery({ queryKey: ['now-playing-nav'], queryFn: api.nowPlaying.bind(api), refetchInterval: 10_000, staleTime: 5_000 })
+  const { data: serverStatus } = useQuery({ queryKey: ['servers-status-nav'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000, staleTime: 15_000 })
 
   // Listen for auth expiry
   useEffect(() => {

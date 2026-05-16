@@ -73,6 +73,11 @@ class ApiClient {
   discordNotify(data: Record<string, string>) { return this.post('/api/integrations/discord-notify', data) }
   testIntegration(service: string) { return this.get<{ ok: boolean; message?: string; error?: string }>(`/api/integrations/test?service=${service}`) }
 
+  // Multi-server management
+  serversStatus() { return this.get<any>('/api/servers/status') }
+  serversSwitch(server: 'primary' | 'backup') { return this.post('/api/servers/switch', { server }) }
+  serversCheck() { return this.get('/api/servers/check') }
+
   // User actions
   toggleFavorite(itemId: string, favorite: boolean) { return this.post('/api/user/favorite', { itemId, favorite }) }
   toggleWatched(itemId: string, watched: boolean) { return this.post('/api/user/watched', { itemId, watched }) }

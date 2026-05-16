@@ -18,6 +18,9 @@ const CONFIGURABLE_KEYS = [
   'GEMINI_API_KEY',
   'HOME_SECTIONS',
   'STREAMYSTATS_URL',
+  'JELLYFIN_BACKUP_URL',
+  'JELLYFIN_BACKUP_API_KEY',
+  'JELLYFIN_MODE',  // 'fastest' | 'primary' | 'backup'
 ];
 
 let _config = null;

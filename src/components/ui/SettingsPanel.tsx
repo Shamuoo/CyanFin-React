@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { X, CheckCircle, XCircle, Loader } from 'lucide-react'
 import { useStore } from '@/lib/store'
@@ -29,6 +30,65 @@ const integrationFields = [
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3 mt-5" style={{ color: 'var(--accent)', opacity: 0.5 }}>{children}</p>
+}
+
+
+function ServerStatusPanel() {
+  const { data: status, refetch } = useQuery({ queryKey: ['servers-status'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000 })
+  const [switching, setSwitching] = useState(false)
+
+  if (!status || !status.backup) return null
+
+  const switchServer = async (server: 'primary' | 'backup') => {
+    setSwitching(true)
+    await api.serversSwitch(server)
+    refetch()
+    setSwitching(false)
+  }
+
+  const dot = (ok: boolean) => (
+    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ok ? '#2ecc71' : '#e74c3c' }} />
+  )
+
+  return (
+    <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[8px] font-bold tracking-[0.2em] uppercase" style={{ color: 'var(--accent)', opacity: 0.5 }}>Server Status</p>
+        <button onClick={() => { api.serversCheck(); refetch() }} className="text-[8px]" style={{ color: 'var(--muted)' }}>↻ Check</button>
+      </div>
+      {['primary', 'backup'].map(s => {
+        const srv = s === 'primary' ? status.primary : status.backup
+        const isActive = status.active === s
+        return (
+          <div key={s} className="flex items-center gap-2 mb-2">
+            {dot(srv.ok)}
+            <span className="text-[10px] flex-1 truncate" style={{ color: isActive ? 'var(--accent)' : 'var(--muted)' }}>
+              {s.charAt(0).toUpperCase() + s.slice(1)} {isActive ? '(active)' : ''}
+              {srv.latency ? ` · ${srv.latency}ms` : srv.ok === false ? ' · DOWN' : ''}
+            </span>
+            {!isActive && srv.ok && (
+              <button onClick={() => switchServer(s as 'primary' | 'backup')} disabled={switching}
+                className="text-[8px] px-2 py-0.5 rounded-full" style={{ border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                Switch
+              </button>
+            )}
+          </div>
+        )
+      })}
+      <div className="mt-2">
+        <p className="text-[8px] mb-1" style={{ color: 'var(--muted)', opacity: 0.5 }}>Mode</p>
+        <div className="flex gap-1.5">
+          {(['fastest', 'primary', 'backup'] as const).map(m => (
+            <button key={m} onClick={() => api.saveConfig({ JELLYFIN_MODE: m })}
+              className="flex-1 py-1 text-[8px] font-bold uppercase rounded-full"
+              style={{ background: status.mode === m ? 'var(--accent)' : 'transparent', color: status.mode === m ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${status.mode === m ? 'var(--accent)' : 'var(--border2)'}` }}>
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
@@ -192,6 +252,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
 
+              <ServerStatusPanel />
               <button onClick={saveIntegrations} disabled={saving}
                 className="w-full py-2.5 rounded-lg text-xs font-bold tracking-[0.2em] uppercase mt-4 transition-all hover:opacity-85 disabled:opacity-50"
                 style={{ background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--font-display)' }}>
