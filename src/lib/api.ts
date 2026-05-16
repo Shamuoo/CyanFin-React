@@ -73,6 +73,11 @@ class ApiClient {
   discordNotify(data: Record<string, string>) { return this.post('/api/integrations/discord-notify', data) }
   testIntegration(service: string) { return this.get<{ ok: boolean; message?: string; error?: string }>(`/api/integrations/test?service=${service}`) }
 
+  // Next episode
+  nextEpisode(seriesId: string, seasonId: string, indexNumber: number, parentIndexNumber: number) {
+    return this.get<{ hasNext: boolean; episode?: import('@/types').MediaItem }>(`/api/next-episode?seriesId=${seriesId}&seasonId=${seasonId}&indexNumber=${indexNumber}&parentIndexNumber=${parentIndexNumber}`)
+  }
+
   // Multi-server management
   serversStatus() { return this.get<any>('/api/servers/status') }
   serversSwitch(server: 'primary' | 'backup') { return this.post('/api/servers/switch', { server }) }

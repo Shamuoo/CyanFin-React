@@ -198,6 +198,30 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+
+  // ── SUBTITLE PROXY ──
+  if (pathname === '/proxy/subtitle') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) { res.writeHead(401); res.end(); return; }
+    const itemId = parsed.query.id;
+    const index = parsed.query.index;
+    const subUrl = `${require('./config').get('JELLYFIN_URL') || JELLYFIN_URL}/Videos/${itemId}/${itemId}/Subtitles/${index}/Stream.vtt?api_key=${session.token}`;
+    try {
+      const parsed2 = new (require('url').URL)(subUrl);
+      const lib = parsed2.protocol === 'https:' ? require('https') : require('http');
+      const proxyReq = lib.request(subUrl, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode || 200, {
+          'Content-Type': 'text/vtt',
+          'Access-Control-Allow-Origin': '*',
+        });
+        proxyRes.pipe(res);
+      });
+      proxyReq.on('error', () => { res.writeHead(500); res.end(); });
+      proxyReq.end();
+    } catch(e) { res.writeHead(500); res.end(); }
+    return;
+  }
+
   // ── IMAGE PROXY ──
   if (pathname === '/proxy/image') {
     const session = auth.getSessionFromRequest(req);

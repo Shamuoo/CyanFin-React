@@ -317,11 +317,12 @@ async function handleApi(pathname, query, session) {
   // Item detail
   if (pathname.match(/^\/api\/items\/[^/]+$/)) {
     const itemId = pathname.split('/')[3];
-    const [data, extras, themeSongs, introSkip] = await Promise.all([
+    const [data, extras, themeSongs, introSkip, chaptersData] = await Promise.all([
       jf.get(`/Items/${itemId}?userId=${userId}&fields=Overview,Taglines,Genres,OfficialRating,CommunityRating,People,MediaStreams,MediaSources,Studios,Tags,ExternalUrls,ProviderIds,BackdropImageTags,ImageTags,PartCount`, token),
       jf.get(`/Users/${userId}/Items/${itemId}/SpecialFeatures`, token).catch(() => []),
       jf.get(`/Items/${itemId}/ThemeMedia?userId=${userId}&InheritFromParent=true`, token).catch(() => ({})),
       jf.get(`/Episode/GetIntros?itemId=${itemId}&userId=${userId}`, token).catch(() => null),
+      jf.get(`/Items/${itemId}/PlaybackInfo?userId=${userId}`, token).catch(() => null),
     ]);
     const mapped = mapItem(data, token);
 
@@ -351,6 +352,13 @@ async function handleApi(pathname, query, session) {
       mapped.introStart = introSkip.Items[0].StartPositionTicks;
       mapped.introEnd = introSkip.Items[0].EndPositionTicks;
     }
+
+    // Chapters
+    mapped.chapters = (data.Chapters || []).map(ch => ({
+      name: ch.Name || '',
+      startPositionTicks: ch.StartPositionTicks || 0,
+      imageTag: ch.ImageTag || null,
+    }));
 
     // Part count for multi-part items (box sets)
     mapped.partCount = data.PartCount || null;
@@ -390,6 +398,30 @@ async function handleApi(pathname, query, session) {
       await fetch(`${process.env.JELLYFIN_URL || require('./config').get('JELLYFIN_URL')}/Users/${userId}/PlayedItems/${itemId}?api_key=${token}`, { method: 'DELETE' }).catch(() => {});
     }
     return { success: true, watched };
+  }
+
+
+  // Next episode — for auto-play after current episode ends
+  if (pathname === '/api/next-episode') {
+    const { seriesId, seasonId, indexNumber, parentIndexNumber } = query;
+    if (!seriesId) return null;
+    try {
+      // Get all episodes in the series
+      const data = await jf.get(
+        `/Shows/${seriesId}/Episodes?userId=${userId}&fields=ImageTags,UserData&EnableImages=true`,
+        token
+      );
+      const episodes = data.Items || [];
+      const currentIdx = episodes.findIndex(ep =>
+        ep.ParentIndexNumber == parentIndexNumber && ep.IndexNumber == indexNumber
+      );
+      if (currentIdx === -1 || currentIdx >= episodes.length - 1) return { hasNext: false };
+      const next = episodes[currentIdx + 1];
+      return {
+        hasNext: true,
+        episode: mapItem(next, token),
+      };
+    } catch(e) { return { hasNext: false }; }
   }
 
   // Collections / Box Sets

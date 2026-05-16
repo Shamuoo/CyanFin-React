@@ -34,6 +34,7 @@ export interface MediaItem {
   introStart?: number
   introEnd?: number
   partCount?: number
+  chapters?: { name: string; startPositionTicks: number; imageTag?: string }[]
 }
 
 export interface CastMember {
