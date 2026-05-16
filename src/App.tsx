@@ -17,6 +17,7 @@ import StatsPage from '@/pages/StatsPage'
 import HealthPage from '@/pages/HealthPage'
 import PlayerPage from '@/pages/PlayerPage'
 import NowPlayingPage from '@/pages/NowPlayingPage'
+import SetupPage from '@/pages/SetupPage'
 
 function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, layout, mode } = useStore()
@@ -65,9 +66,10 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
+          <Route path="/setup" element={<SetupPage />} />
           <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/login" replace />} />
           <Route path="/" element={user ? <Layout /> : <Navigate to="/login" replace />}>
-            <Route index element={!onboarded ? <Navigate to="/onboarding" replace /> : <HomePage />} />
+            <Route index element={!onboarded ? <Navigate to="/setup" replace /> : <HomePage />} />
             <Route path="movies" element={<MoviesPage />} />
             <Route path="shows" element={<ShowsPage />} />
             <Route path="music" element={<MusicPage />} />

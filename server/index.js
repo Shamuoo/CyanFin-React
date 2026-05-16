@@ -112,13 +112,12 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/servers/switch' && req.method === 'POST') {
     const body2 = await readBody(req);
     sm.forceServer(body2.server);
-    // Re-init jellyfin with new active URL
-    jf.init(sm.getActiveUrl(), '');
+    jf.init(sm.getActiveUrl(), cfg.get('JELLYFIN_API_KEY') || '');
     return json(res, sm.getStatus());
   }
   if (pathname === '/api/servers/check') {
     const status = await sm.checkBoth();
-    jf.init(sm.getActiveUrl(), '');
+    jf.init(sm.getActiveUrl(), cfg.get('JELLYFIN_API_KEY') || '');
     return json(res, sm.getStatus());
   }
 
