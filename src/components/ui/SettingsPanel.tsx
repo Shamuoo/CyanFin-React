@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { X, CheckCircle, XCircle, Loader } from 'lucide-react'
@@ -96,6 +96,41 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const store = useStore()
   const [tab, setTab] = useState<'appearance' | 'integrations'>('appearance')
   const [intValues, setIntValues] = useState<Record<string, string>>({})
+
+  // Load current config values from server
+  useEffect(() => {
+    api.config().then((cfg: any) => {
+      const vals: Record<string, string> = {}
+      integrationFields.forEach(f => {
+        if (cfg[f.key] || cfg[f.key.toLowerCase()]) {
+          vals[f.key] = cfg[f.key] || cfg[f.key.toLowerCase()] || ''
+        }
+      })
+      // Also check common keys
+      const keyMap: Record<string, string> = {
+        JELLYFIN_BACKUP_URL: cfg.JELLYFIN_BACKUP_URL || '',
+        PLEX_URL: cfg.PLEX_URL || cfg.plexUrl || '',
+        PLEX_TOKEN: cfg.PLEX_TOKEN || '',
+        TMDB_API_KEY: cfg.TMDB_API_KEY || cfg.tmdbKey || '',
+        ANTHROPIC_API_KEY: cfg.ANTHROPIC_API_KEY || '',
+        GEMINI_API_KEY: cfg.GEMINI_API_KEY || '',
+        OMDB_API_KEY: cfg.OMDB_API_KEY || '',
+        OLLAMA_URL: cfg.OLLAMA_URL || '',
+        OLLAMA_MODEL: cfg.OLLAMA_MODEL || '',
+        STREAMYSTATS_URL: cfg.STREAMYSTATS_URL || '',
+        JELLYSEERR_URL: cfg.JELLYSEERR_URL || '',
+        JELLYSEERR_API_KEY: cfg.JELLYSEERR_API_KEY || '',
+        RADARR_URL: cfg.RADARR_URL || '',
+        RADARR_API_KEY: cfg.RADARR_API_KEY || '',
+        SONARR_URL: cfg.SONARR_URL || '',
+        SONARR_API_KEY: cfg.SONARR_API_KEY || '',
+        DISCORD_WEBHOOK_URL: cfg.DISCORD_WEBHOOK_URL || '',
+        JELLYFIN_BACKUP_API_KEY: cfg.JELLYFIN_BACKUP_API_KEY || '',
+        JELLYFIN_MODE: cfg.JELLYFIN_MODE || '',
+      }
+      setIntValues(prev => ({ ...keyMap, ...prev }))
+    }).catch(() => {})
+  }, [])
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
   const [testResults, setTestResults] = useState<Record<string, 'loading' | 'ok' | 'fail'>>({})

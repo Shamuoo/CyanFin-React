@@ -25,6 +25,25 @@ export default function SetupPage() {
   const [testResult, setTestResult] = useState<'ok' | 'fail' | null>(null)
   const [testMsg, setTestMsg] = useState('')
 
+  const [intTestResults, setIntTestResults] = useState<Record<string, 'ok'|'fail'|'loading'>>({})
+  const [intTestMsg, setIntTestMsg] = useState<Record<string, string>>({})
+
+  const testIntegration = async (service: string, urlKey?: string) => {
+    // First save the URL so server can test it
+    const toSave: Record<string, string> = {}
+    if (urlKey && (form as any)[urlKey]) toSave[urlKey] = (form as any)[urlKey]
+    if (Object.keys(toSave).length) await api.saveConfig(toSave).catch(() => {})
+    setIntTestResults(r => ({ ...r, [service]: 'loading' }))
+    try {
+      const r = await api.testIntegration(service)
+      setIntTestResults(prev => ({ ...prev, [service]: r.ok ? 'ok' : 'fail' }))
+      setIntTestMsg(prev => ({ ...prev, [service]: r.message || r.error || '' }))
+    } catch(e: any) {
+      setIntTestResults(prev => ({ ...prev, [service]: 'fail' }))
+      setIntTestMsg(prev => ({ ...prev, [service]: e.message }))
+    }
+  }
+
   const [form, setForm] = useState({
     JELLYFIN_URL: '',
     PLEX_URL: '',
@@ -65,8 +84,22 @@ export default function SetupPage() {
     const toSave: Record<string, string> = {}
     Object.entries(form).forEach(([k, v]) => { if (v.trim()) toSave[k] = v.trim() })
     await api.saveConfig(toSave).catch(() => {})
+    // Small delay to let server reinit with new Jellyfin URL
+    await new Promise(r => setTimeout(r, 500))
     setOnboarded(true)
-    navigate('/')
+    navigate('/login')
+  }
+
+  const testBtn = (service: string, urlKey?: string) => {
+    const r = intTestResults[service]
+    return (
+      <button onClick={() => testIntegration(service, urlKey)}
+        className="text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-wide transition-all hover:opacity-80 mt-1"
+        style={{ border: '1px solid var(--border2)', color: r === 'ok' ? '#2ecc71' : r === 'fail' ? '#e74c3c' : 'var(--muted)', background: r === 'ok' ? 'rgba(46,204,113,0.1)' : r === 'fail' ? 'rgba(231,76,60,0.08)' : 'transparent' }}>
+        {r === 'loading' ? '…' : r === 'ok' ? '✓ OK' : r === 'fail' ? '✗ Failed' : 'Test'}
+        {intTestMsg[service] ? ` — ${intTestMsg[service].slice(0, 40)}` : ''}
+      </button>
+    )
   }
 
   const inp = (key: string, label: string, placeholder: string, secret = false, hint = '') => (
@@ -125,18 +158,18 @@ export default function SetupPage() {
       </div>
       <div className="overflow-y-auto scrollbar-hide" style={{ maxHeight: 340 }}>
         <p className="text-[9px] font-bold tracking-widest uppercase mb-2" style={{ color: 'var(--accent)', opacity: 0.4 }}>AI</p>
-        {inp('ANTHROPIC_API_KEY', 'Anthropic (Claude)', 'sk-ant-...', true, 'claude.ai → API keys')}
-        {inp('GEMINI_API_KEY', 'Gemini', 'AIza...', true, 'aistudio.google.com')}
-        {inp('OLLAMA_URL', 'Ollama (local AI)', 'http://localhost:11434', false, 'If you run Ollama locally')}
+        {inp('ANTHROPIC_API_KEY', 'Anthropic (Claude)', 'sk-ant-...', true, 'claude.ai → API keys')}{testBtn('anthropic')}
+        {inp('GEMINI_API_KEY', 'Gemini', 'AIza...', true, 'aistudio.google.com')}{testBtn('gemini')}
+        {inp('OLLAMA_URL', 'Ollama (local AI)', 'http://localhost:11434', false, 'If you run Ollama locally')}{testBtn('ollama', 'OLLAMA_URL')}
         <p className="text-[9px] font-bold tracking-widest uppercase mb-2 mt-4" style={{ color: 'var(--accent)', opacity: 0.4 }}>Ratings</p>
         {inp('TMDB_API_KEY', 'TMDB', 'API key from themoviedb.org', true)}
         {inp('OMDB_API_KEY', 'OMDB', 'API key from omdbapi.com (RT + Metacritic)', true)}
         <p className="text-[9px] font-bold tracking-widest uppercase mb-2 mt-4" style={{ color: 'var(--accent)', opacity: 0.4 }}>Media Management</p>
-        {inp('JELLYSEERR_URL', 'Jellyseerr URL', 'http://192.168.1.x:5055')}
+        {inp('JELLYSEERR_URL', 'Jellyseerr URL', 'http://192.168.1.x:5055')}{testBtn('jellyseerr', 'JELLYSEERR_URL')}
         {inp('JELLYSEERR_API_KEY', 'Jellyseerr API Key', '', true)}
-        {inp('RADARR_URL', 'Radarr URL', 'http://192.168.1.x:7878')}
+        {inp('RADARR_URL', 'Radarr URL', 'http://192.168.1.x:7878')}{testBtn('radarr', 'RADARR_URL')}
         {inp('RADARR_API_KEY', 'Radarr API Key', '', true)}
-        {inp('SONARR_URL', 'Sonarr URL', 'http://192.168.1.x:8989')}
+        {inp('SONARR_URL', 'Sonarr URL', 'http://192.168.1.x:8989')}{testBtn('sonarr', 'SONARR_URL')}
         {inp('SONARR_API_KEY', 'Sonarr API Key', '', true)}
         {inp('DISCORD_WEBHOOK_URL', 'Discord Webhook', 'https://discord.com/api/webhooks/...')}
       </div>

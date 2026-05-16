@@ -549,6 +549,18 @@ async function handleApi(pathname, query, session) {
     } catch(e) { return { hasNext: false }; }
   }
 
+
+  // Get user's Jellyfin libraries
+  if (pathname === '/api/libraries') {
+    const data = await jf.get(`/Users/${userId}/Views`, token);
+    return (data.Items || []).map(l => ({
+      id: l.Id,
+      name: l.Name,
+      type: l.CollectionType || l.Type,
+      imageUrl: l.ImageTags && l.ImageTags.Primary ? jf.imageUrl(l.Id, 'Primary', { token, maxWidth: 400 }) : null,
+    }));
+  }
+
   // Collections / Box Sets
   if (pathname === '/api/collections') {
     const data = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=BoxSet&Recursive=true&SortBy=SortName&fields=ImageTags,BackdropImageTags&Limit=50`, token);

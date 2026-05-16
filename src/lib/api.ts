@@ -98,6 +98,8 @@ class ApiClient {
   toggleFavorite(itemId: string, favorite: boolean) { return this.post('/api/user/favorite', { itemId, favorite }) }
   toggleWatched(itemId: string, watched: boolean) { return this.post('/api/user/watched', { itemId, watched }) }
 
+  libraries() { return this.get<{ id: string; name: string; type: string; imageUrl?: string }[]>('/api/libraries') }
+
   // Collections
   collections() { return this.get<MediaItem[]>('/api/collections') }
   collectionItems(id: string) { return this.get<MediaItem[]>(`/api/collections/${id}/items`) }

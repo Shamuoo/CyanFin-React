@@ -188,11 +188,12 @@ export default function HomePage() {
 
 function SectionRow({ label, queryFn }: { label: string; queryFn: () => Promise<MediaItem[]> }) {
   const { setDetailItemId } = useStore()
-  const { data = [], isLoading } = useQuery({
+  const { data: rawData, isLoading } = useQuery({
     queryKey: ['home-section', label],
     queryFn,
     staleTime: 5 * 60_000,
   })
+  const data = Array.isArray(rawData) ? rawData : (rawData as any)?.items || []
   if (!isLoading && !data.length) return null
   return <MediaRow title={label} items={data} loading={isLoading} onItemClick={item => setDetailItemId(item.id)} />
 }

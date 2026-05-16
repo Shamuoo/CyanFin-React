@@ -41,7 +41,7 @@ export default function App() {
     return () => window.removeEventListener('auth:expired', handler)
   }, [setUser])
 
-  // Check session on mount
+  // Check session on mount — skip if not onboarded (show setup instead)
   const { isLoading } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
@@ -50,8 +50,21 @@ export default function App() {
       return u
     },
     retry: false,
-    enabled: !user,
+    enabled: !user && onboarded,
   })
+
+  // Not onboarded — go straight to setup, no spinner needed
+  if (!onboarded) {
+    return (
+      <ThemeProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="*" element={<SetupPage />} />
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
+    )
+  }
 
   if (isLoading) {
     return (
