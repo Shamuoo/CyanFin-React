@@ -1,0 +1,6 @@
+node_modules/
+.git/
+server/public/
+tsconfig.tsbuildinfo
+*.md
+.DS_Store
