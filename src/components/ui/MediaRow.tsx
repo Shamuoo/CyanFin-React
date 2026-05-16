@@ -6,8 +6,9 @@ import { useStore } from '@/lib/store'
 interface Props {
   title: string
   items: MediaItem[]
-  onItemClick: (item: MediaItem) => void
+  onItemClick?: (item: MediaItem) => void
   cardWidth?: number
+  loading?: boolean
 }
 
 export default function MediaRow({ title, items, onItemClick, cardWidth = 110 }: Props) {
@@ -22,7 +23,7 @@ export default function MediaRow({ title, items, onItemClick, cardWidth = 110 }:
       </div>
       <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2" style={{ padding: '0 var(--pad) 8px' }}>
         {items.map(item => (
-          <MediaCard key={item.id} item={item} onClick={() => onItemClick(item)} width={cardWidth} />
+          <MediaCard key={item.id} item={item} onClick={() => onItemClick?.(item)} width={cardWidth} />
         ))}
       </div>
     </div>

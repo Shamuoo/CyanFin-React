@@ -35,6 +35,12 @@ export interface MediaItem {
   introEnd?: number
   partCount?: number
   chapters?: { name: string; startPositionTicks: number; imageTag?: string }[]
+  externalRatings?: {
+    imdb?: number | null; tmdb?: number | null; rt?: number | null; metascore?: number | null
+    imdbId?: string; tmdbId?: string; letterboxdUrl?: string | null; imdbUrl?: string | null
+  }
+  personalRating?: number
+  personalNote?: string
 }
 
 export interface CastMember {

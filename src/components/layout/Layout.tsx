@@ -9,6 +9,7 @@ import SettingsPanel from '@/components/ui/SettingsPanel'
 import DetailModal from '@/components/detail/DetailModal'
 import AudioBar from '@/components/player/AudioBar'
 import AINavigator from '@/components/ui/AINavigator'
+import Screensaver from '@/components/ui/Screensaver'
 
 export default function Layout() {
   const { user, setUser, showMusic, mode, showWeather, city } = useStore()
@@ -98,6 +99,7 @@ export default function Layout() {
       </main>
 
       {/* Overlays */}
+      <Screensaver />
       {aiOpen && <AINavigator onClose={() => setAiOpen(false)} />}
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}

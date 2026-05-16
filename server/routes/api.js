@@ -353,6 +353,77 @@ async function handleApi(pathname, query, session) {
       mapped.introEnd = introSkip.Items[0].EndPositionTicks;
     }
 
+    // External ratings from ProviderIds + TMDB + OMDB
+    const providerIds = data.ProviderIds || {};
+    const imdbId = providerIds.Imdb;
+    const tmdbId = providerIds.Tmdb;
+    const imdbRating = data.CommunityRating;
+
+    let tmdbScore = null, rtScore = null, rtAudScore = null, metascore = null;
+
+    // Fetch TMDB score
+    if (tmdbId) {
+      try {
+        const tmdbKey = require('../config').get('TMDB_API_KEY');
+        if (tmdbKey) {
+          const mediaType = data.Type === 'Series' ? 'tv' : 'movie';
+          const res = await new Promise((resolve, reject) => {
+            const https = require('https');
+            const req = https.request({
+              hostname: 'api.themoviedb.org',
+              path: `/3/${mediaType}/${tmdbId}?api_key=${tmdbKey}`,
+              timeout: 5000,
+            }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve(null); } }); });
+            req.on('error', () => resolve(null));
+            req.on('timeout', () => { req.destroy(); resolve(null); });
+            req.end();
+          });
+          if (res && res.vote_average) tmdbScore = Math.round(res.vote_average * 10);
+        }
+      } catch(e) {}
+    }
+
+    // Fetch OMDB for RT + Metascore (uses IMDB ID)
+    if (imdbId) {
+      try {
+        const omdbKey = require('../config').get('OMDB_API_KEY');
+        if (omdbKey) {
+          const res = await new Promise((resolve, reject) => {
+            const https = require('https');
+            const req = https.request({
+              hostname: 'www.omdbapi.com',
+              path: `/?i=${imdbId}&apikey=${omdbKey}`,
+              timeout: 5000,
+            }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve(null); } }); });
+            req.on('error', () => resolve(null));
+            req.on('timeout', () => { req.destroy(); resolve(null); });
+            req.end();
+          });
+          if (res && res.Ratings) {
+            const rt = res.Ratings.find(r => r.Source === 'Rotten Tomatoes');
+            if (rt) rtScore = parseInt(rt.Value);
+            const mc = res.Ratings.find(r => r.Source === 'Metacritic');
+            if (mc) metascore = parseInt(mc.Value);
+          }
+        }
+      } catch(e) {}
+    }
+
+    // Letterboxd link (constructed from IMDB/TMDB)
+    const letterboxdUrl = imdbId ? `https://letterboxd.com/film/${imdbId}/` : null;
+    const imdbUrl = imdbId ? `https://www.imdb.com/title/${imdbId}/` : null;
+
+    mapped.externalRatings = {
+      imdb: imdbRating ? Math.round(imdbRating * 10) / 10 : null,
+      tmdb: tmdbScore,
+      rt: rtScore || null,
+      metascore: metascore || null,
+      imdbId,
+      tmdbId,
+      letterboxdUrl,
+      imdbUrl,
+    };
+
     // Chapters
     mapped.chapters = (data.Chapters || []).map(ch => ({
       name: ch.Name || '',

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Play, ExternalLink, ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import api from '@/lib/api'
+import PersonalRating from '@/components/ui/PersonalRating'
 import type { MediaItem, MediaSource } from '@/types'
 import { useNavigate } from 'react-router-dom'
 
@@ -311,6 +312,48 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
             </a>
           )}
         </div>
+
+
+        {/* External ratings */}
+        {item.externalRatings && (
+          <div className="flex gap-3 flex-wrap mb-4">
+            {item.externalRatings.imdb != null && (
+              <a href={item.externalRatings.imdbUrl || '#'} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold hover:opacity-80 transition-opacity"
+                style={{ background: 'rgba(245,197,24,0.12)', color: '#f5c518', border: '1px solid rgba(245,197,24,0.2)', textDecoration: 'none' }}>
+                <span style={{ fontSize: 9, opacity: 0.7 }}>IMDb</span> {item.externalRatings.imdb}/10
+              </a>
+            )}
+            {item.externalRatings.tmdb != null && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold"
+                style={{ background: 'rgba(1,180,228,0.1)', color: '#01b4e4', border: '1px solid rgba(1,180,228,0.2)' }}>
+                <span style={{ fontSize: 9, opacity: 0.7 }}>TMDB</span> {item.externalRatings.tmdb}%
+              </div>
+            )}
+            {item.externalRatings.rt != null && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold"
+                style={{ background: item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.12)' : 'rgba(100,100,100,0.12)', color: item.externalRatings.rt >= 60 ? '#fa5700' : '#888', border: `1px solid ${item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.25)' : 'rgba(100,100,100,0.2)'}` }}>
+                <span style={{ fontSize: 11 }}>{item.externalRatings.rt >= 60 ? '🍅' : '🫙'}</span> {item.externalRatings.rt}%
+              </div>
+            )}
+            {item.externalRatings.metascore != null && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold"
+                style={{ background: 'rgba(102,175,68,0.12)', color: '#66af44', border: '1px solid rgba(102,175,68,0.25)' }}>
+                <span style={{ fontSize: 9, opacity: 0.7 }}>Meta</span> {item.externalRatings.metascore}
+              </div>
+            )}
+            {item.externalRatings.letterboxdUrl && (
+              <a href={item.externalRatings.letterboxdUrl} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold hover:opacity-80 transition-opacity"
+                style={{ background: 'rgba(0,230,122,0.08)', color: '#00e67a', border: '1px solid rgba(0,230,122,0.2)', textDecoration: 'none' }}>
+                🎬 Letterboxd
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Personal rating */}
+        <PersonalRating itemId={item.id} />
 
         {/* Integration actions */}
         <IntegrationActions item={item} />

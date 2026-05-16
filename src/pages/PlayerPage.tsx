@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import Hls from 'hls.js'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/lib/store'
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, ArrowLeft, PictureInPicture2, Subtitles, SkipForward, List } from 'lucide-react'
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, ArrowLeft, PictureInPicture2, Subtitles, SkipForward, List, Users } from 'lucide-react'
 import api from '@/lib/api'
+import WatchParty from '@/components/ui/WatchParty'
 import type { MediaItem } from '@/types'
 
 function fmtTime(s: number) {
@@ -57,6 +58,7 @@ export default function PlayerPage() {
 
   // Panel state
   const [openPanel, setOpenPanel] = useState<Panel>('none')
+  const [watchPartyOpen, setWatchPartyOpen] = useState(false)
 
   const showControls = useCallback(() => {
     setControlsVisible(true)
@@ -497,6 +499,11 @@ export default function PlayerPage() {
             </button>
           )}
 
+          <button onClick={e => { e.stopPropagation(); setWatchPartyOpen(true) }}
+            className={iconBtn} title="Watch Party">
+            <Users size={16} />
+          </button>
+
           <button onClick={e => { e.stopPropagation(); try { document.pictureInPictureElement ? document.exitPictureInPicture() : videoRef.current?.requestPictureInPicture() } catch {} }} className={iconBtn}>
             <PictureInPicture2 size={16} />
           </button>
@@ -506,6 +513,17 @@ export default function PlayerPage() {
           </button>
         </div>
       </div>
+      {watchPartyOpen && (
+        <WatchParty
+          onClose={() => setWatchPartyOpen(false)}
+          itemId={playingItem?.id}
+          itemTitle={playingItem?.title}
+          currentTime={currentTime}
+          isPaused={!playing}
+          onSeek={t => { if (videoRef.current) videoRef.current.currentTime = t }}
+          onPause={p => { if (p) videoRef.current?.pause(); else videoRef.current?.play() }}
+        />
+      )}
     </div>
   )
 }
