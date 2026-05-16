@@ -320,7 +320,31 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/config') {
     const session = auth.getSessionFromRequest(req);
     if (!session) return json(res, { error: 'Unauthorized' }, 401);
-    return json(res, { jellyfinUrl: cfg.get('JELLYFIN_URL') || JELLYFIN_URL, version: VERSION, ...cfg.getPublicConfig() });
+    return json(res, {
+      jellyfinUrl: cfg.get('JELLYFIN_URL') || JELLYFIN_URL,
+      JELLYFIN_URL: cfg.get('JELLYFIN_URL') || JELLYFIN_URL,
+      JELLYFIN_BACKUP_URL: cfg.get('JELLYFIN_BACKUP_URL') || '',
+      JELLYFIN_BACKUP_API_KEY: cfg.get('JELLYFIN_BACKUP_API_KEY') ? '***' : '',
+      JELLYFIN_MODE: cfg.get('JELLYFIN_MODE') || 'fastest',
+      PLEX_URL: cfg.get('PLEX_URL') || '',
+      PLEX_TOKEN: cfg.get('PLEX_TOKEN') ? '***' : '',
+      TMDB_API_KEY: cfg.get('TMDB_API_KEY') ? '***' : '',
+      ANTHROPIC_API_KEY: cfg.get('ANTHROPIC_API_KEY') ? '***' : '',
+      GEMINI_API_KEY: cfg.get('GEMINI_API_KEY') ? '***' : '',
+      OMDB_API_KEY: cfg.get('OMDB_API_KEY') ? '***' : '',
+      OLLAMA_URL: cfg.get('OLLAMA_URL') || '',
+      OLLAMA_MODEL: cfg.get('OLLAMA_MODEL') || '',
+      STREAMYSTATS_URL: cfg.get('STREAMYSTATS_URL') || '',
+      JELLYSEERR_URL: cfg.get('JELLYSEERR_URL') || '',
+      JELLYSEERR_API_KEY: cfg.get('JELLYSEERR_API_KEY') ? '***' : '',
+      RADARR_URL: cfg.get('RADARR_URL') || '',
+      RADARR_API_KEY: cfg.get('RADARR_API_KEY') ? '***' : '',
+      SONARR_URL: cfg.get('SONARR_URL') || '',
+      SONARR_API_KEY: cfg.get('SONARR_API_KEY') ? '***' : '',
+      DISCORD_WEBHOOK_URL: cfg.get('DISCORD_WEBHOOK_URL') || '',
+      version: VERSION,
+      ...cfg.getPublicConfig(),
+    });
   }
 
   // ── STREAM URL (returns actual Jellyfin URL for HLS.js) ──

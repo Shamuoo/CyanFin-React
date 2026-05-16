@@ -18,7 +18,7 @@ interface ServerDef {
 
 // Derive server list from current config
 function useServers() {
-  const { data: cfg } = useQuery({ queryKey: ['config'], queryFn: api.config.bind(api), staleTime: 30_000 })
+  const { data: cfg, refetch: refetchCfg } = useQuery({ queryKey: ['config'], queryFn: api.config.bind(api), staleTime: 5_000 })
   const { data: status, refetch: refetchStatus } = useQuery({
     queryKey: ['servers-status'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000,
   })
@@ -60,6 +60,10 @@ export default function ServerManager() {
   const [testing, setTesting] = useState<Record<string, boolean>>({})
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
   const [checking, setChecking] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [addSaving, setAddSaving] = useState(false)
+  const { data: cfg, refetch: refetchCfg } = useQuery({ queryKey: ['config'], queryFn: api.config.bind(api), staleTime: 5_000 })
+  const configMode = ((cfg as any)?.JELLYFIN_MODE || 'fastest') as 'fastest' | 'primary' | 'backup'
   const [mode, setMode] = useState<'fastest' | 'primary' | 'backup'>('fastest')
 
   // Add server form
@@ -97,15 +101,24 @@ export default function ServerManager() {
 
   const addServer = async () => {
     if (!form.url) return
+    setAddSaving(true); setAddError('')
     const updates: Record<string, string> = {}
     if (form.type === 'jellyfin' && form.role === 'primary') { updates.JELLYFIN_URL = form.url.replace(/\/$/, '') }
     if (form.type === 'jellyfin' && form.role === 'backup') { updates.JELLYFIN_BACKUP_URL = form.url.replace(/\/$/, '') }
     if (form.type === 'plex') { updates.PLEX_URL = form.url.replace(/\/$/, ''); if (form.token) updates.PLEX_TOKEN = form.token }
-    await api.saveConfig(updates)
-    qc.invalidateQueries({ queryKey: ['config'] })
-    qc.invalidateQueries({ queryKey: ['servers-status'] })
-    setShowAdd(false)
-    setForm({ type: 'jellyfin', role: 'backup', url: '', token: '' })
+    try {
+      await api.saveConfig(updates)
+      await qc.invalidateQueries({ queryKey: ['config'] })
+      await qc.invalidateQueries({ queryKey: ['servers-status'] })
+      // Force refetch
+      await refetchCfg()
+      await refetchStatus()
+      setShowAdd(false)
+      setForm({ type: 'jellyfin', role: 'backup', url: '', token: '' })
+    } catch(e: any) {
+      setAddError(e.message || 'Failed to save — make sure you are logged in')
+    }
+    setAddSaving(false)
   }
 
   const checkAll = async () => {
@@ -265,11 +278,12 @@ export default function ServerManager() {
                   style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
               )}
 
+              {addError && <p className="text-[9px] mb-2" style={{ color: '#e74c3c' }}>{addError}</p>}
               <div className="flex gap-2">
-                <button onClick={addServer} disabled={!form.url}
+                <button onClick={addServer} disabled={!form.url || addSaving}
                   className="flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all hover:opacity-85 disabled:opacity-40"
                   style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
-                  Add
+                  {addSaving ? 'Saving…' : 'Add'}
                 </button>
                 <button onClick={() => setShowAdd(false)}
                   className="px-4 py-2 rounded-lg text-xs font-bold uppercase"
