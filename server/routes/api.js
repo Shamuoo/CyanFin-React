@@ -186,8 +186,8 @@ async function handleApi(pathname, query, session) {
 
   // Recently added
   if (pathname === '/api/recently-added') {
-    const data = await jf.get(`/Users/${userId}/Items/Latest?MediaType=Video&IncludeItemTypes=Movie&Limit=24&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,People,MediaStreams,MediaSources`, token);
-    return dedup((data || []).map(i => mapItem(i, token))).slice(0, 12);
+    const data = await jf.get(`/Users/${userId}/Items/Latest?MediaType=Video&Limit=24&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,People,MediaStreams,MediaSources`, token);
+    return dedup((Array.isArray(data) ? data : data.Items || []).map(i => mapItem(i, token))).slice(0, 16);
   }
 
   // Continue watching
@@ -756,11 +756,11 @@ async function handleApi(pathname, query, session) {
   if (pathname === '/api/health') {
     const start = Date.now();
     const [info, sessions, activity, libraries, devices, plugins, gh] = await Promise.all([
-      jf.get('/System/Info', token),
-      jf.get('/Sessions', token),
-      jf.get('/System/ActivityLog/Entries?Limit=10', token),
-      jf.get('/Library/VirtualFolders', token),
-      jf.get('/Devices', token),
+      jf.get('/System/Info', token).catch(() => ({})),
+      jf.get('/Sessions', token).catch(() => []),
+      jf.get('/System/ActivityLog/Entries?Limit=10', token).catch(() => ({ Items: [] })),
+      jf.get(`/Users/${userId}/Views`, token).catch(() => ({ Items: [] })),
+      jf.get('/Devices', token).catch(() => ({ TotalRecordCount: 0 })),
       jf.get('/Plugins', token).catch(() => ({ Items: [] })),
       require('https') && new Promise(resolve => {
         const r = require('https').request({ hostname:'api.github.com', path:'/repos/Shamuoo/CyanFin/releases/latest', method:'GET', headers:{'User-Agent':'CyanFin','Accept':'application/json'}, timeout:5000 }, res => {
@@ -779,7 +779,7 @@ async function handleApi(pathname, query, session) {
       activeSessions: active.length, totalSessions: (sessions||[]).length,
       transcoding: active.filter(s=>s.TranscodingInfo).length,
       nowPlaying: active.map(s=>({ user:s.UserName, title:s.NowPlayingItem.Name, device:s.DeviceName, isPaused:s.PlayState.IsPaused, progress: Math.round((s.PlayState.PositionTicks||0)/(s.NowPlayingItem.RunTimeTicks||1)*100) })),
-      libraries: (libraries||[]).map(l=>({ name:l.Name, type:l.CollectionType, paths:l.Locations })),
+      libraries: ((libraries && libraries.Items) || libraries || []).map(l=>({ name:l.Name, type:l.CollectionType || l.Type })),
       deviceCount: devices && devices.TotalRecordCount,
       plugins: (plugins.Items||[]).map(p=>({ name:p.Name, version:p.Version })),
       recentActivity: (activity.Items||[]).slice(0,10).map(a=>({ name:a.Name, date:a.Date, severity:a.Severity, overview:a.Overview })),
