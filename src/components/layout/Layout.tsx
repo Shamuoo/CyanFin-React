@@ -12,15 +12,15 @@ import AINavigator from '@/components/ui/AINavigator'
 import Screensaver from '@/components/ui/Screensaver'
 
 export default function Layout() {
-  const { user, setUser, showMusic, mode, showWeather, city } = useStore()
   const store = useStore()
+  const { user, setUser, showMusic, mode, showWeather, city } = store
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
-  const { data: weather } = useQuery({ queryKey: ['weather-nav', store.city], queryFn: () => api.weather(store.city || 'Brisbane'), enabled: store.showWeather, staleTime: 15 * 60_000 })
-  const { data: nowPlaying } = useQuery({ queryKey: ['now-playing-nav'], queryFn: api.nowPlaying.bind(api), refetchInterval: 10_000, staleTime: 5_000 })
-  const { data: serverStatus } = useQuery({ queryKey: ['servers-status-nav'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000, staleTime: 15_000 })
+  const { data: weather } = useQuery({ queryKey: ['weather-nav', city], queryFn: () => api.weather(city || 'Brisbane'), enabled: !!user && showWeather, staleTime: 15 * 60_000 })
+  const { data: nowPlaying } = useQuery({ queryKey: ['now-playing-nav'], queryFn: api.nowPlaying.bind(api), refetchInterval: 10_000, staleTime: 5_000, enabled: !!user })
+  const { data: serverStatus } = useQuery({ queryKey: ['servers-status-nav'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000, staleTime: 15_000, enabled: !!user })
 
   // Listen for auth expiry
   useEffect(() => {

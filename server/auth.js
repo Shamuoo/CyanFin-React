@@ -1,16 +1,42 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
-// In-memory session store
+const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const sessions = new Map();
-const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SESSION_FILE = path.join(process.env.CONFIG_PATH ? path.dirname(process.env.CONFIG_PATH) : '/tmp', 'sessions.json');
 
-function createSession(userId, token, username, isAdmin) {
+// Load persisted sessions on startup
+function loadSessions() {
+  try {
+    if (!fs.existsSync(SESSION_FILE)) return;
+    const data = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    const now = Date.now();
+    let loaded = 0;
+    for (const [id, session] of Object.entries(data)) {
+      if (now - session.createdAt < SESSION_TTL) {
+        sessions.set(id, session);
+        loaded++;
+      }
+    }
+    console.log(`[auth] Loaded ${loaded} sessions`);
+  } catch(e) { /* ignore */ }
+}
+
+function saveSessions() {
+  try {
+    const obj = {};
+    for (const [id, session] of sessions.entries()) obj[id] = session;
+    fs.writeFileSync(SESSION_FILE, JSON.stringify(obj));
+  } catch(e) { /* ignore */ }
+}
+
+loadSessions();
+
+function createSession(data) {
   const sessionId = crypto.randomBytes(32).toString('hex');
-  sessions.set(sessionId, {
-    userId, token, username, isAdmin,
-    createdAt: Date.now(),
-    lastSeen: Date.now(),
-  });
+  sessions.set(sessionId, { ...data, createdAt: Date.now(), lastSeen: Date.now() });
+  saveSessions();
   return sessionId;
 }
 
@@ -20,6 +46,7 @@ function getSession(sessionId) {
   if (!session) return null;
   if (Date.now() - session.createdAt > SESSION_TTL) {
     sessions.delete(sessionId);
+    saveSessions();
     return null;
   }
   session.lastSeen = Date.now();
@@ -28,40 +55,18 @@ function getSession(sessionId) {
 
 function deleteSession(sessionId) {
   sessions.delete(sessionId);
-}
-
-function parseCookies(cookieHeader) {
-  if (!cookieHeader) return {};
-  return Object.fromEntries(
-    cookieHeader.split(';').map(c => c.trim().split('=').map(decodeURIComponent))
-  );
+  saveSessions();
 }
 
 function getSessionFromRequest(req) {
-  const cookies = parseCookies(req.headers.cookie);
-  return getSession(cookies.cf_session);
+  const cookie = req.headers.cookie || '';
+  const match = cookie.match(/cf_session=([a-f0-9]{64})/);
+  if (!match) return null;
+  return getSession(match[1]);
 }
 
 function setSessionCookie(res, sessionId) {
   res.setHeader('Set-Cookie', `cf_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL / 1000}`);
 }
 
-function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', 'cf_session=; Path=/; HttpOnly; Max-Age=0');
-}
-
-function requireAuth(req, res) {
-  const session = getSessionFromRequest(req);
-  if (!session) {
-    res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Unauthorized', redirect: '/login' }));
-    return null;
-  }
-  return session;
-}
-
-module.exports = {
-  createSession, getSession, deleteSession,
-  getSessionFromRequest, setSessionCookie, clearSessionCookie,
-  requireAuth, parseCookies,
-};
+module.exports = { createSession, getSession, deleteSession, getSessionFromRequest, setSessionCookie };

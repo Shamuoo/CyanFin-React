@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Info, Settings2, GripVertical, Eye, EyeOff } from 'lucide-react'
@@ -36,9 +36,15 @@ export default function HomePage() {
     .filter(Boolean) as typeof ALL_SECTIONS
 
   // Hero
-  const { data: hero } = useQuery({ queryKey: ['hero'], queryFn: () => api.recentlyAdded(), staleTime: 60_000 })
-  const heroItems = (hero || []).filter(i => i.backdropUrl).slice(0, 5)
+  const { data: heroRecent } = useQuery({ queryKey: ['hero-recent'], queryFn: () => api.recentlyAdded(), staleTime: 60_000 })
+  const { data: heroPopular } = useQuery({ queryKey: ['hero-popular'], queryFn: () => api.popular(), staleTime: 60_000 })
+  const heroItems = [...(heroRecent || []), ...(heroPopular || [])].filter(i => i.backdropUrl).filter((v,i,a) => a.findIndex(x => x.id === v.id) === i).slice(0, 8)
   const [heroIdx, setHeroIdx] = useState(0)
+  useEffect(() => {
+    if (heroItems.length <= 1) return
+    const t = setInterval(() => setHeroIdx(i => (i + 1) % heroItems.length), 7000)
+    return () => clearInterval(t)
+  }, [heroItems.length])
   const heroItem = heroItems[heroIdx]
 
   const handlePlay = async (item: MediaItem) => {

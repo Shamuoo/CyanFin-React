@@ -33,6 +33,13 @@ export default function App() {
   const { user, setUser, onboarded, layout } = useStore()
   if (layout === 'tv') useDpadNavigation()
 
+  // Listen for auth expiry from api client
+  useEffect(() => {
+    const handler = () => { setUser(null) }
+    window.addEventListener('auth:expired', handler)
+    return () => window.removeEventListener('auth:expired', handler)
+  }, [setUser])
+
   // Check session on mount
   const { isLoading } = useQuery({
     queryKey: ['session'],

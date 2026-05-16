@@ -58,6 +58,7 @@ function ServerStatusPanel() {
       </div>
       {['primary', 'backup', 'plex'].map(s => {
         const srv = s === 'primary' ? status.primary : s === 'backup' ? status.backup : status.plex
+        if (!srv) return null
         const isActive = status.active === s
         return (
           <div key={s} className="flex items-center gap-2 mb-2">
