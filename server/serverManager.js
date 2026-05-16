@@ -113,6 +113,7 @@ function getActiveToken(requestToken) {
 
 function getStatus() {
   const { primary, backup, hasBackup } = getServers()
+  const plexUrl = cfg.get('PLEX_URL') || ''
   return {
     active: _state.active,
     mode: cfg.get('JELLYFIN_MODE') || 'fastest',

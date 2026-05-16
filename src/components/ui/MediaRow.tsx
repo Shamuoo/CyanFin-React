@@ -11,8 +11,9 @@ interface Props {
   loading?: boolean
 }
 
-export default function MediaRow({ title, items, onItemClick, cardWidth = 110 }: Props) {
-  if (!items.length) return null
+export default function MediaRow({ title, items, onItemClick, cardWidth = 110, loading }: Props) {
+  const safeItems = Array.isArray(items) ? items : []
+  if (!safeItems.length && !loading) return null
 
   return (
     <div className="mb-8">
@@ -22,7 +23,7 @@ export default function MediaRow({ title, items, onItemClick, cardWidth = 110 }:
         </h2>
       </div>
       <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2" style={{ padding: '0 var(--pad) 8px' }}>
-        {items.map(item => (
+        {safeItems.map(item => (
           <MediaCard key={item.id} item={item} onClick={() => onItemClick?.(item)} width={cardWidth} />
         ))}
       </div>
