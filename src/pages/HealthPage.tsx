@@ -115,7 +115,8 @@ export default function HealthPage() {
           {/* Servers */}
           {servers.length > 0 && (
             <Card title={`Servers — ${ss?.source === 'plex' ? '🟠 PLEX FALLBACK' : ss?.mode || 'fastest'} mode`} fullWidth>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {servers.length === 0 && <p className="text-xs" style={{ color: 'var(--muted)' }}>No servers detected — check Settings → Servers</p>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {servers.map((srv: any) => (
                   <div key={srv.key} className="rounded-xl p-4"
                     style={{ background: srv.isActive ? 'rgba(201,168,76,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${srv.isActive ? 'var(--accent)' : 'var(--border2)'}` }}>
@@ -133,7 +134,7 @@ export default function HealthPage() {
                         {srv.ok ? `${srv.latency}ms` : 'Unreachable'}
                       </span>
                       {!srv.isActive && (
-                        <button onClick={() => switchServer(srv.key as 'primary' | 'backup' | 'plex')} disabled={switching || !srv.ok}
+                        <button onClick={() => switchServer(srv.key as 'primary' | 'backup' | 'plex')} disabled={switching}
                           className="text-[8px] px-2.5 py-1 rounded-full font-bold uppercase transition-all hover:opacity-80 disabled:opacity-30"
                           style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
                           {switching ? '…' : 'Use This'}
