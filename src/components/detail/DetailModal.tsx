@@ -312,6 +312,43 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
           </div>
         )}
 
+        {/* Ratings row — above play button */}
+        {item.externalRatings && (
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            {item.externalRatings.imdb != null && (
+              <a href={item.externalRatings.imdbUrl || '#'} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold hover:opacity-75 transition-opacity"
+                style={{ background: 'rgba(245,197,24,0.1)', color: '#f5c518', border: '1px solid rgba(245,197,24,0.2)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 8 }}>IMDb</span>{item.externalRatings.imdb}
+              </a>
+            )}
+            {item.externalRatings.tmdb != null && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(1,180,228,0.08)', color: '#01b4e4', border: '1px solid rgba(1,180,228,0.15)', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 8 }}>TMDB</span>{item.externalRatings.tmdb}%
+              </span>
+            )}
+            {item.externalRatings.rt != null && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
+                style={{ background: item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.1)' : 'rgba(120,120,120,0.08)', color: item.externalRatings.rt >= 60 ? '#fa5700' : '#888', border: `1px solid ${item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.2)' : 'rgba(120,120,120,0.15)'}`, whiteSpace: 'nowrap' }}>
+                {item.externalRatings.rt >= 60 ? '🍅' : '🫙'}{item.externalRatings.rt}%
+              </span>
+            )}
+            {item.externalRatings.metascore != null && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(102,175,68,0.08)', color: '#66af44', border: '1px solid rgba(102,175,68,0.2)', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 8 }}>MC</span>{item.externalRatings.metascore}
+              </span>
+            )}
+            {item.externalRatings.letterboxdUrl && (
+              <a href={item.externalRatings.letterboxdUrl} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold hover:opacity-75"
+                style={{ background: 'rgba(0,165,80,0.08)', color: '#00a550', border: '1px solid rgba(0,165,80,0.18)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                LB
+              </a>
+            )}
+          </div>
+        )}
         {/* Action buttons */}
         <div className="flex gap-2 flex-wrap mb-6">
           {canPlay && (
@@ -332,43 +369,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
         </div>
 
 
-        {/* External ratings */}
-        {item.externalRatings && (
-          <div className="flex gap-3 flex-wrap mb-4">
-            {item.externalRatings.imdb != null && (
-              <a href={item.externalRatings.imdbUrl || '#'} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold hover:opacity-80 transition-opacity"
-                style={{ background: 'rgba(245,197,24,0.12)', color: '#f5c518', border: '1px solid rgba(245,197,24,0.2)', textDecoration: 'none' }}>
-                <span style={{ fontSize: 9, opacity: 0.7 }}>IMDb</span> {item.externalRatings.imdb}/10
-              </a>
-            )}
-            {item.externalRatings.tmdb != null && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold"
-                style={{ background: 'rgba(1,180,228,0.1)', color: '#01b4e4', border: '1px solid rgba(1,180,228,0.2)' }}>
-                <span style={{ fontSize: 9, opacity: 0.7 }}>TMDB</span> {item.externalRatings.tmdb}%
-              </div>
-            )}
-            {item.externalRatings.rt != null && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold"
-                style={{ background: item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.12)' : 'rgba(100,100,100,0.12)', color: item.externalRatings.rt >= 60 ? '#fa5700' : '#888', border: `1px solid ${item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.25)' : 'rgba(100,100,100,0.2)'}` }}>
-                <span style={{ fontSize: 11 }}>{item.externalRatings.rt >= 60 ? '🍅' : '🫙'}</span> {item.externalRatings.rt}%
-              </div>
-            )}
-            {item.externalRatings.metascore != null && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold"
-                style={{ background: 'rgba(102,175,68,0.12)', color: '#66af44', border: '1px solid rgba(102,175,68,0.25)' }}>
-                <span style={{ fontSize: 9, opacity: 0.7 }}>Meta</span> {item.externalRatings.metascore}
-              </div>
-            )}
-            {item.externalRatings.letterboxdUrl && (
-              <a href={item.externalRatings.letterboxdUrl} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold hover:opacity-80 transition-opacity"
-                style={{ background: 'rgba(0,230,122,0.08)', color: '#00e67a', border: '1px solid rgba(0,230,122,0.2)', textDecoration: 'none' }}>
-                🎬 Letterboxd
-              </a>
-            )}
-          </div>
-        )}
+
 
         {/* Personal rating */}
         <PersonalRating itemId={item.id} />

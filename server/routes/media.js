@@ -3,10 +3,77 @@ const jf = require('../jellyfin');
 
 // ── Audio label ──────────────────────────────────────────────────────────────
 const LANG_FLAGS = {
-  eng:'🇬🇧', en:'🇬🇧', fre:'🇫🇷', fra:'🇫🇷', ger:'🇩🇪', deu:'🇩🇪',
-  spa:'🇪🇸', jpn:'🇯🇵', kor:'🇰🇷', chi:'🇨🇳', zho:'🇨🇳', ita:'🇮🇹',
-  por:'🇵🇹', rus:'🇷🇺', ara:'🇸🇦', hin:'🇮🇳', dut:'🇳🇱', nld:'🇳🇱',
-  swe:'🇸🇪', nor:'🇳🇴', fin:'🇫🇮', dan:'🇩🇰', pol:'🇵🇱', tur:'🇹🇷',
+  // English
+  eng:'🇬🇧', en:'🇬🇧',
+  // French
+  fre:'🇫🇷', fra:'🇫🇷', fr:'🇫🇷',
+  // German
+  ger:'🇩🇪', deu:'🇩🇪', de:'🇩🇪',
+  // Spanish
+  spa:'🇪🇸', es:'🇪🇸',
+  // Japanese
+  jpn:'🇯🇵', ja:'🇯🇵',
+  // Korean
+  kor:'🇰🇷', ko:'🇰🇷',
+  // Chinese
+  chi:'🇨🇳', zho:'🇨🇳', zh:'🇨🇳',
+  // Italian
+  ita:'🇮🇹', it:'🇮🇹',
+  // Portuguese
+  por:'🇵🇹', pt:'🇵🇹',
+  // Russian
+  rus:'🇷🇺', ru:'🇷🇺',
+  // Arabic
+  ara:'🇸🇦', ar:'🇸🇦',
+  // Hindi
+  hin:'🇮🇳', hi:'🇮🇳',
+  // Dutch
+  dut:'🇳🇱', nld:'🇳🇱', nl:'🇳🇱',
+  // Swedish
+  swe:'🇸🇪', sv:'🇸🇪',
+  // Norwegian
+  nor:'🇳🇴', nb:'🇳🇴', nn:'🇳🇴',
+  // Finnish
+  fin:'🇫🇮', fi:'🇫🇮',
+  // Danish
+  dan:'🇩🇰', da:'🇩🇰',
+  // Polish
+  pol:'🇵🇱', pl:'🇵🇱',
+  // Turkish
+  tur:'🇹🇷', tr:'🇹🇷',
+  // Czech
+  cze:'🇨🇿', ces:'🇨🇿', cs:'🇨🇿',
+  // Greek
+  gre:'🇬🇷', ell:'🇬🇷', el:'🇬🇷',
+  // Hungarian
+  hun:'🇭🇺', hu:'🇭🇺',
+  // Romanian
+  rum:'🇷🇴', ron:'🇷🇴', ro:'🇷🇴',
+  // Ukrainian
+  ukr:'🇺🇦', uk:'🇺🇦',
+  // Thai
+  tha:'🇹🇭', th:'🇹🇭',
+  // Vietnamese
+  vie:'🇻🇳', vi:'🇻🇳',
+  // Indonesian
+  ind:'🇮🇩', id:'🇮🇩',
+  // Malay
+  may:'🇲🇾', msa:'🇲🇾', ms:'🇲🇾',
+  // Hebrew
+  heb:'🇮🇱', he:'🇮🇱',
+  // Swedish
+  slo:'🇸🇰', slk:'🇸🇰', sk:'🇸🇰',
+  // Croatian
+  hrv:'🇭🇷', hr:'🇭🇷',
+  // Serbian
+  srp:'🇷🇸', sr:'🇷🇸',
+  // Bulgarian
+  bul:'🇧🇬', bg:'🇧🇬',
+  // Catalan
+  cat:'🇪🇸', ca:'🇪🇸',
+  // US English
+  'en-us':'🇺🇸', 'en-gb':'🇬🇧', 'en-au':'🇦🇺',
+  // Unknown/multi
   und:'🌐', mul:'🌐',
 };
 
