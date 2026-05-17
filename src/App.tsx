@@ -1,11 +1,12 @@
-import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, Component, type ReactNode } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useStore } from '@/lib/store'
-import { useDpadNavigation } from '@/hooks/useDpadNavigation'
-import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { useDpadNavigation } from '@/hooks/useDpadNavigation'
 
-import Layout from '@/components/layout/Layout'
+// Pages
+import SetupPage from '@/pages/SetupPage'
 import LoginPage from '@/pages/LoginPage'
 import OnboardingPage from '@/pages/OnboardingPage'
 import HomePage from '@/pages/HomePage'
@@ -15,33 +16,58 @@ import MusicPage from '@/pages/MusicPage'
 import LibraryPage from '@/pages/LibraryPage'
 import StatsPage from '@/pages/StatsPage'
 import HealthPage from '@/pages/HealthPage'
-import PlayerPage from '@/pages/PlayerPage'
 import NowPlayingPage from '@/pages/NowPlayingPage'
-import SetupPage from '@/pages/SetupPage'
+import PlayerPage from '@/pages/PlayerPage'
 
-function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme, layout, mode } = useStore()
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    if (layout !== 'desktop') document.documentElement.setAttribute('data-layout', layout)
-    else document.documentElement.removeAttribute('data-layout')
-    document.documentElement.setAttribute('data-mode', mode)
-  }, [theme, layout, mode])
-  return <>{children}</>
+// Layout
+import Layout from '@/components/layout/Layout'
+import ThemeProvider from '@/components/layout/ThemeProvider'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 2 * 60_000,
+    },
+  },
+})
+
+// ── Error Boundary ────────────────────────────────────────────────────────────
+class ErrorBoundary extends Component<{ children: ReactNode; fallback?: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error) { console.error('[ErrorBoundary]', error) }
+  render() {
+    if (this.state.error) {
+      return this.props.fallback ?? (
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: 16 }}>
+          <p style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 24, letterSpacing: '0.1em' }}>Something went wrong</p>
+          <p style={{ color: 'var(--muted)', fontSize: 12, maxWidth: 400, textAlign: 'center' }}>{(this.state.error as Error).message}</p>
+          <button onClick={() => this.setState({ error: null })}
+            style={{ padding: '8px 20px', borderRadius: 20, background: 'var(--accent)', color: 'var(--bg)', fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', border: 'none' }}>
+            Try Again
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
-export default function App() {
+// ── Auth guard ────────────────────────────────────────────────────────────────
+function AuthGuard() {
   const { user, setUser, onboarded, layout } = useStore()
   if (layout === 'tv') useDpadNavigation()
 
-  // Listen for auth expiry from api client
+  // Listen for auth expiry
   useEffect(() => {
-    const handler = () => { setUser(null) }
+    const handler = () => setUser(null)
     window.addEventListener('auth:expired', handler)
     return () => window.removeEventListener('auth:expired', handler)
   }, [setUser])
 
-  // Check session on mount — skip if not onboarded (show setup instead)
+  // Check session
   const { isLoading } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
@@ -51,50 +77,63 @@ export default function App() {
     },
     retry: false,
     enabled: !user && onboarded,
+    staleTime: Infinity,
   })
 
-  // Not onboarded — go straight to setup, no spinner needed
-  if (!onboarded) {
-    return (
+  if (!onboarded) return <Navigate to="/setup" replace />
+  if (isLoading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
+  return <Outlet />
+}
+
+function Spinner() {
+  return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div style={{ width: 32, height: 32, border: '2px solid', borderColor: 'rgba(255,255,255,0.1) rgba(255,255,255,0.1) rgba(255,255,255,0.1) var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+    </div>
+  )
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <BrowserRouter>
-          <Routes>
-            <Route path="*" element={<SetupPage />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              {/* Public — no auth needed */}
+              <Route path="/setup" element={<SetupPage />} />
+              <Route path="/login" element={<LoginPage />} />
+
+              {/* Player — full screen, no layout chrome */}
+              <Route path="/player" element={
+                <ErrorBoundary>
+                  <PlayerPage />
+                </ErrorBoundary>
+              } />
+
+              {/* Authenticated routes */}
+              <Route element={<AuthGuard />}>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<ErrorBoundary><HomePage /></ErrorBoundary>} />
+                  <Route path="/movies" element={<ErrorBoundary><MoviesPage /></ErrorBoundary>} />
+                  <Route path="/shows" element={<ErrorBoundary><ShowsPage /></ErrorBoundary>} />
+                  <Route path="/music" element={<ErrorBoundary><MusicPage /></ErrorBoundary>} />
+                  <Route path="/library" element={<ErrorBoundary><LibraryPage /></ErrorBoundary>} />
+                  <Route path="/stats" element={<ErrorBoundary><StatsPage /></ErrorBoundary>} />
+                  <Route path="/health" element={<ErrorBoundary><HealthPage /></ErrorBoundary>} />
+                  <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
+                  <Route path="/onboarding" element={<OnboardingPage />} />
+                </Route>
+              </Route>
+
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </ThemeProvider>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid', borderColor: 'rgba(255,255,255,0.1) rgba(255,255,255,0.1) rgba(255,255,255,0.1) var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-      </div>
-    )
-  }
-
-  return (
-    <ThemeProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/setup" element={<SetupPage />} />
-          <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
-          <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/login" replace />} />
-          <Route path="/" element={user ? <Layout /> : <Navigate to={!onboarded ? "/setup" : "/login"} replace />}>
-            <Route index element={!onboarded ? <Navigate to="/setup" replace /> : <HomePage />} />
-            <Route path="movies" element={<MoviesPage />} />
-            <Route path="shows" element={<ShowsPage />} />
-            <Route path="music" element={<MusicPage />} />
-            <Route path="library" element={<LibraryPage />} />
-            <Route path="stats" element={<StatsPage />} />
-            <Route path="health" element={<HealthPage />} />
-            <Route path="playing" element={<NowPlayingPage />} />
-          </Route>
-          <Route path="/player" element={user ? <PlayerPage /> : <Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to={!onboarded ? "/setup" : "/"} replace />} />
-        </Routes>
-      </BrowserRouter>
-    </ThemeProvider>
+    </QueryClientProvider>
   )
 }

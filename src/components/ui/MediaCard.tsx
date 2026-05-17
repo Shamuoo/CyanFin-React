@@ -73,9 +73,9 @@ export default function MediaCard({ item, onClick, width = 110 }: Props) {
         )}
 
         {/* Progress bar */}
-        {item.userData?.PlayedPercentage && item.userData.PlayedPercentage > 0 && item.userData.PlayedPercentage < 100 && (
+        {item.userData?.playedPercentage && item.userData.playedPercentage > 0 && item.userData.playedPercentage < 100 && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <div className="h-full" style={{ width: `${item.userData.PlayedPercentage}%`, background: 'var(--accent)' }} />
+            <div className="h-full" style={{ width: `${item.userData.playedPercentage}%`, background: 'var(--accent)' }} />
           </div>
         )}
       </div>

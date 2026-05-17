@@ -56,7 +56,7 @@ export default function SearchOverlay({ onClose }: Props) {
         {results.map(item => (
           <button key={item.id} onClick={() => { setDetailItemId(item.id); onClose() }}
             className="w-full flex gap-3 p-3 rounded-lg text-left transition-all hover:bg-white/5 mb-1">
-            <img src={item.posterUrl} alt="" className="w-10 h-[60px] object-cover rounded flex-shrink-0"
+            <img src={item.posterUrl || undefined} alt="" className="w-10 h-[60px] object-cover rounded flex-shrink-0"
               style={{ background: 'var(--bg3)' }} onError={e => (e.currentTarget.style.display = 'none')} />
             <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
               <p className="text-sm font-bold truncate" style={{ color: 'var(--cream)' }}>{item.title}</p>

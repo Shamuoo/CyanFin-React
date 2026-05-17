@@ -135,7 +135,7 @@ export default function PlayerPage() {
     // Next episode
     const p = playingItem as any
     if (p.seriesId && p.indexNumber !== undefined && p.parentIndexNumber !== undefined) {
-      api.nextEpisode(p.seriesId, p.seasonId || '', p.indexNumber, p.parentIndexNumber)
+      api.nextEpisode(p.seriesId, p.parentIndexNumber, p.indexNumber)
         .then(r => { if (r.hasNext && r.episode) setNextEpisode(r.episode) })
         .catch(() => {})
     }

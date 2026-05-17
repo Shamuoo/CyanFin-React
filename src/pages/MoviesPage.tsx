@@ -57,7 +57,7 @@ export default function MoviesPage() {
           </select>
           <select value={genre} onChange={e => setGenre(e.target.value)} className={sel} style={selStyle}>
             <option value="">All Genres</option>
-            {genres.map(g => <option key={g} value={g}>{g}</option>)}
+            {genres.map(g => <option key={typeof g === "string" ? g : g.name} value={typeof g === "string" ? g : g.name}>{typeof g === "string" ? g : g.name}</option>)}
           </select>
         </div>
       </div>

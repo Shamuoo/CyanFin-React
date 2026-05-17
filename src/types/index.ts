@@ -1,112 +1,154 @@
+// ── Core media types ──────────────────────────────────────────────────────────
+
 export interface MediaItem {
   id: string
   title: string
-  year?: number
-  type: string
-  seriesName?: string
-  seriesId?: string
-  seasonId?: string
-  indexNumber?: number
-  parentIndexNumber?: number
-  genre?: string
+  seriesName?: string | null
+  year?: number | null
+  type: 'Movie' | 'Series' | 'Episode' | 'MusicAlbum' | 'Audio' | 'BoxSet' | string
+  overview?: string | null
+  tagline?: string | null
+  genre?: string | null
   genres?: string[]
-  rating?: string
-  score?: number
-  overview?: string
-  tagline?: string
-  runtime?: number
+  rating?: string | null
+  score?: number | null
+  runtime?: number | null       // minutes
+  runTimeTicks?: number | null
+  audio?: string | null
   qualities?: string[]
-  audio?: string
-  versionCount?: number
-  studios?: string[]
   cast?: CastMember[]
-  director?: string
-  posterUrl?: string
-  backdropUrl?: string
-  backdropUrls?: string[]
-  thumbUrl?: string
-  logoUrl?: string
-  userData?: UserData
-  extras?: ExtraItem[]
-  videoBackdropUrl?: string
-  themeSongUrl?: string
-  themeSongId?: string
-  introStart?: number
-  introEnd?: number
-  partCount?: number
-  chapters?: { name: string; startPositionTicks: number; imageTag?: string }[]
-  externalRatings?: {
-    imdb?: number | null; tmdb?: number | null; rt?: number | null; metascore?: number | null
-    imdbId?: string; tmdbId?: string; letterboxdUrl?: string | null; imdbUrl?: string | null
+  director?: string | null
+  indexNumber?: number | null
+  parentIndexNumber?: number | null
+  seriesId?: string | null
+  seasonId?: string | null
+  seasonName?: string | null
+  userData?: UserData | null
+  externalIds?: Record<string, string>
+  partCount?: number | null
+  versionCount?: number | null
+  // Capitalized aliases for backward compat
+  UserData?: {
+    PlayedPercentage?: number
+    PlaybackPositionTicks?: number
+    IsFavorite?: boolean
+    Played?: boolean
   }
-  personalRating?: number
-  personalNote?: string
+
+  // URLs
+  posterUrl?: string | null
+  backdropUrl?: string | null
+  backdropUrls?: string[]
+  thumbUrl?: string | null
+  logoUrl?: string | null
+
+  // Detail-only fields
+  chapters?: Chapter[]
+  extras?: ExtraItem[]
+  themeSongUrl?: string | null
+  introStart?: number | null
+  introEnd?: number | null
+
+  // External ratings
+  externalRatings?: ExternalRatings
+
+  // Source identifier
+  _source?: 'jellyfin' | 'plex'
+  videoBackdropUrl?: string | null
 }
 
 export interface CastMember {
   id: string
   name: string
-  role?: string
-  imageTag?: string
+  role?: string | null
+  imageTag?: string | null
 }
 
 export interface UserData {
-  PlayedPercentage?: number
-  PlayCount?: number
-  IsFavorite?: boolean
-  LastPlayedDate?: string
-  PlaybackPositionTicks?: number
+  played?: boolean
+  playedPercentage?: number
+  playbackPositionTicks?: number
+  isFavorite?: boolean
+}
+
+export interface ExternalRatings {
+  imdb?: number | null
+  tmdb?: number | null
+  rt?: number | null
+  metascore?: number | null
+  imdbId?: string | null
+  tmdbId?: string | null
+  imdbUrl?: string | null
+  letterboxdUrl?: string | null
+}
+
+export interface Chapter {
+  name: string
+  startPositionTicks: number
+  imageTag?: string | null
 }
 
 export interface ExtraItem {
   id: string
   title: string
-  type?: string
-  runtime?: number
-  thumbUrl?: string
+  type?: string | null
+  runtime?: number | null
+  thumbUrl?: string | null
 }
 
-export interface User {
+// ── Playback ──────────────────────────────────────────────────────────────────
+
+export interface PlayingItem {
   id: string
-  name: string
-  isAdmin?: boolean
+  title: string
+  streamUrl: string
+  hlsUrl?: string | null
+  startTime?: number
+  mediaSourceId?: string
+  seriesId?: string | null
+  seasonId?: string | null
+  indexNumber?: number | null
+  parentIndexNumber?: number | null
+}
+
+export interface MediaSource {
+  id: string
+  name?: string | null
+  container?: string | null
+  videoCodec?: string | null
+  size?: number | null
+  bitrate?: number | null
+  supportsDirectPlay?: boolean
+  supportsDirectStream?: boolean
+  streamUrl: string
+  hlsUrl?: string
+  audioStreams: AudioStream[]
+  subtitleStreams: SubtitleStream[]
 }
 
 export interface AudioStream {
   index: number
-  codec: string
-  language?: string
   title: string
+  codec?: string
   channels?: number
+  language?: string
   isDefault?: boolean
 }
 
 export interface SubtitleStream {
   index: number
-  codec: string
-  language?: string
   title: string
+  language?: string
   isDefault?: boolean
+  codec?: string
+  isExternal?: boolean
 }
 
-export interface MediaSource {
-  id: string
-  name: string
-  container?: string
-  size?: number
-  videoCodec?: string
-  audioStreams: AudioStream[]
-  subtitleStreams: SubtitleStream[]
-}
+// ── Browse ────────────────────────────────────────────────────────────────────
 
-export interface PlaybackInfo {
-  streamUrl: string
-  hlsUrl?: string
-  playSessionId?: string
-  mediaSourceId?: string
-  playMethod: string
-  container?: string
-  mediaSources?: MediaSource[]
+export interface BrowseResult {
+  items: MediaItem[]
+  total: number
 }
 
 export interface NowPlaying {
@@ -114,18 +156,67 @@ export interface NowPlaying {
   positionTicks: number
   runtimeTicks: number
   isPaused: boolean
-  sessionUser?: string
-  allUsers?: { user: string; title: string; isPaused: boolean; device: string }[]
-  trailerKey?: string
+  allSessions?: { user: string; userId: string }[]
+  allUsers?: { user: string; userId: string }[]
 }
 
-export interface Stats {
-  movies: number
-  shows: number
-  episodes: number
-  songs: number
+// ── Servers ───────────────────────────────────────────────────────────────────
+
+export interface ServerInfo {
+  url: string
+  ok: boolean
+  latency: number | null
 }
+
+export interface ServerStatus {
+  active: 'primary' | 'backup'
+  mode: 'fastest' | 'primary' | 'backup'
+  primary: ServerInfo
+  backup: ServerInfo | null
+  plex: ServerInfo | null
+  lastCheck: number
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+
+export interface PublicConfig {
+  JELLYFIN_URL: string
+  JELLYFIN_BACKUP_URL: string
+  PLEX_URL: string
+  OLLAMA_URL: string
+  OLLAMA_MODEL: string
+  STREAMYSTATS_URL: string
+  JELLYSEERR_URL: string
+  RADARR_URL: string
+  SONARR_URL: string
+  DISCORD_WEBHOOK_URL: string
+  JELLYFIN_MODE: string
+  // Has-key booleans (secrets masked)
+  hasJellyfin: boolean
+  hasTmdb: boolean
+  hasAnthropic: boolean
+  hasGemini: boolean
+  hasOllama: boolean
+  hasPlex: boolean
+  hasJellyseerr: boolean
+  hasRadarr: boolean
+  hasSonarr: boolean
+  hasDiscord: boolean
+  hasOmdb: boolean
+  version: string
+}
+
+// ── Store ─────────────────────────────────────────────────────────────────────
 
 export type Theme = 'cinema' | 'midnight' | 'ember' | 'arctic' | 'neon'
 export type Layout = 'desktop' | 'tv' | 'mobile'
-export type Mode = 'advanced' | 'simple'
+export type AIProvider = 'claude' | 'gemini' | 'ollama'
+
+export interface User {
+  id: string
+  name: string
+  isAdmin?: boolean
+}
+
+// Backward compatibility
+export type Mode = 'simple' | 'advanced'

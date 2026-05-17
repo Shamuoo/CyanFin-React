@@ -1,177 +1,160 @@
+'use strict';
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const jf = require('./jellyfin');
-const sm = require('./serverManager');
 const cfg = require('./config');
 const auth = require('./auth');
+const jf = require('./jellyfin');
+const sm = require('./serverManager');
 const tmdb = require('./tmdb');
-const { handleApi } = require('./routes/api');
+
+const { handleBrowse } = require('./routes/browse');
+const { handleItems } = require('./routes/items');
+const { handleStats } = require('./routes/stats');
 const { handleLibrary, handleLibraryPost } = require('./routes/library');
 const { handleIntegrations } = require('./routes/integrations');
-const { handleStats } = require('./routes/stats');
 const { handleAI } = require('./routes/ai');
 
-const PORT = parseInt(process.env.PORT || '3000');
+// ── Init ─────────────────────────────────────────────────────────────────────
 cfg.loadConfig();
-const JELLYFIN_URL = (cfg.get('JELLYFIN_URL') || '').replace(/\/$/, '');
-const JELLYFIN_API_KEY = cfg.get('JELLYFIN_API_KEY') || '';
-const TMDB_API_KEY = cfg.get('TMDB_API_KEY') || '';
-const VERSION = '0.13.0';
+tmdb.init(cfg.get('TMDB_API_KEY'));
 
-if (!JELLYFIN_URL) console.warn('[warn] JELLYFIN_URL not set');
-
-jf.init(JELLYFIN_URL, JELLYFIN_API_KEY);
-tmdb.init(TMDB_API_KEY);
-
+const PORT = parseInt(process.env.PORT || '3000');
+const VERSION = '0.14.0';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.css':  'text/css; charset=utf-8',
-  '.js':   'application/javascript; charset=utf-8',
-  '.json': 'application/json',
+  '.html':  'text/html; charset=utf-8',
+  '.css':   'text/css; charset=utf-8',
+  '.js':    'application/javascript; charset=utf-8',
+  '.json':  'application/json',
   '.webmanifest': 'application/manifest+json',
-  '.ico':  'image/x-icon',
-  '.png':  'image/png',
-  '.jpg':  'image/jpeg',
-  '.svg':  'image/svg+xml',
-  '.woff2':'font/woff2',
+  '.ico':   'image/x-icon',
+  '.png':   'image/png',
+  '.jpg':   'image/jpeg',
+  '.svg':   'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.woff':  'font/woff',
+  '.ttf':   'font/ttf',
+  '.mp4':   'video/mp4',
+  '.webp':  'image/webp',
 };
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function json(res, data, status = 200) {
+  const body = JSON.stringify(data);
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
+  res.end(body);
+}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => { try { resolve(body ? JSON.parse(body) : {}); } catch(e) { resolve({}); } });
-    req.on('error', reject);
-  });
-}
-
-function json(res, data, status = 200) {
-  if (res.headersSent) return;
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(data));
-}
-
-// AI autofix via Anthropic API
-async function aiAutofix(itemId, token) {
-  const item = await jf.get(`/Items/${itemId}?fields=Overview,Taglines,Genres,OfficialRating,ProductionYear,People`, token);
-  const prompt = `You are a movie database assistant. Fix and improve this movie metadata. Respond ONLY with valid JSON, no markdown.
-
-Movie: "${item.Name}" (${item.ProductionYear || 'year unknown'})
-Current overview: ${item.Overview || 'MISSING'}
-Current tagline: ${(item.Taglines||[])[0] || 'MISSING'}
-Genres: ${(item.Genres||[]).join(', ') || 'MISSING'}
-Rating: ${item.OfficialRating || 'MISSING'}
-
-Return JSON: {"overview":"engaging 2-3 sentence overview","tagline":"short memorable tagline","issues":["issue1"],"confidence":0.9}`;
-
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 512, messages: [{ role: 'user', content: prompt }] });
-    const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
-    if (!anthropicKey) return resolve({ success: false, error: 'ANTHROPIC_API_KEY not set in environment' });
-    const req = https.request({
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
-      headers: { 'Content-Type':'application/json', 'anthropic-version':'2023-06-01', 'x-api-key': anthropicKey, 'Content-Length': Buffer.byteLength(body) },
-      timeout: 15000,
-    }, (res) => {
-      let d = ''; res.on('data', c => d += c);
-      res.on('end', () => {
-        try {
-          const r = JSON.parse(d);
-          const text = (r.content && r.content[0] && r.content[0].text) || '{}';
-          resolve({ success: true, suggestion: JSON.parse(text.replace(/```json|```/g,'').trim()) });
-        } catch(e) { reject(e); }
-      });
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString();
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch { resolve({}); }
     });
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('AI timeout')); });
-    req.write(body); req.end();
   });
 }
 
-const server = http.createServer(async (req, res) => {
+// ── Main handler ─────────────────────────────────────────────────────────────
+async function handler(req, res) {
   const parsed = url.parse(req.url, true);
   const pathname = parsed.pathname;
 
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-  // ── AUTH ──
-
-  // Server status / failover
-  if (pathname === '/api/servers/status') {
-    return json(res, sm.getStatus());
-  }
-  if (pathname === '/api/servers/switch' && req.method === 'POST') {
-    const body2 = await readBody(req);
-    sm.forceServer(body2.server);
-    jf.init(sm.getActiveUrl(), cfg.get('JELLYFIN_API_KEY') || '');
-    return json(res, sm.getStatus());
-  }
-  if (pathname === '/api/servers/check') {
-    const status = await sm.checkBoth();
-    jf.init(sm.getActiveUrl(), cfg.get('JELLYFIN_API_KEY') || '');
-    return json(res, sm.getStatus());
+  // ── PUBLIC: manifest ──────────────────────────────────────────────────────
+  if (pathname === '/manifest.json' || pathname === '/manifest.webmanifest') {
+    const p = path.join(PUBLIC_DIR, 'manifest.json');
+    if (fs.existsSync(p)) {
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json' });
+      fs.createReadStream(p).pipe(res);
+    } else { res.writeHead(404); res.end(); }
+    return;
   }
 
-  // Quick Connect - generate a code for TV/remote login
-  if (pathname === '/api/auth/quick-connect/initiate' && req.method === 'POST') {
+  // ── PUBLIC: server info (no auth needed) ─────────────────────────────────
+  if (pathname === '/api/public/info') {
+    return json(res, {
+      version: VERSION,
+      hasJellyfin: !!cfg.get('JELLYFIN_URL'),
+      configured: !!cfg.get('JELLYFIN_URL'),
+      ...cfg.getPublic(),
+    });
+  }
+
+  // ── PUBLIC: Jellyfin connection test ─────────────────────────────────────
+  if (pathname === '/api/test/jellyfin') {
+    const testUrl = parsed.query.url;
+    if (!testUrl) return json(res, { ok: false, error: 'No URL provided' });
     try {
-      const result = await jf.get('/QuickConnect/Initiate', null);
-      return json(res, { code: result.Code, secret: result.Secret });
-    } catch(e) { return json(res, { error: e.message }, 500); }
+      const parsedTest = new URL(testUrl.replace(/\/$/, '') + '/System/Info/Public');
+      const lib = parsedTest.protocol === 'https:' ? https : http;
+      const result = await new Promise((resolve) => {
+        const r = lib.request({ hostname: parsedTest.hostname, port: parsedTest.port, path: parsedTest.pathname, method: 'GET', timeout: 8000 },
+          resp => { let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve({ ok: resp.statusCode < 400, data: JSON.parse(d) }); } catch { resolve({ ok: resp.statusCode < 400 }); } }); });
+        r.on('error', e => resolve({ ok: false, error: e.message }));
+        r.on('timeout', () => { r.destroy(); resolve({ ok: false, error: 'Timeout' }); });
+        r.end();
+      });
+      return json(res, { ok: result.ok, serverName: result.data?.ServerName, version: result.data?.Version, error: result.error });
+    } catch(e) { return json(res, { ok: false, error: e.message }); }
   }
 
-  // Quick Connect - check if authorized
-  if (pathname === '/api/auth/quick-connect/check') {
-    const secret = parsed.query.secret;
-    if (!secret) return json(res, { authorized: false });
+  // ── PUBLIC: Plex test ────────────────────────────────────────────────────
+  if (pathname === '/api/test/plex') {
+    const { url: plexUrl, token: plexToken } = parsed.query;
+    if (!plexUrl || !plexToken) return json(res, { ok: false, error: 'URL and token required' });
     try {
-      const result = await jf.get(`/QuickConnect/Connect?Secret=${secret}`, null);
-      if (result.Authenticated) {
-        // Exchange for a full token
-        const tokenResult = await jf.post('/Users/AuthenticateWithQuickConnect', { Secret: secret }, null);
-        if (tokenResult && tokenResult.AccessToken) {
-          const sessionData = {
-            token: tokenResult.AccessToken,
-            userId: tokenResult.User.Id,
-            username: tokenResult.User.Name,
-            isAdmin: tokenResult.User.Policy && tokenResult.User.Policy.IsAdministrator,
-          };
-          const sessionId = auth.createSession(sessionData);
-          auth.setSessionCookie(res, sessionId);
-          return json(res, { authorized: true, user: { id: tokenResult.User.Id, name: tokenResult.User.Name } });
-        }
-      }
-      return json(res, { authorized: false });
-    } catch(e) { return json(res, { authorized: false, error: e.message }); }
+      const parsedPlex = new URL(plexUrl.replace(/\/$/, '') + '/identity');
+      const lib = parsedPlex.protocol === 'https:' ? https : http;
+      const result = await new Promise(resolve => {
+        const r = lib.request({ hostname: parsedPlex.hostname, port: parsedPlex.port, path: parsedPlex.pathname, method: 'GET', headers: { 'X-Plex-Token': plexToken, 'Accept': 'application/json' }, timeout: 8000 },
+          resp => { let d = ''; resp.on('data', c => d += c); resp.on('end', () => resolve({ ok: resp.statusCode < 400 })); });
+        r.on('error', e => resolve({ ok: false, error: e.message }));
+        r.on('timeout', () => { r.destroy(); resolve({ ok: false, error: 'Timeout' }); });
+        r.end();
+      });
+      return json(res, result);
+    } catch(e) { return json(res, { ok: false, error: e.message }); }
   }
 
+  // ── AUTH ──────────────────────────────────────────────────────────────────
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     const body = await readBody(req);
-    if (!body.username || !body.password) return json(res, { error: 'Username and password required' }, 400);
     try {
       const result = await jf.authenticate(body.username, body.password);
-      if (result.status !== 200 || !result.data.AccessToken) return json(res, { error: 'Invalid credentials' }, 401);
-      const user = result.data.User;
-      const sessionId = auth.createSession(user.Id, result.data.AccessToken, user.Name, user.Policy && user.Policy.IsAdministrator);
+      const sessionId = auth.createSession({
+        token: result.AccessToken,
+        userId: result.User.Id,
+        username: result.User.Name,
+        isAdmin: result.User.Policy?.IsAdministrator,
+      });
       auth.setSessionCookie(res, sessionId);
-      return json(res, { success: true, user: { id: user.Id, name: user.Name, isAdmin: user.Policy && user.Policy.IsAdministrator } });
-    } catch(e) { return json(res, { error: e.message }, 500); }
+      return json(res, { user: { id: result.User.Id, name: result.User.Name, isAdmin: result.User.Policy?.IsAdministrator } });
+    } catch(e) { return json(res, { error: e.message }, 401); }
   }
 
-  if (pathname === '/api/auth/logout') {
+  if (pathname === '/api/auth/logout' && req.method === 'POST') {
     const session = auth.getSessionFromRequest(req);
-    if (session) auth.deleteSession(auth.parseCookies(req.headers.cookie).cf_session);
+    if (session) {
+      const cookie = req.headers.cookie || '';
+      const match = cookie.match(/cf_session=([a-f0-9]{64})/);
+      if (match) auth.deleteSession(match[1]);
+    }
     auth.clearSessionCookie(res);
-    return json(res, { success: true });
+    return json(res, { ok: true });
   }
 
   if (pathname === '/api/auth/me') {
@@ -180,263 +163,204 @@ const server = http.createServer(async (req, res) => {
     return json(res, { id: session.userId, name: session.username, isAdmin: session.isAdmin });
   }
 
-  // ── PUBLIC ASSETS ──
-  const publicPaths = ['/', '/login', '/player'];
-  // Serve any static file that actually exists on disk
-  const staticExts = ['.js','.css','.ico','.png','.jpg','.svg','.woff','.woff2','.ttf','.webp','.map']
-  const isAsset = pathname.startsWith('/assets/') || pathname.startsWith('/css/') || pathname.startsWith('/js/') || staticExts.some(e => pathname.endsWith(e));
-
-  if (isAsset) {
-    const filePath = path.join(PUBLIC_DIR, pathname);
-    if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end(); return; }
-    fs.readFile(filePath, (err, data) => {
-      if (err) { res.writeHead(404); res.end(); return; }
-      const ext = path.extname(filePath);
-      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=3600' });
-      res.end(data);
-    });
-    return;
-  }
-
-
-  // ── PWA MANIFEST (must serve as application/manifest+json) ──
-  if (pathname === '/manifest.json') {
-    const manifestPath = path.join(PUBLIC_DIR, 'manifest.json');
-    fs.readFile(manifestPath, (err, data) => {
-      if (err) { res.writeHead(404); res.end(); return; }
-      res.writeHead(200, { 'Content-Type': 'application/manifest+json' });
-      res.end(data);
-    });
-    return;
-  }
-
-  // ── SUBTITLE PROXY ──
-  if (pathname === '/proxy/subtitle') {
-    const session = auth.getSessionFromRequest(req);
-    if (!session) { res.writeHead(401); res.end(); return; }
-    const itemId = parsed.query.id;
-    const index = parsed.query.index;
-    const subUrl = `${require('./config').get('JELLYFIN_URL') || JELLYFIN_URL}/Videos/${itemId}/${itemId}/Subtitles/${index}/Stream.vtt?api_key=${session.token}`;
+  // Quick Connect
+  if (pathname === '/api/auth/quick-connect/initiate' && req.method === 'POST') {
     try {
-      const parsed2 = new (require('url').URL)(subUrl);
-      const lib = parsed2.protocol === 'https:' ? require('https') : require('http');
-      const proxyReq = lib.request(subUrl, (proxyRes) => {
-        res.writeHead(proxyRes.statusCode || 200, {
-          'Content-Type': 'text/vtt',
-          'Access-Control-Allow-Origin': '*',
-        });
-        proxyRes.pipe(res);
-      });
-      proxyReq.on('error', () => { res.writeHead(500); res.end(); });
-      proxyReq.end();
-    } catch(e) { res.writeHead(500); res.end(); }
-    return;
+      const result = await jf.get('/QuickConnect/Initiate', '');
+      return json(res, { code: result.Code, secret: result.Secret });
+    } catch(e) { return json(res, { error: e.message }, 500); }
   }
 
-  // ── IMAGE PROXY ──
-  if (pathname === '/proxy/image') {
-    const session = auth.getSessionFromRequest(req);
-    if (!session) { res.writeHead(401); res.end(); return; }
-    const itemId = parsed.query.id;
-    const type = parsed.query.type || 'Primary';
-    const maxWidth = parsed.query.w || '600';
-    const imgUrl = `${JELLYFIN_URL}/Items/${itemId}/Images/${type}?maxWidth=${maxWidth}&api_key=${session.token}`;
-    await jf.proxyImage(imgUrl, res);
-    return;
+  if (pathname === '/api/auth/quick-connect/check') {
+    const secret = parsed.query.secret;
+    if (!secret) return json(res, { authorized: false });
+    try {
+      const result = await jf.get(`/QuickConnect/Connect?Secret=${secret}`, '');
+      if (result.Authenticated) {
+        const tokenResult = await jf.post('/Users/AuthenticateWithQuickConnect', { Secret: secret }, '');
+        if (tokenResult?.AccessToken) {
+          const sessionId = auth.createSession({ token: tokenResult.AccessToken, userId: tokenResult.User.Id, username: tokenResult.User.Name });
+          auth.setSessionCookie(res, sessionId);
+          return json(res, { authorized: true, user: { id: tokenResult.User.Id, name: tokenResult.User.Name } });
+        }
+      }
+      return json(res, { authorized: false });
+    } catch(e) { return json(res, { authorized: false }); }
   }
 
-  // ── DIRECT STREAM PROXY (fallback) ──
-  if (pathname === '/proxy/direct') {
-    const session = auth.getSessionFromRequest(req);
-    if (!session) { res.writeHead(401); res.end(); return; }
-    const itemId = parsed.query.id;
-    const directUrl = jf.directUrl(itemId, session.token);
-    res.writeHead(302, { 'Location': directUrl });
-    res.end();
-    return;
-  }
-
-  // ── STREAM PROXY (HLS pass-through) ──
-  if (pathname === '/proxy/stream') {
-    const session = auth.getSessionFromRequest(req);
-    if (!session) { res.writeHead(401); res.end(); return; }
-    const itemId = parsed.query.id;
-    const streamUrl = jf.streamUrl(itemId, session.token);
-    res.writeHead(302, { 'Location': streamUrl });
-    res.end();
-    return;
-  }
-
-  // ── CONFIG SAVE ──
+  // ── CONFIG ────────────────────────────────────────────────────────────────
   if (pathname === '/api/config/save' && req.method === 'POST') {
-    // Allow unauthenticated save ONLY during initial setup (no Jellyfin URL configured yet)
-    const isInitialSetup = !cfg.get('JELLYFIN_URL') && !JELLYFIN_URL;
-    if (!isInitialSetup) {
+    // Allow unauthenticated only during initial setup (no Jellyfin URL set)
+    const isSetup = !cfg.get('JELLYFIN_URL');
+    if (!isSetup) {
       const session = auth.getSessionFromRequest(req);
       if (!session) return json(res, { error: 'Not logged in' }, 401);
     }
     const body = await readBody(req);
     const result = cfg.saveConfig(body);
     if (result.success) {
-      // Re-init jellyfin and tmdb with new config
-      const newJfUrl = (cfg.get('JELLYFIN_URL') || '').replace(/\/$/, '');
-      jf.init(newJfUrl, cfg.get('JELLYFIN_API_KEY') || '');
-      const newTmdb = cfg.get('TMDB_API_KEY') || '';
-      tmdb.init(newTmdb);
-      sm.stop(); sm.start(); // restart server manager with new URLs
-      console.log('[config] Saved and reloaded:', result.saved.join(', '));
+      jf.init(cfg.get('JELLYFIN_URL'), cfg.get('JELLYFIN_API_KEY') || '');
+      tmdb.init(cfg.get('TMDB_API_KEY'));
+      sm.stop(); sm.start();
     }
     return json(res, result);
   }
 
-  // ── JELLYFIN CONNECTION TEST (public - used during setup) ──
-  if (pathname === '/api/test/jellyfin') {
-    const urlToTest = (parsed.query.url || '').replace(/\/$/, '');
-    if (!urlToTest) return json(res, { ok: false, error: 'No URL provided' });
-    try {
-      const https = require('https');
-      const http = require('http');
-      const testUrl = new URL(urlToTest + '/System/Info/Public');
-      const lib = testUrl.protocol === 'https:' ? https : http;
-      const result = await new Promise((resolve, reject) => {
-        const req = lib.request({ hostname: testUrl.hostname, port: testUrl.port || (testUrl.protocol === 'https:' ? 443 : 80), path: testUrl.pathname, method: 'GET', timeout: 8000 }, res => {
-          let d = ''; res.on('data', c => d += c);
-          res.on('end', () => { try { resolve({ ok: res.statusCode < 400, data: JSON.parse(d) }); } catch(e) { resolve({ ok: res.statusCode < 400 }); } });
-        });
-        req.on('error', e => resolve({ ok: false, error: e.message }));
-        req.on('timeout', () => { req.destroy(); resolve({ ok: false, error: 'Timeout' }); });
-        req.end();
-      });
-      return json(res, { ok: result.ok, serverName: result.data?.ServerName, version: result.data?.Version, error: result.error });
-    } catch(e) { return json(res, { ok: false, error: e.message }); }
-  }
-
-  // ── CONFIG READ (public fields only) ──
-  if (pathname === '/api/config/public') {
-    return json(res, cfg.getPublicConfig());
-  }
-
-  // ── CLIENT CONFIG ──
   if (pathname === '/api/config') {
     const session = auth.getSessionFromRequest(req);
     if (!session) return json(res, { error: 'Unauthorized' }, 401);
-    return json(res, {
-      jellyfinUrl: cfg.get('JELLYFIN_URL') || JELLYFIN_URL,
-      JELLYFIN_URL: cfg.get('JELLYFIN_URL') || JELLYFIN_URL,
-      JELLYFIN_BACKUP_URL: cfg.get('JELLYFIN_BACKUP_URL') || '',
-      JELLYFIN_BACKUP_API_KEY: cfg.get('JELLYFIN_BACKUP_API_KEY') ? '***' : '',
-      JELLYFIN_MODE: cfg.get('JELLYFIN_MODE') || 'fastest',
-      PLEX_URL: cfg.get('PLEX_URL') || '',
-      PLEX_TOKEN: cfg.get('PLEX_TOKEN') ? '***' : '',
-      TMDB_API_KEY: cfg.get('TMDB_API_KEY') ? '***' : '',
-      ANTHROPIC_API_KEY: cfg.get('ANTHROPIC_API_KEY') ? '***' : '',
-      GEMINI_API_KEY: cfg.get('GEMINI_API_KEY') ? '***' : '',
-      OMDB_API_KEY: cfg.get('OMDB_API_KEY') ? '***' : '',
-      OLLAMA_URL: cfg.get('OLLAMA_URL') || '',
-      OLLAMA_MODEL: cfg.get('OLLAMA_MODEL') || '',
-      STREAMYSTATS_URL: cfg.get('STREAMYSTATS_URL') || '',
-      JELLYSEERR_URL: cfg.get('JELLYSEERR_URL') || '',
-      JELLYSEERR_API_KEY: cfg.get('JELLYSEERR_API_KEY') ? '***' : '',
-      RADARR_URL: cfg.get('RADARR_URL') || '',
-      RADARR_API_KEY: cfg.get('RADARR_API_KEY') ? '***' : '',
-      SONARR_URL: cfg.get('SONARR_URL') || '',
-      SONARR_API_KEY: cfg.get('SONARR_API_KEY') ? '***' : '',
-      DISCORD_WEBHOOK_URL: cfg.get('DISCORD_WEBHOOK_URL') || '',
-      version: VERSION,
-      ...cfg.getPublicConfig(),
-    });
+    return json(res, { version: VERSION, ...cfg.getPublic() });
   }
 
-  // ── STREAM URL (returns actual Jellyfin URL for HLS.js) ──
-  if (pathname === '/api/stream-url') {
+  // ── SERVER STATUS ─────────────────────────────────────────────────────────
+  if (pathname === '/api/servers/status') {
     const session = auth.getSessionFromRequest(req);
     if (!session) return json(res, { error: 'Unauthorized' }, 401);
-    const itemId = parsed.query.id;
-    if (!itemId) return json(res, { error: 'No id' }, 400);
-    return json(res, { url: jf.streamUrl(itemId, session.token), directUrl: jf.directUrl(itemId, session.token) });
+    return json(res, sm.getStatus());
   }
 
-  // ── REQUIRE AUTH FOR API ──
-  if (pathname.startsWith('/api/')) {
+  if (pathname === '/api/servers/switch' && req.method === 'POST') {
     const session = auth.getSessionFromRequest(req);
     if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    const body = await readBody(req);
+    sm.forceSwitch(body.server);
+    return json(res, sm.getStatus());
+  }
 
-    // AI autofix
-    if (pathname === '/api/library/ai-autofix' && req.method === 'POST') {
-      const body = await readBody(req);
-      try { return json(res, await aiAutofix(body.itemId, session.token)); }
-      catch(e) { return json(res, { error: e.message }, 500); }
-    }
+  if (pathname === '/api/servers/check') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    await sm.checkAll();
+    return json(res, sm.getStatus());
+  }
 
-    // Library POST
-    if (pathname.startsWith('/api/library/') && req.method === 'POST') {
-      const body = await readBody(req);
-      try {
-        const result = await handleLibraryPost(pathname, body, session);
-        if (result) return json(res, result);
-      } catch(e) { return json(res, { error: e.message }, 500); }
-    }
+  // ── PROXY: images ─────────────────────────────────────────────────────────
+  if (pathname === '/proxy/image') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) { res.writeHead(401); res.end(); return; }
+    const { id, type = 'Primary', w = '400' } = parsed.query;
+    await jf.proxyImage(res, id, type, parseInt(w), session.token);
+    return;
+  }
 
-    // Library GET
-    if (pathname.startsWith('/api/library/')) {
-      try {
-        const result = await handleLibrary(pathname, parsed.query, session, req);
-        if (result !== null) return json(res, result);
-      } catch(e) { return json(res, { error: e.message }, 500); }
-    }
-
-    // AI Navigator
-    if (pathname.startsWith('/api/ai/')) {
-      const body = await readBody(req);
-      try {
-        const result = await handleAI(pathname, body, session);
-        if (result !== null) return json(res, result);
-      } catch(e) { return json(res, { error: e.message }, 500); }
-    }
-
-    // Integrations
-    if (pathname.startsWith('/api/integrations/')) {
-      const body = req.method === 'POST' ? await readBody(req) : {};
-      try {
-        const result = await handleIntegrations(pathname, parsed.query, body, session);
-        if (result !== null) return json(res, result);
-      } catch(e) { return json(res, { error: e.message }, 500); }
-    }
-
-    // Stats
-    if (pathname.startsWith('/api/stats/')) {
-      try {
-        const result = await handleStats(pathname, parsed.query, session);
-        if (result !== null) return json(res, result);
-      } catch(e) { return json(res, { error: e.message }, 500); }
-    }
-
-    // General API
+  // ── PROXY: subtitles ──────────────────────────────────────────────────────
+  if (pathname === '/proxy/subtitle') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) { res.writeHead(401); res.end(); return; }
+    const { id, index } = parsed.query;
+    const subUrl = `${jf.getBaseUrl()}/Videos/${id}/${id}/Subtitles/${index}/Stream.vtt?api_key=${session.token}`;
     try {
-      const result = await handleApi(pathname, parsed.query, session);
-      if (result !== null && result !== undefined) return json(res, result);
-      return json(res, null);
+      const parsedSub = new URL(subUrl);
+      const lib = parsedSub.protocol === 'https:' ? https : http;
+      lib.request(subUrl, proxyRes => {
+        res.writeHead(proxyRes.statusCode || 200, { 'Content-Type': 'text/vtt', 'Access-Control-Allow-Origin': '*' });
+        proxyRes.pipe(res);
+      }).on('error', () => { res.writeHead(500); res.end(); }).end();
+    } catch(e) { res.writeHead(500); res.end(); }
+    return;
+  }
+
+  // ── AUTHENTICATED API ROUTES ──────────────────────────────────────────────
+  const session = auth.getSessionFromRequest(req);
+  if (!session) {
+    if (pathname.startsWith('/api/')) return json(res, { error: 'Not logged in' }, 401);
+  } else {
+    let body = {};
+    if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+      body = await readBody(req);
+    }
+    req._body = body;
+
+    try {
+      // Browse (library listing)
+      if (pathname.startsWith('/api/') && !pathname.startsWith('/api/library/') && !pathname.startsWith('/api/stats/') && !pathname.startsWith('/api/integrations/') && !pathname.startsWith('/api/ai/') && !pathname.startsWith('/api/items/') && !pathname.startsWith('/api/playback') && !pathname.startsWith('/api/user/') && !pathname.startsWith('/api/servers/')) {
+        const browseResult = await handleBrowse(pathname, parsed.query, session);
+        if (browseResult !== null) return json(res, browseResult);
+      }
+
+      // Items (detail, playback, user actions)
+      const itemsResult = await handleItems(pathname, parsed.query, session, req);
+      if (itemsResult !== null) return json(res, itemsResult);
+
+      // Stats
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health') {
+        const statsResult = await handleStats(pathname, parsed.query, session);
+        if (statsResult !== null) return json(res, statsResult);
+      }
+
+      // Library tools
+      if (pathname.startsWith('/api/library/')) {
+        if (req.method === 'POST') {
+          const libResult = await handleLibraryPost(pathname, body, session);
+          if (libResult !== null) return json(res, libResult);
+        } else {
+          const libResult = await handleLibrary(pathname, parsed.query, session, req);
+          if (libResult !== null) return json(res, libResult);
+        }
+      }
+
+      // AI Navigator
+      if (pathname.startsWith('/api/ai/')) {
+        const aiResult = await handleAI(pathname, body, session);
+        if (aiResult !== null) return json(res, aiResult);
+      }
+
+      // Integrations
+      if (pathname.startsWith('/api/integrations/')) {
+        const intResult = await handleIntegrations(pathname, parsed.query, body, session);
+        if (intResult !== null) return json(res, intResult);
+      }
     } catch(e) {
       console.error(`[error] ${pathname}:`, e.message);
-      return json(res, { error: e.message }, 500);
+      return json(res, { error: e.message }, e.status || 500);
     }
   }
 
-  // ── SPA SHELL (serve index.html for all non-asset routes) ──
-  fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (err, data) => {
-    if (err) { res.writeHead(500); res.end('Server error'); return; }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(data);
+  // ── STATIC FILES ──────────────────────────────────────────────────────────
+  if (!pathname.startsWith('/api/') && !pathname.startsWith('/proxy/')) {
+    // Try to serve static file
+    const safePath = path.normalize(pathname).replace(/^(\.\.\/)+/, '');
+    const filePath = path.join(PUBLIC_DIR, safePath);
+
+    if (filePath.startsWith(PUBLIC_DIR) && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      const ext = path.extname(filePath).toLowerCase();
+      res.writeHead(200, {
+        'Content-Type': MIME[ext] || 'application/octet-stream',
+        'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+      });
+      fs.createReadStream(filePath).pipe(res);
+      return;
+    }
+
+    // SPA fallback — serve index.html
+    const indexPath = path.join(PUBLIC_DIR, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      fs.createReadStream(indexPath).pipe(res);
+    } else {
+      res.writeHead(500); res.end('Server not built. Run npm run build.');
+    }
+    return;
+  }
+
+  res.writeHead(404); res.end('Not found');
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+const server = http.createServer((req, res) => {
+  handler(req, res).catch(e => {
+    console.error('[fatal]', e);
+    if (!res.headersSent) { res.writeHead(500); res.end('Internal server error'); }
   });
 });
 
 server.listen(PORT, () => {
   console.log(`\n🎬 CyanFin v${VERSION}`);
   console.log(`   http://localhost:${PORT}`);
-  console.log(`   Jellyfin: ${JELLYFIN_URL || '(not set)'}`);
-  console.log(`   TMDB: ${TMDB_API_KEY ? 'enabled' : 'disabled'}\n`);
+  console.log(`   Jellyfin: ${cfg.get('JELLYFIN_URL') || '(not configured)'}`);
+  console.log(`   TMDB: ${cfg.get('TMDB_API_KEY') ? 'enabled' : 'disabled'}\n`);
   sm.start();
 });
 
-process.on('SIGTERM', () => server.close(() => process.exit(0)));
-process.on('SIGINT',  () => server.close(() => process.exit(0)));
+process.on('SIGTERM', () => { sm.stop(); server.close(() => process.exit(0)); });
+process.on('SIGINT',  () => { sm.stop(); server.close(() => process.exit(0)); });

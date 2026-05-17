@@ -1,114 +1,101 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)' }}>
-      <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-4" style={{ color: 'var(--accent)', opacity: 0.5 }}>{title}</p>
-      {children}
+    <div className="rounded-xl p-4" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+      <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--muted)', opacity: 0.5 }}>{label}</p>
+      <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)', letterSpacing: '0.05em' }}>{value}</p>
+      {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>{sub}</p>}
     </div>
   )
 }
 
-function StatRow({ label, value, cls }: { label: string; value: string; cls?: string }) {
+function BarRow({ label, value, max, color = 'var(--accent)' }: { label: string; value: number; max: number; color?: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0
   return (
-    <div className="flex justify-between items-center mb-2">
-      <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{label}</span>
-      <span className={`text-[11px] font-bold font-mono ${cls || ''}`} style={{ color: cls ? undefined : 'rgba(240,232,213,0.65)' }}>{value || '—'}</span>
+    <div className="flex items-center gap-3 mb-2">
+      <span className="text-[10px] w-28 truncate flex-shrink-0" style={{ color: 'var(--muted)' }}>{label}</span>
+      <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--subtle)' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-[9px] w-8 text-right flex-shrink-0 font-mono" style={{ color: 'var(--muted)' }}>{value}</span>
     </div>
   )
 }
 
 export default function StatsPage() {
-  const { data: summary } = useQuery({ queryKey: ['stats-summary'], queryFn: api.statsSummary.bind(api) })
-  const { data: watchTime } = useQuery({ queryKey: ['watch-time'], queryFn: () => api.watchTime(30) })
-  const { data: genres } = useQuery({ queryKey: ['top-genres'], queryFn: api.topGenres.bind(api) })
-  const { data: topMovies } = useQuery({ queryKey: ['top-movies'], queryFn: api.topMovies.bind(api) })
+  const { data: summary, isLoading: loadSum } = useQuery({ queryKey: ['stats-summary'], queryFn: () => api.statsSummary() as Promise<any>, staleTime: 5 * 60_000 })
+  const { data: watchTime } = useQuery({ queryKey: ['stats-watchtime'], queryFn: () => api.watchTime() as Promise<any>, staleTime: 5 * 60_000 })
+  const { data: genres } = useQuery({ queryKey: ['stats-genres'], queryFn: () => api.topGenres() as Promise<any>, staleTime: 5 * 60_000 })
+  const { data: topMovies } = useQuery({ queryKey: ['stats-movies'], queryFn: () => api.topMovies() as Promise<any>, staleTime: 5 * 60_000 })
 
-  const maxBar = Math.max(...(watchTime || []).map(d => d.minutes), 1)
-  const maxGenre = genres?.[0]?.count || 1
+  const s = summary as any
+  const wt = watchTime as any
+  const g = Array.isArray(genres) ? genres : []
+  const tm = Array.isArray(topMovies) ? topMovies : []
+  const wtArr = Array.isArray(wt) ? wt : []
+  const maxHours = wtArr.length ? Math.max(...wtArr.map((d: any) => d[1] || 0), 1) : 1
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)' }}>
-      <div style={{ padding: '24px var(--pad) 48px' }}>
-        <h1 className="text-2xl tracking-[0.4em] uppercase mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--cream)', opacity: 0.5 }}>Statistics</h1>
+    <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)', padding: '24px var(--pad) 48px' }}>
+      <h1 className="text-2xl tracking-[0.4em] uppercase mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--cream)', opacity: 0.5 }}>Stats</h1>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          {[
-            { label: 'Movies Watched', value: summary?.moviesWatched, icon: '🎬' },
-            { label: 'Episodes Watched', value: summary?.episodesWatched, icon: '📺' },
-            { label: 'Songs Played', value: summary?.songsPlayed, icon: '🎵' },
-            { label: 'Est. Hours', value: summary?.estimatedHours, icon: '⏱' },
-          ].map(s => (
-            <div key={s.label} className="rounded-xl p-5 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)' }}>
-              <div className="text-2xl mb-2">{s.icon}</div>
-              <div className="text-3xl mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)', opacity: 0.7 }}>
-                {s.value?.toLocaleString() ?? '—'}
-              </div>
-              <div className="text-[8px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>{s.label}</div>
-            </div>
-          ))}
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-3 mb-8 md:grid-cols-4">
+        <StatCard label="Movies Watched" value={s?.moviesWatched || 0} />
+        <StatCard label="Episodes Watched" value={s?.episodesWatched || 0} />
+        <StatCard label="Hours Watched" value={s?.hoursWatched || 0} sub="total" />
+        <StatCard label="Library Items" value={s?.totalItems || 0} />
+      </div>
+
+      {/* Watch time chart */}
+      {wtArr.length > 0 && (
+        <div className="mb-8 rounded-xl p-5" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+          <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--accent)', opacity: 0.5 }}>Watch Time (last 30 days)</p>
+          <div className="flex items-end gap-1" style={{ height: 80 }}>
+            {wtArr.slice(-30).map((d: any, i: number) => (
+              <div key={i} className="flex-1 rounded-sm transition-all hover:opacity-80" title={`${d[1] || 0}h`}
+                style={{ height: `${Math.max(4, ((d[1] || 0) / maxHours) * 80)}px`, background: 'var(--accent)', opacity: 0.7 + ((d[1] || 0) / maxHours) * 0.3 }} />
+            ))}
+          </div>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-          {/* Watch time chart */}
-          {watchTime && watchTime.length > 0 && (
-            <Card title="Watch Time — Last 30 Days (minutes)">
-              <div className="flex items-end gap-0.5 h-28">
-                {watchTime.map(d => (
-                  <div key={d.date} className="flex-1 flex flex-col justify-end" title={`${d.date}: ${d.minutes}min`}>
-                    <div className="rounded-sm transition-all hover:opacity-100"
-                      style={{ height: `${Math.max(2, (d.minutes / maxBar) * 100)}%`, background: 'var(--accent)', opacity: d.minutes > 0 ? 0.65 : 0.1 }} />
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between mt-2">
-                {[watchTime[0], watchTime[Math.floor(watchTime.length/2)], watchTime[watchTime.length-1]].map(d => (
-                  <span key={d?.date} className="text-[8px]" style={{ color: 'var(--muted)' }}>
-                    {d ? new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}
-                  </span>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Top genres */}
-          {genres && genres.length > 0 && (
-            <Card title="Top Genres">
-              {genres.slice(0, 8).map(g => (
-                <div key={g.genre} className="mb-3">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>{g.genre}</span>
-                    <span className="text-[10px]" style={{ color: 'var(--accent)' }}>{g.count}</span>
-                  </div>
-                  <div className="h-1 rounded-full" style={{ background: 'var(--border2)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${(g.count / maxGenre) * 100}%`, background: 'var(--accent)' }} />
-                  </div>
-                </div>
-              ))}
-            </Card>
-          )}
-        </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Top genres */}
+        {g.length > 0 && (
+          <div className="rounded-xl p-5" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+            <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--accent)', opacity: 0.5 }}>Top Genres</p>
+            {g.slice(0, 8).map((genre: any, i: number) => (
+              <BarRow key={i} label={genre.name || genre[0]} value={genre.count || genre[1] || 0} max={g[0]?.count || g[0]?.[1] || 1} />
+            ))}
+          </div>
+        )}
 
         {/* Top movies */}
-        {topMovies && topMovies.length > 0 && (
-          <Card title="Most Watched Movies">
-            <div className="space-y-3">
-              {topMovies.map((m, i) => (
-                <div key={m.id} className="flex items-center gap-3">
-                  <span className="text-xl w-6 text-right" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)', opacity: 0.3 }}>{i+1}</span>
-                  <img src={m.posterUrl} alt="" className="w-7 h-10 object-cover rounded flex-shrink-0" style={{ background: 'var(--bg3)' }} onError={e => (e.currentTarget.style.display = 'none')} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-bold truncate" style={{ color: 'rgba(240,232,213,0.7)' }}>{m.title}</p>
-                  </div>
-                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>{m.playCount} play{m.playCount !== 1 ? 's' : ''}</span>
+        {tm.length > 0 && (
+          <div className="rounded-xl p-5" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+            <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--accent)', opacity: 0.5 }}>Most Watched</p>
+            {tm.slice(0, 8).map((movie: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 mb-2.5">
+                <span className="text-[9px] w-4 text-right flex-shrink-0 font-mono" style={{ color: 'var(--muted)' }}>{i + 1}</span>
+                {movie.posterUrl && <img src={movie.posterUrl} alt="" className="w-6 h-9 object-cover rounded flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] truncate" style={{ color: 'var(--cream)' }}>{movie.title || movie[0]}</p>
+                  <p className="text-[9px]" style={{ color: 'var(--muted)' }}>{movie.playCount || movie[1] || 0} plays</p>
                 </div>
-              ))}
-            </div>
-          </Card>
+              </div>
+            ))}
+          </div>
         )}
       </div>
+
+      {!s && !loadSum && (
+        <div className="text-center py-20" style={{ color: 'var(--muted)' }}>
+          <p>No stats available yet. Start watching something!</p>
+        </div>
+      )}
     </div>
   )
 }

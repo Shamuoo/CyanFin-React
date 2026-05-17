@@ -133,7 +133,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {jellyfinUrl && <p className="text-center text-[9px] mt-4" style={{ color: 'var(--muted)', opacity: 0.4 }}>{jellyfinUrl}</p>}
+        
       </div>
     </div>
   )

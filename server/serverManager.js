@@ -1,160 +1,162 @@
-/**
- * CyanFin Server Manager
- * Manages primary and backup Jellyfin servers
- * Supports fastest-wins, primary-first, and manual modes
- */
-const http = require('http')
-const https = require('https')
-const cfg = require('./config')
-const plex = require('./plexClient')
+'use strict';
+const http = require('http');
+const https = require('https');
+const cfg = require('./config');
+const jf = require('./jellyfin');
 
-let _state = {
+const CHECK_MS = 30_000;
+const PRIMARY_BIAS_MS = 75; // prefer primary if within 75ms
+
+let state = {
   active: 'primary',
-  plexOk: false,
-  plexLatency: null,        // which server is currently active
-  primaryOk: true,
-  backupOk: false,
-  primaryLatency: null,
-  backupLatency: null,
+  primary: { ok: true, latency: null },
+  backup: { ok: false, latency: null },
+  plex: { ok: false, latency: null },
   lastCheck: 0,
-  checkInterval: null,
-}
+};
+let _interval = null;
 
-const CHECK_INTERVAL = 30_000 // 30s
-
-function getServers() {
-  const primary = (cfg.get('JELLYFIN_URL') || '').replace(/\/$/, '')
-  const backup = (cfg.get('JELLYFIN_BACKUP_URL') || '').replace(/\/$/, '')
-  return { primary, backup, hasBackup: !!backup }
-}
-
-async function pingServer(url) {
-  if (!url) return { ok: false, latency: null }
+async function pingUrl(url) {
+  if (!url) return { ok: false, latency: null };
   return new Promise(resolve => {
-    const start = Date.now()
-    const parsed = new URL(url + '/health')
-    const lib = parsed.protocol === 'https:' ? https : http
-    const req = lib.request({
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname,
-      method: 'GET',
-      timeout: 5000,
-    }, res => {
-      const latency = Date.now() - start
-      res.resume()
-      resolve({ ok: res.statusCode < 500, latency })
-    })
-    req.on('error', () => resolve({ ok: false, latency: null }))
-    req.on('timeout', () => { req.destroy(); resolve({ ok: false, latency: null }) })
-    req.end()
-  })
+    const start = Date.now();
+    try {
+      const parsed = new URL(url.replace(/\/$/, '') + '/health');
+      const lib = parsed.protocol === 'https:' ? https : http;
+      const req = lib.request({
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname,
+        method: 'GET',
+        timeout: 5000,
+      }, res => {
+        const latency = Date.now() - start;
+        res.resume();
+        resolve({ ok: res.statusCode < 500, latency });
+      });
+      req.on('error', () => resolve({ ok: false, latency: null }));
+      req.on('timeout', () => { req.destroy(); resolve({ ok: false, latency: null }); });
+      req.end();
+    } catch(e) { resolve({ ok: false, latency: null }); }
+  });
 }
 
-async function checkBoth() {
-  const { primary, backup, hasBackup } = getServers()
-  const mode = cfg.get('JELLYFIN_MODE') || 'fastest'
+async function pingPlex(url, token) {
+  if (!url || !token) return { ok: false, latency: null };
+  return new Promise(resolve => {
+    const start = Date.now();
+    try {
+      const parsed = new URL(url.replace(/\/$/, '') + '/identity');
+      const lib = parsed.protocol === 'https:' ? https : http;
+      const req = lib.request({
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname,
+        method: 'GET',
+        headers: { 'X-Plex-Token': token, 'Accept': 'application/json' },
+        timeout: 5000,
+      }, res => {
+        const latency = Date.now() - start;
+        res.resume();
+        resolve({ ok: res.statusCode < 400, latency });
+      });
+      req.on('error', () => resolve({ ok: false, latency: null }));
+      req.on('timeout', () => { req.destroy(); resolve({ ok: false, latency: null }); });
+      req.end();
+    } catch(e) { resolve({ ok: false, latency: null }); }
+  });
+}
 
-  const plexUrl = cfg.get('PLEX_URL')
-  const plexToken = cfg.get('PLEX_TOKEN')
-  const [primaryResult, backupResult, plexResult] = await Promise.all([
-    pingServer(primary),
-    hasBackup ? pingServer(backup) : Promise.resolve({ ok: false, latency: null }),
-    plexUrl ? plex.ping(plexUrl, plexToken) : Promise.resolve({ ok: false, latency: null }),
-  ])
+async function checkAll() {
+  const primaryUrl = cfg.get('JELLYFIN_URL');
+  const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
+  const plexUrl = cfg.get('PLEX_URL');
+  const plexToken = cfg.get('PLEX_TOKEN');
 
-  _state.primaryOk = primaryResult.ok
-  _state.backupOk = backupResult.ok
-  _state.primaryLatency = primaryResult.latency
-  _state.backupLatency = backupResult.latency
-  _state.plexOk = plexResult.ok
-  _state.plexLatency = plexResult.latency
-  _state.lastCheck = Date.now()
+  const [p, b, px] = await Promise.all([
+    pingUrl(primaryUrl),
+    pingUrl(backupUrl),
+    pingPlex(plexUrl, plexToken),
+  ]);
 
-  // Determine active server
+  state.primary = p;
+  state.backup = b;
+  state.plex = px;
+  state.lastCheck = Date.now();
+
+  const mode = cfg.get('JELLYFIN_MODE') || 'fastest';
+
   if (mode === 'primary') {
-    _state.active = primaryResult.ok ? 'primary' : (backupResult.ok ? 'backup' : 'primary')
+    state.active = p.ok ? 'primary' : (b.ok ? 'backup' : 'primary');
   } else if (mode === 'backup') {
-    _state.active = backupResult.ok ? 'backup' : (primaryResult.ok ? 'primary' : 'primary')
+    state.active = b.ok ? 'backup' : (p.ok ? 'primary' : 'primary');
   } else {
-    // 'fastest' mode - pick whichever is faster and online
-    if (!primaryResult.ok && !backupResult.ok) {
-      // Both down - keep last active
-    } else if (!primaryResult.ok) {
-      _state.active = 'backup'
-    } else if (!backupResult.ok) {
-      _state.active = 'primary'
-    } else {
-      // Both ok - pick fastest (with 50ms bias towards primary for stability)
-      const primaryAdj = (primaryResult.latency || 9999) + 50
-      const backupAdj = backupResult.latency || 9999
-      _state.active = backupAdj < primaryAdj ? 'backup' : 'primary'
+    // fastest — pick lowest latency with bias toward primary
+    if (!p.ok && !b.ok) { /* keep current */ }
+    else if (!p.ok) state.active = 'backup';
+    else if (!b.ok) state.active = 'primary';
+    else {
+      const pAdj = (p.latency || 9999) + PRIMARY_BIAS_MS;
+      state.active = (b.latency || 9999) < pAdj ? 'backup' : 'primary';
     }
   }
 
-  console.log(`[servers] primary=${primary} ${primaryResult.ok ? primaryResult.latency+'ms' : 'DOWN'} | backup=${hasBackup ? (backupResult.ok ? backupResult.latency+'ms' : 'DOWN') : 'none'} | active=${_state.active}`)
-  return _state
-}
+  // Re-init Jellyfin with active URL
+  const activeUrl = state.active === 'backup' && backupUrl ? backupUrl : primaryUrl;
+  const activeKey = state.active === 'backup' ? (cfg.get('JELLYFIN_BACKUP_API_KEY') || '') : '';
+  jf.init(activeUrl, activeKey);
 
-function getActiveUrl() {
-  const { primary, backup } = getServers()
-  return _state.active === 'backup' && backup ? backup : primary
-}
+  const pStr = p.ok ? `${p.latency}ms` : 'DOWN';
+  const bStr = backupUrl ? (b.ok ? `${b.latency}ms` : 'DOWN') : 'none';
+  console.log(`[servers] primary=${pStr} backup=${bStr} active=${state.active}`);
 
-function getActiveToken(requestToken) {
-  // If backup is active and has its own API key, prefer that
-  // Otherwise use the request token (user's auth token works on both servers if synced)
-  if (_state.active === 'backup') {
-    const backupKey = cfg.get('JELLYFIN_BACKUP_API_KEY')
-    if (backupKey) return backupKey
-  }
-  return requestToken
-}
-
-function getStatus() {
-  const { primary, backup, hasBackup } = getServers()
-  const plexUrl = cfg.get('PLEX_URL') || ''
-  return {
-    active: _state.active,
-    mode: cfg.get('JELLYFIN_MODE') || 'fastest',
-    primary: {
-      url: primary,
-      ok: _state.primaryOk,
-      latency: _state.primaryLatency,
-    },
-    backup: hasBackup ? {
-      url: backup,
-      ok: _state.backupOk,
-      latency: _state.backupLatency,
-    } : null,
-    plex: plexUrl ? { url: plexUrl, ok: _state.plexOk, latency: _state.plexLatency } : null,
-    lastCheck: _state.lastCheck,
-  }
+  return state;
 }
 
 function start() {
-  const { hasBackup } = getServers()
-  if (hasBackup) {
-    checkBoth()
-    _state.checkInterval = setInterval(checkBoth, CHECK_INTERVAL)
-    console.log('[servers] Multi-server mode active, checking every 30s')
+  if (_interval) { clearInterval(_interval); _interval = null; }
+  const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
+  const primaryUrl = cfg.get('JELLYFIN_URL');
+
+  if (!primaryUrl) {
+    console.log('[servers] No Jellyfin URL configured');
+    return;
+  }
+
+  if (backupUrl || cfg.get('PLEX_URL')) {
+    checkAll();
+    _interval = setInterval(checkAll, CHECK_MS);
+    console.log('[servers] Multi-server mode — checking every 30s');
   } else {
-    _state.active = 'primary'
-    _state.primaryOk = true
-    console.log('[servers] Single server mode')
+    jf.init(primaryUrl, cfg.get('JELLYFIN_API_KEY') || '');
+    state.primary.ok = true;
+    state.active = 'primary';
+    console.log('[servers] Single server mode');
   }
 }
 
 function stop() {
-  if (_state.checkInterval) clearInterval(_state.checkInterval)
+  if (_interval) { clearInterval(_interval); _interval = null; }
 }
 
-// Force switch
-function forceServer(server) {
-  if (server === 'primary' || server === 'backup') {
-    _state.active = server
-    console.log('[servers] Manually switched to', server)
-  }
+function getStatus() {
+  return {
+    active: state.active,
+    mode: cfg.get('JELLYFIN_MODE') || 'fastest',
+    primary: { url: cfg.get('JELLYFIN_URL'), ...state.primary },
+    backup: cfg.get('JELLYFIN_BACKUP_URL') ? { url: cfg.get('JELLYFIN_BACKUP_URL'), ...state.backup } : null,
+    plex: cfg.get('PLEX_URL') ? { url: cfg.get('PLEX_URL'), ...state.plex } : null,
+    lastCheck: state.lastCheck,
+  };
 }
 
-module.exports = { start, stop, getActiveUrl, getActiveToken, getStatus, checkBoth, forceServer }
+function forceSwitch(server) {
+  if (server !== 'primary' && server !== 'backup') return;
+  state.active = server;
+  const url = server === 'backup' ? cfg.get('JELLYFIN_BACKUP_URL') : cfg.get('JELLYFIN_URL');
+  const key = server === 'backup' ? cfg.get('JELLYFIN_BACKUP_API_KEY') : cfg.get('JELLYFIN_API_KEY');
+  if (url) jf.init(url, key || '');
+  console.log('[servers] Manually switched to', server);
+}
+
+module.exports = { start, stop, checkAll, getStatus, forceSwitch };

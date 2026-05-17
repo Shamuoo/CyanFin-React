@@ -31,7 +31,7 @@ export default function DetailModal() {
       setPlayingItem({
         id: item.id, title: item.title ?? '',
         streamUrl: info.streamUrl, hlsUrl: info.hlsUrl,
-        startTime: item.userData?.PlaybackPositionTicks ? item.userData.PlaybackPositionTicks / 10_000_000 : 0,
+        startTime: item.userData?.playbackPositionTicks ? item.userData.playbackPositionTicks / 10_000_000 : 0,
       } as any)
       setDetailItemId(null)
       navigate('/player')
@@ -86,8 +86,8 @@ function IntegrationActions({ item }: { item: MediaItem }) {
   const { jellyfinUrl } = useStore()
   const [requested, setRequested] = useState(false)
   const [shared, setShared] = useState(false)
-  const [isFav, setIsFav] = useState(item.userData?.IsFavorite || false)
-  const [isWatched, setIsWatched] = useState((item.userData?.PlayedPercentage || 0) >= 90)
+  const [isFav, setIsFav] = useState(item.userData?.isFavorite || false)
+  const [isWatched, setIsWatched] = useState((item.userData?.playedPercentage || 0) >= 90)
 
   const { data: intCfg } = useQuery({ queryKey: ['integrations-config'], queryFn: api.integrationsConfig.bind(api), staleTime: 60_000 })
 
@@ -301,7 +301,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
               className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold tracking-wider uppercase transition-all hover:opacity-85"
               style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
               <Play size={15} fill="currentColor" />
-              {item.userData?.PlayedPercentage && item.userData.PlayedPercentage > 5 ? 'Resume' : 'Play'}
+              {item.userData?.playedPercentage && item.userData.playedPercentage > 5 ? 'Resume' : 'Play'}
             </button>
           )}
           {jellyfinUrl && (

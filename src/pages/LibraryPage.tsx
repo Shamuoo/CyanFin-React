@@ -144,7 +144,7 @@ export default function LibraryPage() {
             <div className="flex gap-2 flex-wrap mb-6">
               {[
                 { label: '🔍 Scan Libraries', fn: async () => { await api.libScan(); addLog('Library scan triggered') } },
-                { label: '🔄 Refresh All Metadata', fn: async () => { if (confirm('Refresh ALL metadata? This may take a while.')) { await api.libRefreshAll(); addLog('Full refresh triggered') } } },
+                { label: '🔄 Refresh All Metadata', fn: async () => { if (confirm('Refresh ALL metadata? This may take a while.')) { await api.libScan(); addLog('Full refresh triggered') } } },
                 { label: '🔁 Rescan Quality', fn: async () => { await refQuality(); addLog('Quality report refreshed') } },
                 { label: '🔁 Rescan Missing', fn: async () => { await refMissing(); addLog('Missing content report refreshed') } },
               ].map(btn => (

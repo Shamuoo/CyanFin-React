@@ -112,7 +112,7 @@ export default function NowPlayingPage() {
           <div className="mt-6 flex items-center gap-2">
             <Users size={12} style={{ color: 'var(--muted)' }} />
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
-              {allUsers.map(u => u.user).join(', ')} watching
+              {allUsers.map(u => (u as any).user).join(', ')} watching
             </p>
           </div>
         )}

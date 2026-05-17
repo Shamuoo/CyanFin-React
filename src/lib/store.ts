@@ -1,122 +1,114 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Theme, Layout, Mode, User } from '@/types'
+import type { User, Theme, Layout, AIProvider, PlayingItem, Mode } from '@/types'
 
 interface AppState {
   // Auth
   user: User | null
   setUser: (user: User | null) => void
 
-  // Settings
+  // Onboarding
+  onboarded: boolean
+  setOnboarded: (v: boolean) => void
+
+  // Theme / layout
   theme: Theme
   layout: Layout
-  mode: Mode
-  city: string
-  units: 'C' | 'F'
-  ssDelay: number
-  showWeather: boolean
-  showTrailer: boolean
-  showSS: boolean
-  playSounds: boolean
-  showMusic: boolean
-  jellyfinUrl: string
-  aiProvider: 'claude' | 'gemini' | 'ollama'
-  homeSectionOrder: string[]
-  homeSectionHidden: string[]
-  homeSections: { key: string; label: string; enabled: boolean }[]
-  screensaverEnabled: boolean
-  screensaverDelay: number  // minutes
-
   setTheme: (t: Theme) => void
   setLayout: (l: Layout) => void
-  setMode: (m: Mode) => void
-  setSetting: <K extends keyof AppState>(key: K, value: AppState[K]) => void
-  setHomeSections: (order: string[], hidden: string[]) => void
 
   // Player
-  playingItem: { id: string; title: string; streamUrl: string; startTime?: number } | null
-  setPlayingItem: (item: AppState['playingItem']) => void
+  playingItem: PlayingItem | null
+  setPlayingItem: (item: PlayingItem | null) => void
 
-  // Detail
+  // Detail modal
   detailItemId: string | null
   setDetailItemId: (id: string | null) => void
 
-  // Onboarded
-  onboarded: boolean
-  setOnboarded: (v: boolean) => void
+  // AI
+  aiProvider: AIProvider
+
+  // Home sections
+  homeSectionOrder: string[]
+  homeSectionHidden: string[]
+  setHomeSections: (order: string[], hidden: string[]) => void
+
+  // Settings
+  showWeather: boolean
+  city: string
+  units: 'C' | 'F'
+  showMusic: boolean
+  showSS: boolean
+  playSounds: boolean
+  screensaverDelay: number
+  mode: Mode
+  setMode: (m: Mode) => void
+  jellyfinUrl: string
+
+  // Generic setter
+  setSetting: <K extends keyof AppState>(key: K, value: AppState[K]) => void
 }
 
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
+      // Auth
       user: null,
       setUser: (user) => set({ user }),
 
+      // Onboarding
+      onboarded: false,
+      setOnboarded: (onboarded) => set({ onboarded }),
+
+      // Theme / layout
       theme: 'cinema',
       layout: 'desktop',
-      mode: 'advanced',
-      city: 'Brisbane',
-      units: 'C',
-      ssDelay: 300,
-      showWeather: true,
-      showTrailer: true,
-      showSS: true,
-      playSounds: true,
-      showMusic: true,
-      jellyfinUrl: '',
-      aiProvider: 'claude',
-      homeSectionOrder: [],
-      homeSectionHidden: [],
-      homeSections: [
-        { key: 'continue', label: 'Continue Watching', enabled: true },
-        { key: 'recent', label: 'Recently Added', enabled: true },
-        { key: 'popular', label: 'Popular', enabled: true },
-        { key: 'shows', label: 'TV Shows', enabled: true },
-        { key: 'toprated', label: 'Top Rated', enabled: true },
-        { key: 'collections', label: 'Collections', enabled: true },
-        { key: 'history', label: 'Recently Watched', enabled: true },
-        { key: 'best3d', label: 'Best in 3D', enabled: false },
-      ],
-      screensaverEnabled: true,
-      screensaverDelay: 5,
-
       setTheme: (theme) => set({ theme }),
       setLayout: (layout) => set({ layout }),
-      setMode: (mode) => set({ mode }),
-      setHomeSections: (order, hidden) => set({ homeSectionOrder: order, homeSectionHidden: hidden }),
-      setSetting: (key, value) => set({ [key]: value } as Partial<AppState>),
 
+      // Player
       playingItem: null,
       setPlayingItem: (playingItem) => set({ playingItem }),
 
+      // Detail modal
       detailItemId: null,
       setDetailItemId: (detailItemId) => set({ detailItemId }),
 
-      onboarded: false,
-      setOnboarded: (onboarded) => set({ onboarded }),
+      // AI
+      aiProvider: 'claude',
+
+      // Home sections
+      homeSectionOrder: [],
+      homeSectionHidden: [],
+      setHomeSections: (homeSectionOrder, homeSectionHidden) => set({ homeSectionOrder, homeSectionHidden }),
+
+      // Settings
+      showWeather: true,
+      city: 'Sydney',
+      units: 'C',
+      showMusic: true,
+  showSS: true,
+  playSounds: true,
+  screensaverDelay: 5,
+  mode: 'advanced' as Mode,
+  setMode: (mode) => set({ mode }),
+  jellyfinUrl: '',
+
+      setSetting: (key, value) => set({ [key]: value } as Partial<AppState>),
     }),
     {
       name: 'cyanfin-store',
       partialize: (state) => ({
-        theme: state.theme,
-        layout: state.layout,
-        mode: state.mode,
-        city: state.city,
-        units: state.units,
-        ssDelay: state.ssDelay,
-        showWeather: state.showWeather,
-        showTrailer: state.showTrailer,
-        showSS: state.showSS,
-        playSounds: state.playSounds,
-        showMusic: state.showMusic,
-        onboarded: state.onboarded,
-        jellyfinUrl: state.jellyfinUrl,
-        aiProvider: state.aiProvider,
-        homeSectionOrder: state.homeSectionOrder,
-        homeSectionHidden: state.homeSectionHidden,
-        homeSections: state.homeSections,
-        screensaverEnabled: state.screensaverEnabled,
-        screensaverDelay: state.screensaverDelay,
+        onboarded:          state.onboarded,
+        theme:              state.theme,
+        layout:             state.layout,
+        aiProvider:         state.aiProvider,
+        homeSectionOrder:   state.homeSectionOrder,
+        homeSectionHidden:  state.homeSectionHidden,
+        showWeather:        state.showWeather,
+        city:               state.city,
+        units:              state.units,
+        showMusic:          state.showMusic,
       }),
     }
   )

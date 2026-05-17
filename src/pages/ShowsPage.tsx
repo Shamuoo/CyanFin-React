@@ -60,7 +60,7 @@ export default function ShowsPage() {
   const playEpisode = async (ep: MediaItem) => {
     try {
       const info = await api.playbackInfo(ep.id)
-      setPlayingItem({ id: ep.id, title: `${ep.seriesName} · ${ep.title}`, streamUrl: info.streamUrl, hlsUrl: info.hlsUrl, startTime: ep.userData?.PlaybackPositionTicks ? ep.userData.PlaybackPositionTicks / 10_000_000 : 0 } as any)
+      setPlayingItem({ id: ep.id, title: `${ep.seriesName} · ${ep.title}`, streamUrl: info.streamUrl, hlsUrl: info.hlsUrl, startTime: ep.userData?.playbackPositionTicks ? ep.userData.playbackPositionTicks / 10_000_000 : 0 } as any)
       window.location.href = '/player'
     } catch(e) { console.error(e) }
   }
@@ -135,9 +135,9 @@ export default function ShowsPage() {
                         : null
                     }
                     {/* Progress bar */}
-                    {ep.userData?.PlayedPercentage && ep.userData.PlayedPercentage > 0 && ep.userData.PlayedPercentage < 100 && (
+                    {ep.userData?.playedPercentage && ep.userData.playedPercentage > 0 && ep.userData.playedPercentage < 100 && (
                       <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: 'rgba(255,255,255,0.2)' }}>
-                        <div style={{ width: `${ep.userData.PlayedPercentage}%`, height: '100%', background: 'var(--accent)' }} />
+                        <div style={{ width: `${ep.userData.playedPercentage}%`, height: '100%', background: 'var(--accent)' }} />
                       </div>
                     )}
                   </div>
@@ -183,7 +183,7 @@ export default function ShowsPage() {
           </select>
           <select value={genre} onChange={e => setGenre(e.target.value)} className={sel} style={ss}>
             <option value="">All Genres</option>
-            {genres.map(g => <option key={g} value={g}>{g}</option>)}
+            {genres.map(g => <option key={typeof g === "string" ? g : (g as any).name} value={typeof g === "string" ? g : (g as any).name}>{typeof g === "string" ? g : (g as any).name}</option>)}
           </select>
         </div>
       </div>
