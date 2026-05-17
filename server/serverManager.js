@@ -1,19 +1,25 @@
 'use strict';
+/**
+ * CyanFin Server Manager v0.16.1
+ * Multi-server failover: Jellyfin primary + backup + Plex
+ * Exposes getActiveToken(session) for seamless failover without re-login
+ */
 const http  = require('http');
 const https = require('https');
 const cfg   = require('./config');
 const jf    = require('./jellyfin');
 
-const CHECK_MS       = 30_000;
-const PRIMARY_BIAS   = 75;   // ms advantage to primary
-const PING_TIMEOUT   = 6000;
+const CHECK_MS     = 30_000;
+const PRIMARY_BIAS = 75;
+const PING_TIMEOUT = 6000;
 
 let state = {
-  active:    'primary',   // 'primary' | 'backup' — which Jellyfin
-  source:    'jellyfin',  // 'jellyfin' | 'plex'  — what content source
-  primary:   { ok: false, latency: null, name: null, version: null },
-  backup:    { ok: false, latency: null, name: null, version: null },
+  active:    'primary',   // 'primary' | 'backup'
+  source:    'jellyfin',  // 'jellyfin' | 'plex'
+  primary:   { ok: false, latency: null, name: null, version: null, wasOk: undefined },
+  backup:    { ok: false, latency: null, name: null, version: null, wasOk: undefined },
   plex:      { ok: false, latency: null },
+  isOffline: false,
   lastCheck: 0,
 };
 let _interval = null;
@@ -48,19 +54,19 @@ function httpGet(url, headers = {}) {
   });
 }
 
-async function pingJellyfin(url) {
-  if (!url) return { ok: false, latency: null };
-  const r = await httpGet(url.replace(/\/$/, '') + '/System/Info/Public');
-  return { ok: r.ok, latency: r.latency, name: r.data?.ServerName, version: r.data?.Version };
+function pingJellyfin(url) {
+  if (!url) return Promise.resolve({ ok: false, latency: null });
+  return httpGet(url.replace(/\/$/, '') + '/System/Info/Public')
+    .then(r => ({ ok: r.ok, latency: r.latency, name: r.data?.ServerName, version: r.data?.Version }));
 }
 
-async function pingPlex(url, token) {
-  if (!url || !token) return { ok: false, latency: null };
-  const r = await httpGet(url.replace(/\/$/, '') + '/identity', { 'X-Plex-Token': token });
-  return { ok: r.ok, latency: r.latency };
+function pingPlex(url, token) {
+  if (!url || !token) return Promise.resolve({ ok: false, latency: null });
+  return httpGet(url.replace(/\/$/, '') + '/identity', { 'X-Plex-Token': token })
+    .then(r => ({ ok: r.ok, latency: r.latency }));
 }
 
-// ── Check all servers and update state ────────────────────────────────────────
+// ── Discord alerting ──────────────────────────────────────────────────────────
 function alertDiscord(message) {
   const webhookUrl = cfg.get('DISCORD_WEBHOOK_URL');
   if (!webhookUrl) return;
@@ -68,14 +74,42 @@ function alertDiscord(message) {
     const body = JSON.stringify({ content: `**CyanFin** ${message}`, username: 'CyanFin' });
     const parsed = new URL(webhookUrl);
     const lib = parsed.protocol === 'https:' ? https : http;
-    const req = lib.request(webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }, timeout: 5000 }, () => {});
+    const req = lib.request(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 5000,
+    }, () => {});
     req.on('error', () => {});
     req.write(body);
     req.end();
-    console.log('[servers] Discord alert sent:', message);
   } catch(e) {}
 }
 
+// ── Auth against backup server (called during login) ─────────────────────────
+async function authenticateBackup(username, password) {
+  const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
+  if (!backupUrl) return null;
+  try {
+    // Temporarily swap jf base URL to backup
+    const savedUrl = jf.getBaseUrl();
+    jf.init(backupUrl, cfg.get('JELLYFIN_BACKUP_API_KEY') || '');
+    const result = await jf.authenticate(username, password);
+    jf.init(savedUrl, cfg.get('JELLYFIN_API_KEY') || ''); // restore
+    return result?.AccessToken || null;
+  } catch(e) {
+    console.log('[servers] Backup auth failed (non-fatal):', e.message);
+    return null;
+  }
+}
+
+// ── Get the right token for the current active server ────────────────────────
+function getActiveToken(session) {
+  if (!session) return '';
+  if (state.active === 'backup' && session.backupToken) return session.backupToken;
+  return session.token || '';
+}
+
+// ── Check all servers ─────────────────────────────────────────────────────────
 async function checkAll() {
   const primaryUrl = cfg.get('JELLYFIN_URL');
   const backupUrl  = cfg.get('JELLYFIN_BACKUP_URL');
@@ -88,32 +122,41 @@ async function checkAll() {
     pingPlex(plexUrl, plexToken),
   ]);
 
-  state.primary = { ...state.primary, ...p };
-  state.backup  = { ...state.backup,  ...b };
+  // Discord alerts on state changes
+  if (p.ok !== state.primary.wasOk && state.primary.wasOk !== undefined) {
+    alertDiscord(p.ok
+      ? '✅ **Jellyfin Primary** is back online'
+      : '🔴 **Jellyfin Primary** is unreachable — switching to backup/Plex');
+  }
+  if (b.ok !== state.backup.wasOk && state.backup.wasOk !== undefined && backupUrl) {
+    alertDiscord(b.ok ? '✅ **Jellyfin Backup** is back online' : '🟡 **Jellyfin Backup** is unreachable');
+  }
+
+  state.primary = { ...state.primary, ...p, wasOk: p.ok };
+  state.backup  = { ...state.backup,  ...b, wasOk: b.ok };
   state.plex    = { ...state.plex,    ...px };
   state.lastCheck = Date.now();
 
-  // ── Pick active Jellyfin server ────────────────────────────────────────────
+  // Pick active Jellyfin server
   const mode = cfg.get('JELLYFIN_MODE') || 'fastest';
+  const prev = state.active;
+  const prevSource = state.source;
+
   if (mode === 'primary') {
     state.active = p.ok ? 'primary' : (b.ok ? 'backup' : 'primary');
   } else if (mode === 'backup') {
     state.active = b.ok ? 'backup' : (p.ok ? 'primary' : 'primary');
   } else {
-    // fastest
-    if (!p.ok && !b.ok)     { /* keep current */ }
-    else if (!p.ok && b.ok) { state.active = 'backup'; }
-    else if (p.ok && !b.ok) { state.active = 'primary'; }
-    else {
-      const pAdj = (p.latency || 9999) + PRIMARY_BIAS;
-      state.active = (b.latency || 9999) < pAdj ? 'backup' : 'primary';
-    }
+    if (!p.ok && !b.ok) { /* keep */ }
+    else if (!p.ok) state.active = 'backup';
+    else if (!b.ok) state.active = 'primary';
+    else state.active = ((b.latency||9999) < (p.latency||9999) + PRIMARY_BIAS) ? 'backup' : 'primary';
   }
 
-  // ── Pick content source (jellyfin or plex fallback) ────────────────────────
+  // Pick content source
   const jellyfinOk = (state.active === 'primary' && p.ok) || (state.active === 'backup' && b.ok);
-  const prevSource = state.source;
-  state.source = jellyfinOk ? 'jellyfin' : (px.ok ? 'plex' : 'jellyfin');
+  state.source   = jellyfinOk ? 'jellyfin' : (px.ok ? 'plex' : 'jellyfin');
+  state.isOffline = !p.ok && !b.ok && !px.ok;
 
   // Re-init Jellyfin client
   const activeUrl = state.active === 'backup' && backupUrl ? backupUrl : primaryUrl;
@@ -125,42 +168,22 @@ async function checkAll() {
   const pStr  = p.ok  ? `${p.latency}ms` : 'DOWN';
   const bStr  = backupUrl ? (b.ok ? `${b.latency}ms` : 'DOWN') : 'none';
   const pxStr = plexUrl   ? (px.ok ? `${px.latency}ms` : 'DOWN') : 'none';
-  const switched = prevSource !== state.source ? ` ⚡ SWITCHED TO ${state.source.toUpperCase()}` : '';
-
-  // Discord webhook alerts on state changes
-  const prevPrimaryOk = state.primary?.wasOk;
-  if (p.ok !== prevPrimaryOk && prevPrimaryOk !== undefined) {
-    alertDiscord(p.ok
-      ? '✅ **Jellyfin Primary** is back online'
-      : '🔴 **Jellyfin Primary** is unreachable — switching to backup/Plex'
-    );
-  }
-  state.primary.wasOk = p.ok;
-  console.log(`[servers] jf-primary=${pStr} jf-backup=${bStr} plex=${pxStr} active=${state.active} source=${state.source}${switched}`);
-
+  const changed = (prev !== state.active || prevSource !== state.source)
+    ? ` ⚡ ${state.source.toUpperCase()}:${state.active}` : '';
+  console.log(`[servers] jf-primary=${pStr} jf-backup=${bStr} plex=${pxStr}${changed}${state.isOffline ? ' ⚠ OFFLINE' : ''}`);
   return state;
 }
 
 // ── Start / Stop ──────────────────────────────────────────────────────────────
 function start() {
   if (_interval) { clearInterval(_interval); _interval = null; }
-
   const primaryUrl = cfg.get('JELLYFIN_URL');
-  const backupUrl  = cfg.get('JELLYFIN_BACKUP_URL');
   const plexUrl    = cfg.get('PLEX_URL');
-  const plexToken  = cfg.get('PLEX_TOKEN');
-
-  if (!primaryUrl && !plexUrl) {
-    console.log('[servers] No servers configured');
-    return;
-  }
-
-  // Always check all servers on start
+  if (!primaryUrl && !plexUrl) { console.log('[servers] No servers configured'); return; }
+  if (primaryUrl) jf.init(primaryUrl, cfg.get('JELLYFIN_API_KEY') || '');
   checkAll().then(() => {
-    // Keep checking on interval — even single-server needs Plex failover monitoring
     _interval = setInterval(checkAll, CHECK_MS);
-    const mode = backupUrl || plexUrl ? 'Multi-server' : 'Single-server';
-    console.log(`[servers] ${mode} mode — checking every ${CHECK_MS / 1000}s`);
+    console.log(`[servers] Monitoring every ${CHECK_MS/1000}s`);
   });
 }
 
@@ -168,11 +191,11 @@ function stop() {
   if (_interval) { clearInterval(_interval); _interval = null; }
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 function getStatus() {
   return {
     active:    state.active,
     source:    state.source,
+    isOffline: state.isOffline,
     mode:      cfg.get('JELLYFIN_MODE') || 'fastest',
     primary:   cfg.get('JELLYFIN_URL')        ? { url: cfg.get('JELLYFIN_URL'),        ...state.primary } : null,
     backup:    cfg.get('JELLYFIN_BACKUP_URL') ? { url: cfg.get('JELLYFIN_BACKUP_URL'), ...state.backup  } : null,
@@ -182,29 +205,22 @@ function getStatus() {
 }
 
 function forceSwitch(server) {
-  if (server === 'plex') {
-    state.source = 'plex';
-    console.log('[servers] Manually switched to Plex');
-    return getStatus();
-  }
+  if (server === 'plex') { state.source = 'plex'; console.log('[servers] → Plex'); return getStatus(); }
   if (server !== 'primary' && server !== 'backup') return getStatus();
-  state.active = server;
-  state.source = 'jellyfin';
+  state.active = server; state.source = 'jellyfin';
   const url = server === 'backup' ? cfg.get('JELLYFIN_BACKUP_URL') : cfg.get('JELLYFIN_URL');
   const key = server === 'backup'
     ? (cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY') || '')
     : (cfg.get('JELLYFIN_API_KEY') || '');
   if (url) jf.init(url, key);
-  console.log(`[servers] Manually switched to ${server}`);
+  console.log(`[servers] → ${server}`);
   return getStatus();
 }
 
-// Is Plex currently the active content source?
-function isPlexFallback() {
-  return state.source === 'plex';
-}
+function isPlexFallback() { return state.source === 'plex'; }
+function isOffline() { return state.isOffline; }
 
-// Find matching item on backup Jellyfin by provider ID
+// Match item on another server by IMDB/TMDB ID
 async function findMatchOnServer(targetUrl, targetKey, providerIds) {
   const imdbId = providerIds?.Imdb;
   const tmdbId = providerIds?.Tmdb;
@@ -218,5 +234,7 @@ async function findMatchOnServer(targetUrl, targetKey, providerIds) {
 
 module.exports = {
   start, stop, checkAll, getStatus, forceSwitch,
-  isPlexFallback, findMatchOnServer, pingJellyfin, pingPlex,
+  getActiveToken, authenticateBackup,
+  isPlexFallback, isOffline, findMatchOnServer,
+  pingJellyfin, pingPlex,
 };

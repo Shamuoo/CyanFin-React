@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.15.0';
+const VERSION = '0.16.1';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -135,15 +135,34 @@ async function handler(req, res) {
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     const body = await readBody(req);
     try {
-      // Ensure Jellyfin is initialized with latest config
       const currentUrl = cfg.get('JELLYFIN_URL');
-      if (currentUrl && !jf.getBaseUrl()) {
-        jf.init(currentUrl, cfg.get('JELLYFIN_API_KEY') || '');
-      }
       if (!currentUrl) return json(res, { error: 'Jellyfin server not configured. Please complete setup first.' }, 503);
+      if (currentUrl && !jf.getBaseUrl()) jf.init(currentUrl, cfg.get('JELLYFIN_API_KEY') || '');
+
+      // Authenticate against primary server
       const result = await jf.authenticate(body.username, body.password);
+
+      // Attempt auth against backup server in background (don't fail if unavailable)
+      let backupToken = null;
+      const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
+      if (backupUrl) {
+        try {
+          const backupJf = require('./jellyfin');
+          // Temporarily use backup URL
+          const origUrl = backupJf.getBaseUrl();
+          backupJf.init(backupUrl, cfg.get('JELLYFIN_BACKUP_API_KEY') || '');
+          const backupResult = await backupJf.authenticate(body.username, body.password);
+          backupToken = backupResult.AccessToken;
+          backupJf.init(origUrl, cfg.get('JELLYFIN_API_KEY') || ''); // restore
+          console.log('[auth] Pre-authenticated against backup server');
+        } catch(e) {
+          console.log('[auth] Backup server auth skipped:', e.message);
+        }
+      }
+
       const sessionId = auth.createSession({
         token: result.AccessToken,
+        backupToken,
         userId: result.User.Id,
         username: result.User.Name,
         isAdmin: result.User.Policy?.IsAdministrator,

@@ -11,7 +11,8 @@ const cfg = require('../config');
 const FIELDS = 'Overview,Taglines,Genres,OfficialRating,CommunityRating,People,MediaStreams,MediaSources,Studios,Tags,ExternalUrls,ProviderIds,BackdropImageTags,ImageTags,Chapters,PartCount';
 
 async function handleItems(pathname, query, session, req) {
-  const token = session.token;
+  const sm = require('../serverManager');
+  const token = sm.getActiveToken(session);
   const userId = session.userId;
 
   // ── Plex item (id starts with plex_) ─────────────────────────────────────────
