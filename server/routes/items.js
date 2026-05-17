@@ -3,6 +3,8 @@
  * Item detail, playback info, user actions
  */
 const jf = require('../jellyfin');
+const plex = require('../plexClient');
+const sm = require('../serverManager');
 const { mapItem, formatAudio } = require('./media');
 const cfg = require('../config');
 
@@ -11,6 +13,19 @@ const FIELDS = 'Overview,Taglines,Genres,OfficialRating,CommunityRating,People,M
 async function handleItems(pathname, query, session, req) {
   const token = session.token;
   const userId = session.userId;
+
+  // ── Plex item (id starts with plex_) ─────────────────────────────────────────
+  if (pathname.match(/^\/api\/items\/plex_[^/]+$/) && req.method !== 'POST') {
+    const plexKey = pathname.split('/')[3];
+    const item = await plex.getItem(plexKey);
+    if (!item) return { error: 'Not found' };
+    return item;
+  }
+
+  if (pathname === '/api/playback-info' && (query.id || '').startsWith('plex_')) {
+    const info = await plex.getPlaybackInfo(query.id);
+    return info;
+  }
 
   // ── Item Detail ─────────────────────────────────────────────────────────────
   if (pathname.match(/^\/api\/items\/[^/]+$/) && req.method !== 'POST') {
@@ -180,6 +195,30 @@ async function handleItems(pathname, query, session, req) {
 
   // ── Playback reporting ──────────────────────────────────────────────────────
   if (pathname === '/api/playback/start' && req.method === 'POST') {
+    const { itemId } = req._body || {};
+    if (String(itemId).startsWith('plex_')) {
+      const posMs = Math.round((req._body?.positionTicks || 0) / 10000);
+      await plex.reportPlaybackStart(itemId, posMs);
+      return { ok: true };
+    }
+  }
+  if (pathname === '/api/playback/progress' && req.method === 'POST') {
+    const { itemId, positionTicks, isPaused } = req._body || {};
+    if (String(itemId).startsWith('plex_')) {
+      const posMs = Math.round((positionTicks || 0) / 10000);
+      await plex.reportPlaybackProgress(itemId, posMs, 0, isPaused);
+      return { ok: true };
+    }
+  }
+  if (pathname === '/api/playback/stop' && req.method === 'POST') {
+    const { itemId, positionTicks } = req._body || {};
+    if (String(itemId).startsWith('plex_')) {
+      const posMs = Math.round((positionTicks || 0) / 10000);
+      await plex.reportPlaybackStop(itemId, posMs, 0);
+      return { ok: true };
+    }
+  }
+  if (false && pathname === '/api/playback/start' && req.method === 'POST') {
     const { itemId, mediaSourceId, positionTicks = 0, audioStreamIndex, subtitleStreamIndex } = req._body || {};
     if (!itemId) return { error: 'No itemId' };
     await jf.post('/Sessions/Playing', {

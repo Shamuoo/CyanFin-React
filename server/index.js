@@ -90,6 +90,7 @@ async function handler(req, res) {
       version: VERSION,
       hasJellyfin: !!cfg.get('JELLYFIN_URL'),
       configured: !!cfg.get('JELLYFIN_URL'),
+      hasPlex: !!(cfg.get('PLEX_URL') && cfg.get('PLEX_TOKEN')),
       ...cfg.getPublic(),
     });
   }
@@ -251,6 +252,39 @@ async function handler(req, res) {
         res.writeHead(proxyRes.statusCode || 200, { 'Content-Type': 'text/vtt', 'Access-Control-Allow-Origin': '*' });
         proxyRes.pipe(res);
       }).on('error', () => { res.writeHead(500); res.end(); }).end();
+    } catch(e) { res.writeHead(500); res.end(); }
+    return;
+  }
+
+  // ── PROXY: plex images ──────────────────────────────────────────────────────
+  if (pathname === '/proxy/plex-image') {
+    // Plex images are public via token - no session check needed for images
+    const { path: plexPath, w = '400', h = '600' } = parsed.query;
+    const plexClient = require('./plexClient');
+    await plexClient.proxyImage(res, plexPath, parseInt(w), parseInt(h));
+    return;
+  }
+
+  // ── PROXY: plex stream (adds token, proxies stream) ──────────────────────
+  if (pathname === '/proxy/plex-stream') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) { res.writeHead(401); res.end(); return; }
+    const plexBase = cfg.get('PLEX_URL') || '';
+    const plexTok  = cfg.get('PLEX_TOKEN') || '';
+    const streamPath = parsed.query.path || '';
+    if (!plexBase || !streamPath) { res.writeHead(400); res.end(); return; }
+    const fullUrl = `${plexBase}${streamPath}?X-Plex-Token=${plexTok}`;
+    try {
+      const parsedUrl = new URL(fullUrl);
+      const lib = parsedUrl.protocol === 'https:' ? https : http;
+      lib.request(fullUrl, { headers: { 'X-Plex-Token': plexTok } }, proxyRes => {
+        res.writeHead(proxyRes.statusCode || 200, {
+          'Content-Type': proxyRes.headers['content-type'] || 'video/mp4',
+          'Accept-Ranges': 'bytes',
+          'Access-Control-Allow-Origin': '*',
+        });
+        proxyRes.pipe(res);
+      }).on('error', () => { res.writeHead(502); res.end(); }).end();
     } catch(e) { res.writeHead(500); res.end(); }
     return;
   }

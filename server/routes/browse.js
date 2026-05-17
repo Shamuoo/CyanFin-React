@@ -1,16 +1,25 @@
 'use strict';
 /**
  * Browse routes — library listing, search, home rows
+ * Automatically serves from Plex when Jellyfin is unreachable
  */
-const jf = require('../jellyfin');
+const jf   = require('../jellyfin');
+const plex = require('../plexClient');
+const sm   = require('../serverManager');
 const { mapItem, dedup } = require('./media');
 
-async function handleBrowse(pathname, query, session) {
-  const token = session.token;
-  const userId = session.userId;
+// ── Source-aware fetch ────────────────────────────────────────────────────────
 
-  // ── Recently Added ──────────────────────────────────────────────────────────
+function usePlex() { return sm.isPlexFallback(); }
+
+async function handleBrowse(pathname, query, session) {
+  const token  = session.token;
+  const userId = session.userId;
+  const fromPlex = usePlex();
+
+  // ── Recently Added ─────────────────────────────────────────────────────────
   if (pathname === '/api/recently-added') {
+    if (fromPlex) return plex.getRecentlyAdded(24).catch(() => []);
     const data = await jf.get(
       `/Users/${userId}/Items/Latest?MediaType=Video&Limit=24` +
       `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
@@ -19,8 +28,9 @@ async function handleBrowse(pathname, query, session) {
     return dedup((Array.isArray(data) ? data : data.Items || []).map(i => mapItem(i, token)));
   }
 
-  // ── Continue Watching ───────────────────────────────────────────────────────
+  // ── Continue Watching ──────────────────────────────────────────────────────
   if (pathname === '/api/continue-watching') {
+    if (fromPlex) return plex.getContinueWatching(12).catch(() => []);
     const data = await jf.get(
       `/Users/${userId}/Items/Resume?MediaTypes=Video&Limit=12` +
       `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
@@ -29,8 +39,9 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
-  // ── Popular ─────────────────────────────────────────────────────────────────
+  // ── Popular ────────────────────────────────────────────────────────────────
   if (pathname === '/api/popular') {
+    if (fromPlex) return plex.getPopular(20).catch(() => []);
     const data = await jf.get(
       `/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true` +
       `&SortBy=PlayCount,CommunityRating&SortOrder=Descending&Limit=20` +
@@ -40,8 +51,12 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
-  // ── Watch History ───────────────────────────────────────────────────────────
+  // ── Watch History ──────────────────────────────────────────────────────────
   if (pathname === '/api/history') {
+    if (fromPlex) {
+      // Plex doesn't have a simple "history" endpoint — use onDeck as proxy
+      return plex.getContinueWatching(20).catch(() => []);
+    }
     const data = await jf.get(
       `/Users/${userId}/Items?Filters=IsPlayed&Recursive=true&IncludeItemTypes=Movie,Episode` +
       `&SortBy=DatePlayed&SortOrder=Descending&Limit=20` +
@@ -51,57 +66,78 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
-  // ── Movies ──────────────────────────────────────────────────────────────────
+  // ── Movies ─────────────────────────────────────────────────────────────────
   if (pathname === '/api/movies') {
-    const sort = query.sort || 'SortName';
+    const sort  = query.sort || 'SortName';
     const order = query.order || 'Ascending';
-    const genre = query.genre ? `&Genres=${encodeURIComponent(query.genre)}` : '';
     const start = parseInt(query.start || '0');
     const limit = parseInt(query.limit || '50');
-    const search = query.search ? `&SearchTerm=${encodeURIComponent(query.search)}` : '';
+    const genre = query.genre;
+    const search = query.search;
+
+    if (fromPlex) {
+      const plexSort = sort === 'CommunityRating' ? 'rating' : sort === 'DateCreated' ? 'addedAt' : 'titleSort';
+      const plexOrder = order === 'Descending' ? 'desc' : 'asc';
+      return plex.getMovies({ sort: plexSort, order: plexOrder, start, limit, genre, search }).catch(() => ({ items: [], total: 0 }));
+    }
+
+    const genreParam  = genre  ? `&Genres=${encodeURIComponent(genre)}`  : '';
+    const searchParam = search ? `&SearchTerm=${encodeURIComponent(search)}` : '';
     const data = await jf.get(
       `/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true` +
       `&SortBy=${sort}&SortOrder=${order}&StartIndex=${start}&Limit=${limit}` +
       `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags` +
-      genre + search,
+      genreParam + searchParam,
       token
     );
     return { items: (data.Items || []).map(i => mapItem(i, token)), total: data.TotalRecordCount || 0 };
   }
 
-  // ── TV Shows ────────────────────────────────────────────────────────────────
+  // ── TV Shows ───────────────────────────────────────────────────────────────
   if (pathname === '/api/shows') {
-    const sort = query.sort || 'SortName';
+    const sort  = query.sort || 'SortName';
     const order = query.order || 'Ascending';
-    const genre = query.genre ? `&Genres=${encodeURIComponent(query.genre)}` : '';
     const start = parseInt(query.start || '0');
     const limit = parseInt(query.limit || '50');
-    const search = query.search ? `&SearchTerm=${encodeURIComponent(query.search)}` : '';
+    const genre = query.genre;
+    const search = query.search;
+
+    if (fromPlex) {
+      const plexSort = sort === 'DateCreated' ? 'addedAt' : 'titleSort';
+      const plexOrder = order === 'Descending' ? 'desc' : 'asc';
+      return plex.getShows({ sort: plexSort, order: plexOrder, start, limit, genre, search }).catch(() => ({ items: [], total: 0 }));
+    }
+
+    const genreParam  = genre  ? `&Genres=${encodeURIComponent(genre)}`  : '';
+    const searchParam = search ? `&SearchTerm=${encodeURIComponent(search)}` : '';
     const data = await jf.get(
       `/Users/${userId}/Items?IncludeItemTypes=Series&Recursive=true` +
       `&SortBy=${sort}&SortOrder=${order}&StartIndex=${start}&Limit=${limit}` +
       `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,ImageTags,BackdropImageTags` +
-      genre + search,
+      genreParam + searchParam,
       token
     );
     return { items: (data.Items || []).map(i => mapItem(i, token)), total: data.TotalRecordCount || 0 };
   }
 
-  // ── Seasons ─────────────────────────────────────────────────────────────────
+  // ── Seasons ────────────────────────────────────────────────────────────────
   if (pathname.match(/^\/api\/shows\/[^/]+\/seasons$/)) {
     const showId = pathname.split('/')[3];
-    const data = await jf.get(
-      `/Shows/${showId}/Seasons?userId=${userId}&fields=Overview,ImageTags`,
-      token
-    );
+    if (fromPlex || showId.startsWith('plex_')) {
+      return plex.getSeasons(showId).catch(() => []);
+    }
+    const data = await jf.get(`/Shows/${showId}/Seasons?userId=${userId}&fields=Overview,ImageTags`, token);
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
-  // ── Episodes ────────────────────────────────────────────────────────────────
+  // ── Episodes ───────────────────────────────────────────────────────────────
   if (pathname.match(/^\/api\/shows\/[^/]+\/seasons\/[^/]+\/episodes$/)) {
-    const parts = pathname.split('/');
-    const showId = parts[3];
+    const parts    = pathname.split('/');
+    const showId   = parts[3];
     const seasonId = parts[5];
+    if (fromPlex || seasonId.startsWith('plex_')) {
+      return plex.getEpisodes(seasonId).catch(() => []);
+    }
     const data = await jf.get(
       `/Shows/${showId}/Episodes?seasonId=${seasonId}&userId=${userId}` +
       `&fields=Overview,MediaStreams,ImageTags,BackdropImageTags`,
@@ -110,24 +146,36 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
-  // ── Next Episode ────────────────────────────────────────────────────────────
+  // ── Next Episode ───────────────────────────────────────────────────────────
   if (pathname === '/api/next-episode') {
     const { seriesId, parentIndexNumber, indexNumber } = query;
     if (!seriesId) return { hasNext: false };
-    const data = await jf.get(
-      `/Shows/${seriesId}/Episodes?userId=${userId}&fields=ImageTags,UserData`,
-      token
-    );
+
+    if (fromPlex || String(seriesId).startsWith('plex_')) {
+      // Get all episodes from all seasons of the Plex show
+      const seasons = await plex.getSeasons(seriesId).catch(() => []);
+      const curSeason = parseInt(parentIndexNumber);
+      const curEp     = parseInt(indexNumber);
+      let allEps = [];
+      for (const season of seasons) {
+        const eps = await plex.getEpisodes(season.id).catch(() => []);
+        allEps = [...allEps, ...eps];
+      }
+      const curIdx = allEps.findIndex(e => e.parentIndexNumber === curSeason && e.indexNumber === curEp);
+      if (curIdx === -1 || curIdx >= allEps.length - 1) return { hasNext: false };
+      return { hasNext: true, episode: allEps[curIdx + 1] };
+    }
+
+    const data = await jf.get(`/Shows/${seriesId}/Episodes?userId=${userId}&fields=ImageTags,UserData`, token);
     const eps = data.Items || [];
-    const curIdx = eps.findIndex(e =>
-      e.ParentIndexNumber == parentIndexNumber && e.IndexNumber == indexNumber
-    );
+    const curIdx = eps.findIndex(e => e.ParentIndexNumber == parentIndexNumber && e.IndexNumber == indexNumber);
     if (curIdx === -1 || curIdx >= eps.length - 1) return { hasNext: false };
     return { hasNext: true, episode: mapItem(eps[curIdx + 1], token) };
   }
 
-  // ── Collections / Box Sets ──────────────────────────────────────────────────
+  // ── Collections ────────────────────────────────────────────────────────────
   if (pathname === '/api/collections') {
+    if (fromPlex) return []; // Plex has playlists, not box sets — skip for now
     const data = await jf.get(
       `/Users/${userId}/Items?IncludeItemTypes=BoxSet&Recursive=true` +
       `&SortBy=SortName&fields=ImageTags,BackdropImageTags&Limit=50`,
@@ -146,43 +194,32 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
-  // ── Best 3D ─────────────────────────────────────────────────────────────────
-  if (pathname === '/api/best-3d') {
-    const keywords = ['Avatar', 'How to Train Your Dragon', 'Life of Pi', 'Gravity', 'Interstellar', 'Mad Max'];
-    const results = await Promise.all(
-      keywords.map(kw => jf.get(
-        `/Users/${userId}/Items?SearchTerm=${encodeURIComponent(kw)}&IncludeItemTypes=Movie&Recursive=true&Limit=3` +
-        `&fields=MediaStreams,ImageTags,BackdropImageTags`,
-        token
-      ).then(d => (d.Items || []).filter(i => (i.Video3DFormat || '') !== '')).catch(() => []))
-    );
-    return dedup(results.flat().map(i => mapItem(i, token))).slice(0, 15);
-  }
-
-  // ── Libraries ───────────────────────────────────────────────────────────────
+  // ── Libraries ──────────────────────────────────────────────────────────────
   if (pathname === '/api/libraries') {
+    if (fromPlex) {
+      const libs = await plex.getLibraries().catch(() => []);
+      return libs.map(l => ({ id: String(l.id), name: l.name, type: l.type, imageUrl: null }));
+    }
     const data = await jf.get(`/Users/${userId}/Views`, token);
     return (data.Items || []).map(l => ({
-      id: l.Id, name: l.Name,
-      type: l.CollectionType || l.Type,
-      imageUrl: l.ImageTags?.Primary ? jf.imageUrl(l.Id, 'Primary', { token, maxWidth: 400 }) : null,
+      id: l.Id, name: l.Name, type: l.CollectionType || l.Type,
+      imageUrl: l.ImageTags?.Primary ? `/proxy/image?id=${l.Id}&type=Primary&w=400` : null,
     }));
   }
 
-  // ── Genres ──────────────────────────────────────────────────────────────────
+  // ── Genres ─────────────────────────────────────────────────────────────────
   if (pathname === '/api/genres') {
+    if (fromPlex) return []; // skip for now
     const type = query.type || 'Movie';
-    const data = await jf.get(
-      `/Genres?userId=${userId}&IncludeItemTypes=${type}&SortBy=SortName&Limit=100`,
-      token
-    );
+    const data = await jf.get(`/Genres?userId=${userId}&IncludeItemTypes=${type}&SortBy=SortName&Limit=100`, token);
     return (data.Items || []).map(g => ({ id: g.Id, name: g.Name }));
   }
 
-  // ── Search ──────────────────────────────────────────────────────────────────
+  // ── Search ─────────────────────────────────────────────────────────────────
   if (pathname === '/api/search') {
     const q = query.q || '';
     if (!q) return [];
+    if (fromPlex) return plex.search(q, 20).catch(() => []);
     const data = await jf.get(
       `/Users/${userId}/Items?SearchTerm=${encodeURIComponent(q)}&Recursive=true&Limit=20` +
       `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
@@ -191,24 +228,9 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
-  // ── Random ──────────────────────────────────────────────────────────────────
-  if (pathname === '/api/random') {
-    const count = await jf.get(
-      `/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=0&EnableTotalRecordCount=true`,
-      token
-    );
-    const total = count.TotalRecordCount || 100;
-    const startIndex = Math.floor(Math.random() * Math.max(0, total - 1));
-    const data = await jf.get(
-      `/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&StartIndex=${startIndex}&Limit=1` +
-      `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
-      token
-    );
-    return (data.Items || []).map(i => mapItem(i, token));
-  }
-
-  // ── Now Playing ─────────────────────────────────────────────────────────────
+  // ── Now Playing ────────────────────────────────────────────────────────────
   if (pathname === '/api/now-playing') {
+    if (fromPlex) return null; // Plex sessions via separate API
     const sessions = await jf.get('/Sessions', token);
     const active = (Array.isArray(sessions) ? sessions : sessions.Items || [])
       .filter(s => s.NowPlayingItem && ['Movie','Episode','Video'].includes(s.NowPlayingItem.Type));
@@ -224,33 +246,56 @@ async function handleBrowse(pathname, query, session) {
     };
   }
 
-  // ── Music Albums ─────────────────────────────────────────────────────────────
-  if (pathname === '/api/music/albums') {
+  // ── Best 3D ────────────────────────────────────────────────────────────────
+  if (pathname === '/api/best-3d') {
+    if (fromPlex) return [];
+    const keywords = ['Avatar', 'How to Train Your Dragon', 'Life of Pi', 'Gravity', 'Interstellar'];
+    const results = await Promise.all(
+      keywords.map(kw => jf.get(
+        `/Users/${userId}/Items?SearchTerm=${encodeURIComponent(kw)}&IncludeItemTypes=Movie&Recursive=true&Limit=3` +
+        `&fields=MediaStreams,ImageTags,BackdropImageTags`,
+        token
+      ).then(d => (d.Items || []).filter(i => (i.Video3DFormat || '') !== '')).catch(() => []))
+    );
+    return dedup(results.flat().map(i => mapItem(i, token))).slice(0, 15);
+  }
+
+  // ── Random ─────────────────────────────────────────────────────────────────
+  if (pathname === '/api/random') {
+    if (fromPlex) {
+      const r = await plex.getMovies({ sort: 'random', order: 'asc', start: 0, limit: 1 }).catch(() => ({ items: [] }));
+      return r.items || [];
+    }
+    const count = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=0&EnableTotalRecordCount=true`, token);
+    const total = count.TotalRecordCount || 100;
+    const startIndex = Math.floor(Math.random() * Math.max(0, total - 1));
     const data = await jf.get(
-      `/Users/${userId}/Items?IncludeItemTypes=MusicAlbum&Recursive=true&SortBy=SortName&Limit=100` +
-      `&fields=ImageTags`,
+      `/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&StartIndex=${startIndex}&Limit=1` +
+      `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
       token
     );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  // ── Music ──────────────────────────────────────────────────────────────────
+  if (pathname === '/api/music/albums') {
+    if (fromPlex) return [];
+    const data = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=MusicAlbum&Recursive=true&SortBy=SortName&Limit=100&fields=ImageTags`, token);
     return (data.Items || []).map(i => ({
       id: i.Id, title: i.Name, artist: i.AlbumArtist || i.Artists?.[0],
-      year: i.ProductionYear,
-      imageUrl: i.ImageTags?.Primary ? `/proxy/image?id=${i.Id}&type=Primary&w=400` : null,
+      year: i.ProductionYear, imageUrl: i.ImageTags?.Primary ? `/proxy/image?id=${i.Id}&type=Primary&w=400` : null,
     }));
   }
 
-  // ── Music Tracks ─────────────────────────────────────────────────────────────
   if (pathname === '/api/music/tracks') {
+    if (fromPlex) return [];
     const albumId = query.albumId;
     if (!albumId) return [];
-    const data = await jf.get(
-      `/Users/${userId}/Items?ParentId=${albumId}&IncludeItemTypes=Audio&SortBy=IndexNumber&Limit=100` +
-      `&fields=MediaStreams`,
-      token
-    );
+    const data = await jf.get(`/Users/${userId}/Items?ParentId=${albumId}&IncludeItemTypes=Audio&SortBy=IndexNumber&Limit=100&fields=MediaStreams`, token);
     return (data.Items || []).map(i => ({
       id: i.Id, title: i.Name, artist: i.AlbumArtist || i.Artists?.[0],
       album: i.Album, trackNumber: i.IndexNumber, duration: i.RunTimeTicks,
-      streamUrl: jf.audioUrl(i.Id, token),
+      streamUrl: `${jf.getBaseUrl()}/Audio/${i.Id}/universal?api_key=${session.token}&MaxStreamingBitrate=10000000&Container=opus,mp3,aac`,
     }));
   }
 
