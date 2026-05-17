@@ -5,6 +5,7 @@ import { X, Play, ExternalLink, ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import api from '@/lib/api'
 import PersonalRating from '@/components/ui/PersonalRating'
+import MediaRow from '@/components/ui/MediaRow'
 import type { MediaItem, MediaSource } from '@/types'
 import { useNavigate } from 'react-router-dom'
 
@@ -72,7 +73,7 @@ export default function DetailModal() {
               ? <div className="flex items-center justify-center h-64">
                   <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} />
                 </div>
-              : <DetailContent item={item} onClose={() => setDetailItemId(null)} onPlay={handlePlay} jellyfinUrl={jellyfinUrl} />
+              : <DetailContent item={item} onClose={() => setDetailItemId(null)} onPlay={handlePlay} jellyfinUrl={jellyfinUrl || ''} />
             }
           </motion.div>
         </>
@@ -142,6 +143,23 @@ function IntegrationActions({ item }: { item: MediaItem }) {
           {shared ? '✓ Shared' : '📢 Share'}
         </button>
       )}
+    </div>
+  )
+}
+
+
+function SimilarRow({ itemId }: { itemId: string }) {
+  const { setDetailItemId } = useStore()
+  const { data } = useQuery({
+    queryKey: ['similar', itemId],
+    queryFn: () => api.similar(itemId),
+    staleTime: 5 * 60_000,
+  })
+  const items = Array.isArray(data) ? data : []
+  if (!items.length) return null
+  return (
+    <div className="mt-6 -mx-6">
+      <MediaRow title="More like this" items={items} onItemClick={i => setDetailItemId(i.id)} />
     </div>
   )
 }
@@ -354,6 +372,9 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
 
         {/* Personal rating */}
         <PersonalRating itemId={item.id} />
+
+        {/* More like this */}
+        <SimilarRow itemId={item.id} />
 
         {/* Integration actions */}
         <IntegrationActions item={item} />

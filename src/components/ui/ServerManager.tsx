@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, RefreshCw, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Server, Tv } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from '@/components/ui/Toast'
 
 type ServerType = 'jellyfin' | 'plex'
 type ServerRole = 'primary' | 'backup'
@@ -116,6 +117,7 @@ export default function ServerManager() {
       setShowAdd(false)
       setForm({ type: 'jellyfin', role: 'backup', url: '', token: '' })
     } catch(e: any) {
+      toast.error(e.message || 'Failed to save')
       setAddError(e.message || 'Failed to save — make sure you are logged in')
     }
     setAddSaving(false)

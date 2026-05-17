@@ -1,4 +1,5 @@
 import type { MediaItem, PlayingItem, MediaSource, NowPlaying, ServerStatus, PublicConfig, BrowseResult, User } from '@/types'
+import { toast } from '@/components/ui/Toast'
 
 class ApiError extends Error {
   status: number
@@ -19,7 +20,11 @@ class ApiClient {
     }
     if (!res.ok) {
       const data = await res.json().catch(() => ({ error: res.statusText }))
-      throw new ApiError(data.error || `HTTP ${res.status}`, res.status)
+      const err = data.error || `HTTP ${res.status}`
+      // Show toast for user-triggered actions (not background polling)
+      const isBackground = path.includes('now-playing') || path.includes('servers/') || path.includes('recently-added') || path.includes('popular') || path.includes('history')
+      if (!isBackground && res.status !== 404) toast.error(err)
+      throw new ApiError(err, res.status)
     }
 
     const text = await res.text()
@@ -67,6 +72,7 @@ class ApiClient {
   popular() { return this.get<MediaItem[]>('/api/popular') }
   history() { return this.get<MediaItem[]>('/api/history') }
   random() { return this.get<MediaItem[]>('/api/random') }
+  similar(id: string) { return this.get<MediaItem[]>(`/api/items/${id}/similar`) }
   best3D() { return this.get<MediaItem[]>('/api/best-3d') }
   nowPlaying() { return this.get<NowPlaying | null>('/api/now-playing') }
   search(q: string) { return this.get<MediaItem[]>(`/api/search?q=${encodeURIComponent(q)}`) }

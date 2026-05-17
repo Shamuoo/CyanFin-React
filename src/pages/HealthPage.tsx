@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Server, Tv, Loader, Database, CheckCircle } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from '@/components/ui/Toast'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,7 @@ export default function HealthPage() {
     setSwitching(true)
     await api.serversSwitch(server as any).catch(() => {})
     await refetchServers()
+    toast.info(`Switched to ${server}`)
     qc.invalidateQueries({ queryKey: ['recently-added'] })
     qc.invalidateQueries({ queryKey: ['popular'] })
     setSwitching(false)
@@ -142,8 +144,9 @@ export default function HealthPage() {
       const r: any = type === 'scan' ? await api.libScan()
         : type === 'meta'   ? await (api as any).libRefreshAllMeta()
         : await (api as any).libRefreshAllImages()
-      setRefreshMsg(r?.message || 'Triggered — this may take a while')
-    } catch(e: any) { setRefreshMsg(e.message || 'Failed') }
+      toast.success(r?.message || 'Triggered')
+    setRefreshMsg(r?.message || 'Triggered — this may take a while')
+    } catch(e: any) { toast.error(e.message || 'Failed'); setRefreshMsg(e.message || 'Failed') }
     setRefreshing(null)
     setTimeout(() => setRefreshMsg(''), 6000)
   }

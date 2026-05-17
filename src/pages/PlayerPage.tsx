@@ -29,7 +29,7 @@ export default function PlayerPage() {
   // Playback state
   const [playing, setPlaying] = useState(false)
   const [muted, setMuted] = useState(false)
-  const [volume, setVolume] = useState(1)
+  const [volume, setVolume] = useState(() => parseFloat(localStorage.getItem('cf_volume') || '1'))
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [buffering, setBuffering] = useState(true)
@@ -66,6 +66,24 @@ export default function PlayerPage() {
     if (videoRef.current && !videoRef.current.paused)
       hideTimer.current = setTimeout(() => { setControlsVisible(false); setOpenPanel('none') }, 4000)
   }, [])
+
+  // ── Playback preferences ──
+  const savedVolume = parseFloat(localStorage.getItem('cf_volume') || '1')
+  const savedSubLang = localStorage.getItem('cf_subtitle_lang') || ''
+
+  // Load saved volume
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = savedVolume
+      setVolume(savedVolume)
+    }
+  }, [])
+
+  // Save volume on change
+  const setVolumeAndSave = (v: number) => {
+    setVolume(v)
+    localStorage.setItem('cf_volume', String(v))
+  }
 
   // ── Video loading ──
   const loadVideo = useCallback((streamUrl: string, hlsUrl: string | null | undefined, startTime: number) => {
@@ -128,7 +146,10 @@ export default function PlayerPage() {
     api.playbackInfo(playingItem.id).then(info => {
       const subs = info.mediaSources?.[0]?.subtitleStreams || []
       setSubtitleStreams(subs)
-      const defSub = subs.find(s => s.isDefault)
+      const savedLang = localStorage.getItem('cf_subtitle_lang')
+      const defSub = savedLang && savedLang !== 'off'
+        ? subs.find(s => s.language === savedLang) || subs.find(s => s.isDefault)
+        : savedLang === 'off' ? null : subs.find(s => s.isDefault)
       setActiveSubIndex(defSub?.index ?? -1)
     }).catch(() => {})
 
@@ -201,6 +222,10 @@ export default function PlayerPage() {
       // Can't remove directly, just disable all
     }
     Array.from(video.textTracks).forEach(t => { t.mode = 'disabled' })
+    // Save subtitle language preference
+    const activeSub = subtitleStreams.find(s => s.index === activeSubIndex)
+    if (activeSub?.language) localStorage.setItem('cf_subtitle_lang', activeSub.language)
+    else if (activeSubIndex === -1) localStorage.setItem('cf_subtitle_lang', 'off')
     if (activeSubIndex >= 0) {
       // For external subtitle streams, Jellyfin serves them as VTT via proxy
       const existing = Array.from(video.textTracks).find(t => t.id === String(activeSubIndex))

@@ -61,6 +61,21 @@ async function pingPlex(url, token) {
 }
 
 // ── Check all servers and update state ────────────────────────────────────────
+function alertDiscord(message) {
+  const webhookUrl = cfg.get('DISCORD_WEBHOOK_URL');
+  if (!webhookUrl) return;
+  try {
+    const body = JSON.stringify({ content: `**CyanFin** ${message}`, username: 'CyanFin' });
+    const parsed = new URL(webhookUrl);
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const req = lib.request(webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }, timeout: 5000 }, () => {});
+    req.on('error', () => {});
+    req.write(body);
+    req.end();
+    console.log('[servers] Discord alert sent:', message);
+  } catch(e) {}
+}
+
 async function checkAll() {
   const primaryUrl = cfg.get('JELLYFIN_URL');
   const backupUrl  = cfg.get('JELLYFIN_BACKUP_URL');
@@ -111,6 +126,16 @@ async function checkAll() {
   const bStr  = backupUrl ? (b.ok ? `${b.latency}ms` : 'DOWN') : 'none';
   const pxStr = plexUrl   ? (px.ok ? `${px.latency}ms` : 'DOWN') : 'none';
   const switched = prevSource !== state.source ? ` ⚡ SWITCHED TO ${state.source.toUpperCase()}` : '';
+
+  // Discord webhook alerts on state changes
+  const prevPrimaryOk = state.primary?.wasOk;
+  if (p.ok !== prevPrimaryOk && prevPrimaryOk !== undefined) {
+    alertDiscord(p.ok
+      ? '✅ **Jellyfin Primary** is back online'
+      : '🔴 **Jellyfin Primary** is unreachable — switching to backup/Plex'
+    );
+  }
+  state.primary.wasOk = p.ok;
   console.log(`[servers] jf-primary=${pStr} jf-backup=${bStr} plex=${pxStr} active=${state.active} source=${state.source}${switched}`);
 
   return state;

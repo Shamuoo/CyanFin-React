@@ -10,6 +10,8 @@ import DetailModal from '@/components/detail/DetailModal'
 import AudioBar from '@/components/player/AudioBar'
 import AINavigator from '@/components/ui/AINavigator'
 import Screensaver from '@/components/ui/Screensaver'
+import ToastContainer from '@/components/ui/Toast'
+import KeyboardShortcuts from '@/components/ui/KeyboardShortcuts'
 
 export default function Layout() {
   const store = useStore()
@@ -100,6 +102,8 @@ export default function Layout() {
 
       {/* Overlays */}
       <Screensaver />
+      <ToastContainer />
+      <KeyboardShortcuts />
       {aiOpen && <AINavigator onClose={() => setAiOpen(false)} />}
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}

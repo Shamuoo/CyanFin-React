@@ -1,3 +1,4 @@
+const tmdb = require('../tmdb');
 'use strict';
 /**
  * Browse routes — library listing, search, home rows
@@ -272,6 +273,65 @@ async function handleBrowse(pathname, query, session) {
     const data = await jf.get(
       `/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&StartIndex=${startIndex}&Limit=1` +
       `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+
+  // ── Upcoming Movies (TMDB) ──────────────────────────────────────────────────
+  if (pathname === '/api/upcoming/movies') {
+    try {
+      const data = await tmdb.upcoming();
+      return (data.results || []).slice(0, 20).map(m => ({
+        id: m.id,
+        title: m.title,
+        releaseDate: m.release_date,
+        posterUrl: m.poster_path ? `https://image.tmdb.org/t/p/w200${m.poster_path}` : null,
+        score: m.vote_average,
+        overview: m.overview,
+      }));
+    } catch(e) { return []; }
+  }
+
+  // ── Upcoming TV Shows (TMDB) ────────────────────────────────────────────────
+  if (pathname === '/api/upcoming/shows') {
+    try {
+      const cfg = require('../config');
+      const tmdbKey = cfg.get('TMDB_API_KEY');
+      if (!tmdbKey) return [];
+      const https = require('https');
+      const data = await new Promise((resolve) => {
+        const req = https.request({
+          hostname: 'api.themoviedb.org',
+          path: `/3/tv/on_the_air?api_key=${tmdbKey}&language=en-US&page=1`,
+          method: 'GET', timeout: 8000,
+        }, res => {
+          let d = ''; res.on('data', c => d += c);
+          res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve({}); } });
+        });
+        req.on('error', () => resolve({}));
+        req.on('timeout', () => { req.destroy(); resolve({}); });
+        req.end();
+      });
+      return ((data.results || []).slice(0, 20)).map(s => ({
+        id: s.id,
+        title: s.name,
+        releaseDate: s.first_air_date,
+        posterUrl: s.poster_path ? `https://image.tmdb.org/t/p/w200${s.poster_path}` : null,
+        score: s.vote_average,
+        overview: s.overview,
+      }));
+    } catch(e) { return []; }
+  }
+
+  // ── Similar / More like this ────────────────────────────────────────────────
+  if (pathname.match(/^\/api\/items\/[^/]+\/similar$/)) {
+    const itemId = pathname.split('/')[3];
+    if (itemId.startsWith('plex_')) return [];
+    const data = await jf.get(
+      `/Items/${itemId}/Similar?userId=${userId}&Limit=12` +
+      `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,ImageTags,BackdropImageTags`,
       token
     );
     return (data.Items || []).map(i => mapItem(i, token));

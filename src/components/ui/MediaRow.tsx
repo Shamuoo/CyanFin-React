@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import type { MediaItem } from '@/types'
+import MediaCardSkeleton from '@/components/ui/Skeleton'
 import MediaCard from './MediaCard'
 import { useStore } from '@/lib/store'
 
@@ -14,6 +15,16 @@ interface Props {
 export default function MediaRow({ title, items, onItemClick, cardWidth = 110, loading }: Props) {
   const safeItems = Array.isArray(items) ? items : []
   if (!safeItems.length && !loading) return null
+  if (loading && !safeItems.length) {
+    return (
+      <div className="mb-8">
+        <div className="h-2.5 rounded mb-4" style={{ background: 'var(--subtle)', width: 120, margin: '0 var(--pad) 16px' }} />
+        <div className="flex gap-3 overflow-hidden" style={{ padding: '0 var(--pad)' }}>
+          {Array.from({ length: 8 }).map((_, i) => <MediaCardSkeleton key={i} width={cardWidth || 130} />)}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mb-8">

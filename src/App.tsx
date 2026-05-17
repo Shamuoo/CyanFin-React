@@ -17,11 +17,13 @@ import LibraryPage from '@/pages/LibraryPage'
 import StatsPage from '@/pages/StatsPage'
 import HealthPage from '@/pages/HealthPage'
 import NowPlayingPage from '@/pages/NowPlayingPage'
+import UpcomingPage from '@/pages/UpcomingPage'
 import PlayerPage from '@/pages/PlayerPage'
 
 // Layout
 import Layout from '@/components/layout/Layout'
 import ThemeProvider from '@/components/layout/ThemeProvider'
+import { toast } from '@/components/ui/Toast'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +64,10 @@ function AuthGuard() {
 
   // Listen for auth expiry
   useEffect(() => {
-    const handler = () => setUser(null)
+    const handler = () => {
+      setUser(null)
+      toast.warn('Session expired — please sign in again')
+    }
     window.addEventListener('auth:expired', handler)
     return () => window.removeEventListener('auth:expired', handler)
   }, [setUser])
@@ -140,6 +145,7 @@ export default function App() {
                   <Route path="/stats" element={<ErrorBoundary><StatsPage /></ErrorBoundary>} />
                   <Route path="/health" element={<ErrorBoundary><HealthPage /></ErrorBoundary>} />
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
+                  <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/onboarding" element={<OnboardingPage />} />
                 </Route>
               </Route>
