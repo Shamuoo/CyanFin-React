@@ -149,6 +149,30 @@ export default function HealthPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Force source override */}
+              <div className="flex gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--border2)' }}>
+                <p className="text-[8px] flex-1" style={{ color: 'var(--muted)', opacity: 0.4 }}>Manual source override:</p>
+                <button onClick={() => switchServer('primary')} disabled={switching}
+                  className="text-[8px] px-3 py-1.5 rounded-full font-bold uppercase transition-all hover:opacity-80"
+                  style={{ background: ss?.source !== 'plex' && ss?.active === 'primary' ? 'var(--accent)' : 'var(--subtle)', color: ss?.source !== 'plex' && ss?.active === 'primary' ? 'var(--bg)' : 'var(--muted)', border: '1px solid var(--border)' }}>
+                  Jellyfin Primary
+                </button>
+                {ss?.backup && (
+                  <button onClick={() => switchServer('backup')} disabled={switching}
+                    className="text-[8px] px-3 py-1.5 rounded-full font-bold uppercase transition-all hover:opacity-80"
+                    style={{ background: ss?.source !== 'plex' && ss?.active === 'backup' ? 'var(--accent)' : 'var(--subtle)', color: ss?.source !== 'plex' && ss?.active === 'backup' ? 'var(--bg)' : 'var(--muted)', border: '1px solid var(--border)' }}>
+                    Jellyfin Backup
+                  </button>
+                )}
+                {ss?.plex && (
+                  <button onClick={() => switchServer('plex')} disabled={switching}
+                    className="text-[8px] px-3 py-1.5 rounded-full font-bold uppercase transition-all hover:opacity-80"
+                    style={{ background: ss?.source === 'plex' ? '#e5a00d' : 'var(--subtle)', color: ss?.source === 'plex' ? '#000' : 'var(--muted)', border: '1px solid var(--border)' }}>
+                    🟠 Plex
+                  </button>
+                )}
+              </div>
             </Card>
           )}
 

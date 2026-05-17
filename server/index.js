@@ -231,11 +231,14 @@ async function handler(req, res) {
   // ── PROXY: images ─────────────────────────────────────────────────────────
   if (pathname === '/proxy/image') {
     const session = auth.getSessionFromRequest(req);
-    if (!session) { res.writeHead(401); res.end(); return; }
     const { id, type = 'Primary', w = '400' } = parsed.query;
+    if (!id) { res.writeHead(400); res.end(); return; }
+    // Use session token or fall back to API key - images should always load
+    const token = session?.token || cfg.get('JELLYFIN_API_KEY') || '';
+    if (!token) { res.writeHead(401); res.end(); return; }
     // Decode URL-encoded type (e.g. Backdrop%2F0 -> Backdrop/0)
     const decodedType = decodeURIComponent(type);
-    await jf.proxyImage(res, id, decodedType, parseInt(w), session.token);
+    await jf.proxyImage(res, id, decodedType, parseInt(w), token);
     return;
   }
 
