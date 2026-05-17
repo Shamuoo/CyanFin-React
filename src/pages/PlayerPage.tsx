@@ -54,6 +54,8 @@ export default function PlayerPage() {
   // Next episode
   const [nextEpisode, setNextEpisode] = useState<MediaItem | null>(null)
   const [showNextCard, setShowNextCard] = useState(false)
+  const [trickplayPos, setTrickplayPos] = useState<{ x: number; time: number } | null>(null)
+  const [trickplayAvailable, setTrickplayAvailable] = useState(false)
   const nextCardTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Panel state
@@ -130,6 +132,12 @@ export default function PlayerPage() {
   // ── Load item metadata (segments, chapters, subtitles, next ep) ──
   useEffect(() => {
     if (!playingItem?.id) return
+
+    // Check trickplay
+    fetch(`/api/trickplay?id=${playingItem.id}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setTrickplayAvailable(d.available))
+      .catch(() => {})
 
     // Intro skipper
     fetch(`/api/intro-skip?id=${playingItem.id}`)

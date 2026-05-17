@@ -73,6 +73,9 @@ class ApiClient {
   history() { return this.get<MediaItem[]>('/api/history') }
   random() { return this.get<MediaItem[]>('/api/random') }
   similar(id: string) { return this.get<MediaItem[]>(`/api/items/${id}/similar`) }
+  trailer(tmdbId: string, type = 'movie') { return this.get<{ trailerKey: string | null }>(`/api/trailer?tmdbId=${tmdbId}&type=${type}`) }
+  filmography(personId: string) { return this.get<MediaItem[]>(`/api/person/${personId}/films`) }
+  wikipedia(name: string) { return this.get<{ extract: string; thumbnail: string | null; url: string | null; description: string | null } | null>(`/api/wikipedia?name=${encodeURIComponent(name)}`) }
   best3D() { return this.get<MediaItem[]>('/api/best-3d') }
   nowPlaying() { return this.get<NowPlaying | null>('/api/now-playing') }
   search(q: string) { return this.get<MediaItem[]>(`/api/search?q=${encodeURIComponent(q)}`) }

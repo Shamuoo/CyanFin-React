@@ -32,6 +32,14 @@ const SCHEMA = {
 
 let _cfg = {};
 
+function getCachePath(subdir) {
+  const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+  const dataDir = path.dirname(configPath);
+  const cacheDir = path.join(dataDir, subdir);
+  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+  return cacheDir;
+}
+
 function loadConfig() {
   // Start from env vars
   for (const key of Object.keys(SCHEMA)) {
@@ -130,4 +138,4 @@ function saveConfig(updates) {
   return { success: true, saved };
 }
 
-module.exports = { loadConfig, get, getAll, getPublic, saveConfig, SCHEMA };
+module.exports = { loadConfig, get, getAll, getPublic, saveConfig, getCachePath, SCHEMA };

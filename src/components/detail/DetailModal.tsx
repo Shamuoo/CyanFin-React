@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Play, ExternalLink, ChevronLeft } from 'lucide-react'
+import { X, Play, ExternalLink, ChevronLeft, Youtube } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import api from '@/lib/api'
 import PersonalRating from '@/components/ui/PersonalRating'
 import MediaRow from '@/components/ui/MediaRow'
+import CastOverlay from '@/components/ui/CastOverlay'
 import type { MediaItem, MediaSource } from '@/types'
 import { useNavigate } from 'react-router-dom'
 
@@ -176,6 +177,15 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const canPlay = item.type === 'Movie' || item.type === 'Episode'
+  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string; imageTag?: string | null } | null>(null)
+
+  const { data: _trailerData } = useQuery({
+    queryKey: ['trailer', item.externalIds?.Tmdb, item.type],
+    queryFn: () => api.trailer(item.externalIds!.Tmdb!, item.type === 'Series' ? 'series' : 'movie'),
+    enabled: !!item.externalIds?.Tmdb,
+    staleTime: 24 * 60 * 60_000,
+  })
+  const trailerKey = (_trailerData as any)?.trailerKey as string | null | undefined
   const backdrop = item.backdropUrls?.[0] || item.backdropUrl
   const selectedSource = mediaSources.find(s => s.id === selectedSourceId) || mediaSources[0]
 
@@ -218,6 +228,15 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
 
   return (
     <div>
+      {/* Cast overlay */}
+      {selectedPerson && (
+        <CastOverlay
+          personId={selectedPerson.id}
+          personName={selectedPerson.name}
+          personImageTag={selectedPerson.imageTag}
+          onClose={() => setSelectedPerson(null)}
+        />
+      )}
       {/* Backdrop / Video Backdrop */}
       <div className="relative w-full" style={{ height: '52vh', minHeight: 280 }}>
         {/* Video backdrop - muted autoplay */}
@@ -359,6 +378,13 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
               {item.userData?.playedPercentage && item.userData.playedPercentage > 5 ? 'Resume' : 'Play'}
             </button>
           )}
+          {trailerKey && (
+            <a href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer"
+              className="flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold tracking-wider uppercase transition-all hover:bg-white/10"
+              style={{ background: 'rgba(255,0,0,0.08)', color: '#ff4444', border: '1px solid rgba(255,0,0,0.2)', textDecoration: 'none' }}>
+              <Youtube size={14} /> Trailer
+            </a>
+          )}
           {jellyfinUrl && (
             <a href={`${jellyfinUrl}/web/#/details?id=${item.id}`} target="_blank" rel="noreferrer"
               className="flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold tracking-wider uppercase transition-all hover:bg-white/10"
@@ -400,7 +426,9 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
             <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.4 }}>Cast</p>
             <div className="flex gap-4 flex-wrap">
               {item.cast.slice(0, 12).map(actor => (
-                <div key={actor.id} className="flex flex-col items-center gap-1.5" style={{ width: 72 }}>
+                <button key={actor.id} onClick={() => setSelectedPerson({ id: actor.id, name: actor.name, imageTag: actor.imageTag })}
+                  className="flex flex-col items-center gap-1.5 hover:opacity-70 transition-opacity"
+                  style={{ width: 72, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
                   {actor.imageTag
                     ? <img src={`/proxy/image?id=${actor.id}&type=Primary&w=185`} alt={actor.name}
                         className="w-16 h-16 rounded-full object-cover"
@@ -412,7 +440,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
                   }
                   <p className="text-[9px] text-center leading-tight font-medium" style={{ color: 'var(--muted)', maxWidth: 72 }}>{actor.name}</p>
                   {actor.role && <p className="text-[7px] text-center" style={{ color: 'var(--muted)', opacity: 0.5 }}>{actor.role}</p>}
-                </div>
+                </button>
               ))}
             </div>
           </div>

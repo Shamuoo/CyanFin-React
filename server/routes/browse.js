@@ -279,6 +279,104 @@ async function handleBrowse(pathname, query, session) {
   }
 
 
+
+  // ── Trailer (TMDB YouTube key) ────────────────────────────────────────────────
+  if (pathname === '/api/trailer') {
+    const { tmdbId, type = 'movie' } = query;
+    if (!tmdbId) return { trailerKey: null };
+    try {
+      const cfg = require('../config');
+      const tmdbKey = cfg.get('TMDB_API_KEY');
+      if (!tmdbKey) return { trailerKey: null, error: 'No TMDB key' };
+      const https = require('https');
+      const data = await new Promise(resolve => {
+        const req = https.request({
+          hostname: 'api.themoviedb.org',
+          path: `/3/${type === 'series' ? 'tv' : 'movie'}/${tmdbId}/videos?api_key=${tmdbKey}`,
+          method: 'GET', timeout: 8000,
+        }, res => {
+          let d = ''; res.on('data', c => d += c);
+          res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve({}); } });
+        });
+        req.on('error', () => resolve({}));
+        req.on('timeout', () => { req.destroy(); resolve({}); });
+        req.end();
+      });
+      const trailer = (data.results || []).find(v => v.type === 'Trailer' && v.site === 'YouTube')
+        || (data.results || []).find(v => v.site === 'YouTube');
+      return { trailerKey: trailer?.key || null };
+    } catch(e) { return { trailerKey: null }; }
+  }
+
+  // ── Filmography (person's titles in library) ──────────────────────────────────
+  if (pathname.match(/^\/api\/person\/[^/]+\/films$/)) {
+    const personId = pathname.split('/')[3];
+    const data = await jf.get(
+      `/Items?PersonIds=${personId}&Recursive=true&IncludeItemTypes=Movie,Series&Limit=30` +
+      `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,ImageTags,BackdropImageTags` +
+      `&userId=${userId}&SortBy=ProductionYear&SortOrder=Descending`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  // ── Wikipedia person summary ──────────────────────────────────────────────────
+  if (pathname === '/api/wikipedia') {
+    const { name } = query;
+    if (!name) return null;
+    // Check cache first
+    const cfg = require('../config');
+    const cacheDir = cfg.getCachePath('cache');
+    const fs = require('fs');
+    const cacheFile = require('path').join(cacheDir, `wiki_${name.replace(/[^a-z0-9]/gi,'_').toLowerCase()}.json`);
+    if (fs.existsSync(cacheFile)) {
+      try {
+        const cached = JSON.parse(fs.readFileSync(cacheFile,'utf8'));
+        if (Date.now() - cached.ts < 7 * 24 * 60 * 60 * 1000) return cached.data;
+      } catch {}
+    }
+    try {
+      const https = require('https');
+      const encodedName = encodeURIComponent(name.replace(/ /g,'_'));
+      const data = await new Promise(resolve => {
+        const req = https.request({
+          hostname: 'en.wikipedia.org',
+          path: `/api/rest_v1/page/summary/${encodedName}`,
+          method: 'GET',
+          headers: { 'User-Agent': 'CyanFin/0.16 (home theater app)' },
+          timeout: 8000,
+        }, res => {
+          let d = ''; res.on('data', c => d += c);
+          res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } });
+        });
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => { req.destroy(); resolve(null); });
+        req.end();
+      });
+      if (!data || data.type === 'https://mediawiki.org/wiki/HyperSwitch/errors/not_found') return null;
+      const result = {
+        extract: data.extract,
+        thumbnail: data.thumbnail?.source || null,
+        url: data.content_urls?.desktop?.page || null,
+        description: data.description || null,
+      };
+      // Cache it
+      fs.writeFileSync(cacheFile, JSON.stringify({ ts: Date.now(), data: result }));
+      return result;
+    } catch(e) { return null; }
+  }
+
+  // ── Trickplay BIF proxy ───────────────────────────────────────────────────────
+  if (pathname === '/api/trickplay') {
+    const { id, width = '320' } = query;
+    if (!id) return null;
+    // Try Jellyfin trickplay endpoint (10.9+ or CyanFin Plugin)
+    try {
+      const data = await jf.get(`/Videos/${id}/Trickplay/${width}/GetBIF`, token);
+      return { available: true };
+    } catch { return { available: false }; }
+  }
+
   // ── Upcoming Movies (TMDB) ──────────────────────────────────────────────────
   if (pathname === '/api/upcoming/movies') {
     try {

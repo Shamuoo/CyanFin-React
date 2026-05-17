@@ -113,17 +113,15 @@ function defaultAudio(streams) {
 
 // ── Quality from media source ─────────────────────────────────────────────────
 function qualityFromSource(src) {
-  const qualities = [];
   const height = src.Height || (src.MediaStreams || []).find(s => s.Type === 'Video')?.Height || 0;
   const is3D = (src.Video3DFormat || '') !== '';
-
-  if (height >= 2160 || (src.Name || '').includes('4K')) qualities.push('4K');
-  else if (height >= 1080) qualities.push('1080p');
-  else if (height >= 720) qualities.push('720p');
-  else if (height > 0) qualities.push('SD');
-
-  if (is3D) qualities.push('3D');
-  return qualities;
+  let base = '';
+  if (height >= 2160 || (src.Name || '').includes('4K')) base = '4K';
+  else if (height >= 1080) base = '1080p';
+  else if (height >= 720) base = '720p';
+  else if (height > 0) base = 'SD';
+  if (!base) return [];
+  return [is3D ? `${base} 3D` : base];
 }
 
 // ── Map Jellyfin item to CyanFin MediaItem ────────────────────────────────────
@@ -135,6 +133,10 @@ function mapItem(i, token) {
   if (qualitySet.size === 0 && i.MediaStreams) {
     qualityFromSource({ MediaStreams: i.MediaStreams, Height: i.Height }).forEach(q => qualitySet.add(q));
   }
+  // Keep only the best quality (4K > 1080p > 720p > SD)
+  const RANK = { '4K':4, '4K 3D':4, '1080p':3, '1080p 3D':3, '720p':2, '720p 3D':2, 'SD':1, 'SD 3D':1 };
+  const best = [...qualitySet].sort((a,b) => (RANK[b]||0)-(RANK[a]||0))[0];
+  if (best) { qualitySet.clear(); qualitySet.add(best); }
 
   const cast = (i.People || [])
     .filter(p => p.Type === 'Actor')

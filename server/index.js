@@ -259,6 +259,27 @@ async function handler(req, res) {
     return;
   }
 
+  // ── PROXY: trickplay BIF (Jellyfin trickplay sprite) ────────────────────────
+  if (pathname === '/proxy/trickplay') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) { res.writeHead(401); res.end(); return; }
+    const { id, width = '320', index = '0' } = parsed.query;
+    if (!id) { res.writeHead(400); res.end(); return; }
+    const bifUrl = `${jf.getBaseUrl()}/Videos/${id}/Trickplay/${width}/${index}.jpg?api_key=${session.token}`;
+    try {
+      const parsedBif = new URL(bifUrl);
+      const lib = parsedBif.protocol === 'https:' ? https : http;
+      lib.request(bifUrl, proxyRes => {
+        res.writeHead(proxyRes.statusCode || 200, {
+          'Content-Type': proxyRes.headers['content-type'] || 'image/jpeg',
+          'Cache-Control': 'public, max-age=86400',
+        });
+        proxyRes.pipe(res);
+      }).on('error', () => { res.writeHead(404); res.end(); }).end();
+    } catch { res.writeHead(500); res.end(); }
+    return;
+  }
+
   // ── PROXY: plex images ──────────────────────────────────────────────────────
   if (pathname === '/proxy/plex-image') {
     // Plex images are public via token - no session check needed for images
