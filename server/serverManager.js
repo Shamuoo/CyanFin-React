@@ -5,133 +5,124 @@ const cfg = require('./config');
 const jf = require('./jellyfin');
 
 const CHECK_MS = 30_000;
-const PRIMARY_BIAS_MS = 75; // prefer primary if within 75ms
+const PRIMARY_BIAS_MS = 75;
+const PING_TIMEOUT = 6000;
 
 let state = {
   active: 'primary',
-  primary: { ok: true, latency: null },
-  backup: { ok: false, latency: null },
-  plex: { ok: false, latency: null },
+  primary: { ok: false, latency: null, name: null, version: null },
+  backup:  { ok: false, latency: null, name: null, version: null },
+  plex:    { ok: false, latency: null, name: null },
   lastCheck: 0,
 };
 let _interval = null;
 
-async function pingUrl(url) {
-  if (!url) return { ok: false, latency: null };
+function httpGet(url, headers = {}) {
   return new Promise(resolve => {
     const start = Date.now();
     try {
-      const parsed = new URL(url.replace(/\/$/, '') + '/health');
-      const lib = parsed.protocol === 'https:' ? https : http;
+      const target = new URL(url);
+      const lib = target.protocol === 'https:' ? https : http;
       const req = lib.request({
-        hostname: parsed.hostname,
-        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-        path: parsed.pathname,
+        hostname: target.hostname,
+        port: target.port || (target.protocol === 'https:' ? 443 : 80),
+        path: target.pathname + target.search,
         method: 'GET',
-        timeout: 5000,
+        headers: { Accept: 'application/json', ...headers },
+        timeout: PING_TIMEOUT,
       }, res => {
         const latency = Date.now() - start;
-        res.resume();
-        resolve({ ok: res.statusCode < 500, latency });
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try { resolve({ ok: res.statusCode < 400, latency, data: JSON.parse(data) }); }
+          catch { resolve({ ok: res.statusCode < 400, latency, data: null }); }
+        });
       });
-      req.on('error', () => resolve({ ok: false, latency: null }));
-      req.on('timeout', () => { req.destroy(); resolve({ ok: false, latency: null }); });
+      req.on('error', e => resolve({ ok: false, latency: null, error: e.message }));
+      req.on('timeout', () => { req.destroy(); resolve({ ok: false, latency: null, error: 'timeout' }); });
       req.end();
-    } catch(e) { resolve({ ok: false, latency: null }); }
+    } catch(e) { resolve({ ok: false, latency: null, error: e.message }); }
   });
+}
+
+async function pingJellyfin(url) {
+  if (!url) return { ok: false, latency: null };
+  // Use /System/Info/Public - works without auth, correct Jellyfin endpoint
+  const r = await httpGet(url.replace(/\/$/, '') + '/System/Info/Public');
+  return { ok: r.ok, latency: r.latency, name: r.data?.ServerName, version: r.data?.Version };
 }
 
 async function pingPlex(url, token) {
   if (!url || !token) return { ok: false, latency: null };
-  return new Promise(resolve => {
-    const start = Date.now();
-    try {
-      const parsed = new URL(url.replace(/\/$/, '') + '/identity');
-      const lib = parsed.protocol === 'https:' ? https : http;
-      const req = lib.request({
-        hostname: parsed.hostname,
-        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-        path: parsed.pathname,
-        method: 'GET',
-        headers: { 'X-Plex-Token': token, 'Accept': 'application/json' },
-        timeout: 5000,
-      }, res => {
-        const latency = Date.now() - start;
-        res.resume();
-        resolve({ ok: res.statusCode < 400, latency });
-      });
-      req.on('error', () => resolve({ ok: false, latency: null }));
-      req.on('timeout', () => { req.destroy(); resolve({ ok: false, latency: null }); });
-      req.end();
-    } catch(e) { resolve({ ok: false, latency: null }); }
-  });
+  const r = await httpGet(url.replace(/\/$/, '') + '/identity', { 'X-Plex-Token': token });
+  return { ok: r.ok, latency: r.latency };
 }
 
 async function checkAll() {
   const primaryUrl = cfg.get('JELLYFIN_URL');
-  const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
-  const plexUrl = cfg.get('PLEX_URL');
-  const plexToken = cfg.get('PLEX_TOKEN');
+  const backupUrl  = cfg.get('JELLYFIN_BACKUP_URL');
+  const plexUrl    = cfg.get('PLEX_URL');
+  const plexToken  = cfg.get('PLEX_TOKEN');
 
   const [p, b, px] = await Promise.all([
-    pingUrl(primaryUrl),
-    pingUrl(backupUrl),
+    pingJellyfin(primaryUrl),
+    pingJellyfin(backupUrl),
     pingPlex(plexUrl, plexToken),
   ]);
 
-  state.primary = p;
-  state.backup = b;
-  state.plex = px;
+  state.primary = { ...state.primary, ...p };
+  state.backup  = { ...state.backup,  ...b };
+  state.plex    = { ...state.plex,    ...px };
   state.lastCheck = Date.now();
 
   const mode = cfg.get('JELLYFIN_MODE') || 'fastest';
+  const prev = state.active;
 
   if (mode === 'primary') {
     state.active = p.ok ? 'primary' : (b.ok ? 'backup' : 'primary');
   } else if (mode === 'backup') {
     state.active = b.ok ? 'backup' : (p.ok ? 'primary' : 'primary');
   } else {
-    // fastest — pick lowest latency with bias toward primary
     if (!p.ok && !b.ok) { /* keep current */ }
     else if (!p.ok) state.active = 'backup';
     else if (!b.ok) state.active = 'primary';
-    else {
-      const pAdj = (p.latency || 9999) + PRIMARY_BIAS_MS;
-      state.active = (b.latency || 9999) < pAdj ? 'backup' : 'primary';
-    }
+    else state.active = ((b.latency||9999) < (p.latency||9999) + PRIMARY_BIAS_MS) ? 'backup' : 'primary';
   }
 
   // Re-init Jellyfin with active URL
-  const activeUrl = state.active === 'backup' && backupUrl ? backupUrl : primaryUrl;
-  const activeKey = state.active === 'backup' ? (cfg.get('JELLYFIN_BACKUP_API_KEY') || '') : '';
-  jf.init(activeUrl, activeKey);
+  const activeUrl = (state.active === 'backup' && backupUrl) ? backupUrl : primaryUrl;
+  const activeKey = state.active === 'backup'
+    ? (cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY') || '')
+    : (cfg.get('JELLYFIN_API_KEY') || '');
+  if (activeUrl) jf.init(activeUrl, activeKey);
 
-  const pStr = p.ok ? `${p.latency}ms` : 'DOWN';
-  const bStr = backupUrl ? (b.ok ? `${b.latency}ms` : 'DOWN') : 'none';
-  console.log(`[servers] primary=${pStr} backup=${bStr} active=${state.active}`);
-
+  const changed = prev !== state.active ? ' ← SWITCHED' : '';
+  console.log(`[servers] primary=${p.ok ? p.latency+'ms' : 'DOWN'} backup=${backupUrl ? (b.ok ? b.latency+'ms' : 'DOWN') : 'none'} plex=${plexUrl ? (px.ok ? px.latency+'ms' : 'DOWN') : 'none'} active=${state.active}${changed}`);
   return state;
 }
 
 function start() {
   if (_interval) { clearInterval(_interval); _interval = null; }
-  const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
   const primaryUrl = cfg.get('JELLYFIN_URL');
+  const backupUrl  = cfg.get('JELLYFIN_BACKUP_URL');
+  const plexUrl    = cfg.get('PLEX_URL');
 
-  if (!primaryUrl) {
-    console.log('[servers] No Jellyfin URL configured');
-    return;
-  }
+  if (!primaryUrl) { console.log('[servers] No Jellyfin URL configured'); return; }
 
-  if (backupUrl || cfg.get('PLEX_URL')) {
+  jf.init(primaryUrl, cfg.get('JELLYFIN_API_KEY') || '');
+
+  if (backupUrl || plexUrl) {
     checkAll();
     _interval = setInterval(checkAll, CHECK_MS);
-    console.log('[servers] Multi-server mode — checking every 30s');
+    console.log(`[servers] Multi-server mode — checking every ${CHECK_MS/1000}s`);
   } else {
-    jf.init(primaryUrl, cfg.get('JELLYFIN_API_KEY') || '');
-    state.primary.ok = true;
     state.active = 'primary';
-    console.log('[servers] Single server mode');
+    pingJellyfin(primaryUrl).then(r => {
+      Object.assign(state.primary, r);
+      state.lastCheck = Date.now();
+      console.log(`[servers] ${r.ok ? `Connected to ${r.name} v${r.version}` : 'Jellyfin unreachable'}`);
+    });
   }
 }
 
@@ -143,20 +134,35 @@ function getStatus() {
   return {
     active: state.active,
     mode: cfg.get('JELLYFIN_MODE') || 'fastest',
-    primary: { url: cfg.get('JELLYFIN_URL'), ...state.primary },
-    backup: cfg.get('JELLYFIN_BACKUP_URL') ? { url: cfg.get('JELLYFIN_BACKUP_URL'), ...state.backup } : null,
-    plex: cfg.get('PLEX_URL') ? { url: cfg.get('PLEX_URL'), ...state.plex } : null,
+    primary: cfg.get('JELLYFIN_URL')        ? { url: cfg.get('JELLYFIN_URL'),        ...state.primary } : null,
+    backup:  cfg.get('JELLYFIN_BACKUP_URL') ? { url: cfg.get('JELLYFIN_BACKUP_URL'), ...state.backup  } : null,
+    plex:    cfg.get('PLEX_URL')            ? { url: cfg.get('PLEX_URL'),             ...state.plex   } : null,
     lastCheck: state.lastCheck,
   };
 }
 
 function forceSwitch(server) {
-  if (server !== 'primary' && server !== 'backup') return;
+  if (server !== 'primary' && server !== 'backup') return getStatus();
   state.active = server;
   const url = server === 'backup' ? cfg.get('JELLYFIN_BACKUP_URL') : cfg.get('JELLYFIN_URL');
-  const key = server === 'backup' ? cfg.get('JELLYFIN_BACKUP_API_KEY') : cfg.get('JELLYFIN_API_KEY');
-  if (url) jf.init(url, key || '');
-  console.log('[servers] Manually switched to', server);
+  const key = server === 'backup'
+    ? (cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY') || '')
+    : (cfg.get('JELLYFIN_API_KEY') || '');
+  if (url) jf.init(url, key);
+  console.log(`[servers] Manually switched to ${server}`);
+  return getStatus();
 }
 
-module.exports = { start, stop, checkAll, getStatus, forceSwitch };
+// Find matching item on another Jellyfin server by IMDB/TMDB ID
+async function findMatchOnServer(targetUrl, targetKey, providerIds) {
+  const imdbId = providerIds?.Imdb;
+  const tmdbId = providerIds?.Tmdb;
+  if (!targetUrl || (!imdbId && !tmdbId)) return null;
+  try {
+    const q = imdbId ? `imdb.${imdbId}` : `tmdb.${tmdbId}`;
+    const r = await httpGet(`${targetUrl}/Items?AnyProviderIdEquals=${q}&Recursive=true&Limit=1&api_key=${targetKey}`);
+    return r.data?.Items?.[0]?.Id || null;
+  } catch { return null; }
+}
+
+module.exports = { start, stop, checkAll, getStatus, forceSwitch, findMatchOnServer, pingJellyfin, pingPlex };
