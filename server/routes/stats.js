@@ -1,8 +1,77 @@
+const https = require('https');
+const http = require('http');
+
+function fetch(url, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const req = lib.request(url, { headers: opts.headers || {}, timeout: 5000 }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => resolve({ json: () => { try { return Promise.resolve(JSON.parse(d)); } catch(e) { return Promise.reject(e); } }, ok: res.statusCode < 400 }));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+    req.end();
+  });
+}
+
 const jf = require('../jellyfin');
 
 async function handleStats(pathname, query, session) {
   const token = session.token;
   const userId = session.userId;
+
+
+  // ── System Health ──────────────────────────────────────────────────────────
+  if (pathname === '/api/health') {
+    const cfg = require('../config');
+    const sm = require('../serverManager');
+    const pkg = (() => { try { return require('../../package.json'); } catch(e) { return { version: '0.14.0' }; } })();
+
+    const [info, sessions, libraries, plugins, gh] = await Promise.all([
+      jf.get('/System/Info', token).catch(() => ({})),
+      jf.get('/Sessions', token).catch(() => []),
+      jf.get(`/Users/${userId}/Views`, token).catch(() => ({ Items: [] })),
+      jf.get('/Plugins', token).catch(() => ({ Items: [] })),
+      fetch('https://api.github.com/repos/Shamuoo/CyanFin-React/releases/latest', { headers: { 'User-Agent': 'CyanFin' } }).then(r => r.json()).catch(() => null),
+    ]);
+
+    const sessArr = Array.isArray(sessions) ? sessions : sessions?.Items || [];
+    const active = sessArr.filter(s => s.NowPlayingItem);
+    const transcoding = active.filter(s => s.TranscodingInfo?.IsVideoDirect === false).length;
+    const latency = await (async () => {
+      const start = Date.now();
+      await jf.get('/System/Info/Public', '').catch(() => {});
+      return Date.now() - start;
+    })();
+
+    const version = pkg.version || '0.14.0';
+    const ghTag = gh?.tag_name;
+    const isLatest = ghTag ? ghTag === `v${version}` : true;
+
+    return {
+      cyanFinVersion: version,
+      github: gh ? { latestRelease: ghTag, isLatest } : null,
+      serverName: info.ServerName,
+      version: info.Version,
+      os: info.OperatingSystemDisplayName || info.OperatingSystem,
+      localAddress: info.LocalAddress,
+      latency,
+      activeSessions: active.length,
+      totalSessions: sessArr.length,
+      transcoding,
+      nowPlaying: active.slice(0, 5).map(s => ({
+        user: s.UserName,
+        device: s.DeviceName,
+        title: s.NowPlayingItem?.Name,
+        progress: s.NowPlayingItem?.RunTimeTicks && s.PlayState?.PositionTicks
+          ? Math.round((s.PlayState.PositionTicks / s.NowPlayingItem.RunTimeTicks) * 100) : 0,
+      })),
+      libraries: ((libraries.Items || [])).map(l => ({ name: l.Name, type: l.CollectionType })),
+      plugins: ((plugins.Items || [])).map(p => ({ name: p.Name, version: p.Version })),
+    };
+  }
 
   // Watch time by day (last 30 days)
   if (pathname === '/api/stats/watch-time') {

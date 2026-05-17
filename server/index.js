@@ -225,20 +225,7 @@ async function handler(req, res) {
     return json(res, sm.getStatus());
   }
 
-  if (pathname === '/api/servers/switch' && req.method === 'POST') {
-    const session = auth.getSessionFromRequest(req);
-    if (!session) return json(res, { error: 'Unauthorized' }, 401);
-    const body = await readBody(req);
-    sm.forceSwitch(body.server);
-    return json(res, sm.getStatus());
-  }
-
-  if (pathname === '/api/servers/check') {
-    const session = auth.getSessionFromRequest(req);
-    if (!session) return json(res, { error: 'Unauthorized' }, 401);
-    await sm.checkAll();
-    return json(res, sm.getStatus());
-  }
+  // servers switch/check handled below after body read
 
   // ── PROXY: images ─────────────────────────────────────────────────────────
   if (pathname === '/proxy/image') {
@@ -311,6 +298,16 @@ async function handler(req, res) {
       if (pathname.startsWith('/api/ai/')) {
         const aiResult = await handleAI(pathname, body, session);
         if (aiResult !== null) return json(res, aiResult);
+      }
+
+      // Servers switch / check
+      if (pathname === '/api/servers/switch' && req.method === 'POST') {
+        sm.forceSwitch(body.server);
+        return json(res, sm.getStatus());
+      }
+      if (pathname === '/api/servers/check') {
+        await sm.checkAll();
+        return json(res, sm.getStatus());
       }
 
       // Integrations

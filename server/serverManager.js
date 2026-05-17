@@ -13,6 +13,7 @@ let state = {
   primary: { ok: false, latency: null, name: null, version: null },
   backup:  { ok: false, latency: null, name: null, version: null },
   plex:    { ok: false, latency: null, name: null },
+  usingPlex: false,  // true when Plex is active fallback
   lastCheck: 0,
 };
 let _interval = null;
@@ -137,6 +138,7 @@ function getStatus() {
     primary: cfg.get('JELLYFIN_URL')        ? { url: cfg.get('JELLYFIN_URL'),        ...state.primary } : null,
     backup:  cfg.get('JELLYFIN_BACKUP_URL') ? { url: cfg.get('JELLYFIN_BACKUP_URL'), ...state.backup  } : null,
     plex:    cfg.get('PLEX_URL')            ? { url: cfg.get('PLEX_URL'),             ...state.plex   } : null,
+    usingPlex: state.usingPlex,
     lastCheck: state.lastCheck,
   };
 }
