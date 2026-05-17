@@ -245,7 +245,9 @@ async function handler(req, res) {
     const session = auth.getSessionFromRequest(req);
     if (!session) { res.writeHead(401); res.end(); return; }
     const { id, type = 'Primary', w = '400' } = parsed.query;
-    await jf.proxyImage(res, id, type, parseInt(w), session.token);
+    // Decode URL-encoded type (e.g. Backdrop%2F0 -> Backdrop/0)
+    const decodedType = decodeURIComponent(type);
+    await jf.proxyImage(res, id, decodedType, parseInt(w), session.token);
     return;
   }
 
