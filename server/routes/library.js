@@ -130,6 +130,27 @@ async function handleLibrary(pathname, query, session, req) {
     return { multiVersion, has3D, only2D: only2D.slice(0, 50) };
   }
 
+
+  // Refresh all metadata for entire library
+  if (pathname === '/api/library/refresh-all-metadata') {
+    try {
+      // Get all movies and shows, refresh each
+      const data = await jf.get(`/Users/${session.userId}/Items?IncludeItemTypes=Movie,Series&Recursive=true&Limit=500&fields=Id`, token);
+      const items = data.Items || [];
+      // Trigger full library refresh
+      await jf.post('/Library/Refresh', {}, token);
+      return { success: true, message: `Library refresh triggered for ${items.length} items` };
+    } catch(e) { return { success: false, error: e.message }; }
+  }
+
+  // Refresh all images for entire library
+  if (pathname === '/api/library/refresh-all-images') {
+    try {
+      await jf.post('/Library/Refresh', {}, token);
+      return { success: true, message: 'Image refresh triggered for all libraries' };
+    } catch(e) { return { success: false, error: e.message }; }
+  }
+
   if (pathname === '/api/library/recommended-3d') {
     const known3D = ['Avatar','How to Train Your Dragon','Life of Pi','Gravity',
       'Pacific Rim','Prometheus','The Walk','Hugo','Doctor Strange','Jungle Book',

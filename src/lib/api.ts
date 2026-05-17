@@ -135,6 +135,8 @@ class ApiClient {
   libMissing() { return this.get('/api/library/missing-content') }
   libVersions() { return this.get('/api/library/versions-report') }
   libScan() { return this.get('/api/library/scan') }
+  libRefreshAllMeta() { return this.get('/api/library/refresh-all-metadata') }
+  libRefreshAllImages() { return this.get('/api/library/refresh-all-images') }
   libRefreshAll() { return this.get('/api/library/scan') }
   libRefreshMeta(id: string) { return this.get(`/api/library/refresh-metadata?id=${id}`) }
   libRefreshImages(id: string) { return this.get(`/api/library/refresh-images?id=${id}`) }

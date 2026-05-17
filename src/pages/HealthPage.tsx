@@ -1,12 +1,16 @@
-import { useQuery } from '@tanstack/react-query'
-import { RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { RefreshCw, Server, Tv, Loader, Database } from 'lucide-react'
 import api from '@/lib/api'
 
-function Card({ title, children, fullWidth }: { title: string; children: React.ReactNode; fullWidth?: boolean }) {
+function Card({ title, children, fullWidth, action }: { title: string; children: React.ReactNode; fullWidth?: boolean; action?: React.ReactNode }) {
   return (
     <div className={`rounded-xl p-5 ${fullWidth ? 'col-span-full' : ''}`}
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)' }}>
-      <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-4" style={{ color: 'var(--accent)', opacity: 0.5 }}>{title}</p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[8px] font-bold tracking-[0.3em] uppercase" style={{ color: 'var(--accent)', opacity: 0.5 }}>{title}</p>
+        {action}
+      </div>
       {children}
     </div>
   )
@@ -29,6 +33,10 @@ function Bar({ pct, color }: { pct: number; color: string }) {
   )
 }
 
+function StatusDot({ ok }: { ok?: boolean }) {
+  return <span className="w-2 h-2 rounded-full flex-shrink-0 inline-block" style={{ background: ok === true ? '#2ecc71' : ok === false ? '#e74c3c' : '#666' }} />
+}
+
 function fmtUptime(s?: number) {
   if (!s) return '—'
   const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60)
@@ -36,6 +44,11 @@ function fmtUptime(s?: number) {
 }
 
 export default function HealthPage() {
+  const qc = useQueryClient()
+  const [switching, setSwitching] = useState(false)
+  const [refreshing, setRefreshing] = useState<string | null>(null)
+  const [refreshMsg, setRefreshMsg] = useState('')
+
   const { data: health, refetch: refetchHealth, isFetching: fetchingHealth } = useQuery({
     queryKey: ['health'], queryFn: api.health.bind(api), staleTime: 30_000,
   })
@@ -45,21 +58,52 @@ export default function HealthPage() {
   const { data: intCfg } = useQuery({
     queryKey: ['integrations-config'], queryFn: api.integrationsConfig.bind(api),
   })
+  const { data: serverStatus, refetch: refetchServers } = useQuery({
+    queryKey: ['servers-status'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000,
+  })
 
   const h = health as any
   const s = sys as any
+  const ss = serverStatus as any
 
   const latency = h?.latency ?? 0
   const latencyColor = latency < 50 ? '#2ecc71' : latency < 200 ? '#f39c12' : '#e74c3c'
   const cpuColor = (s?.cpuPercent ?? 0) > 80 ? '#e74c3c' : (s?.cpuPercent ?? 0) > 50 ? '#f39c12' : '#2ecc71'
   const ramColor = (s?.ramPercent ?? 0) > 85 ? '#e74c3c' : (s?.ramPercent ?? 0) > 60 ? '#f39c12' : '#2ecc71'
 
+  const switchServer = async (server: 'primary' | 'backup') => {
+    setSwitching(true)
+    await api.serversSwitch(server)
+    await refetchServers()
+    qc.invalidateQueries({ queryKey: ['health'] })
+    setSwitching(false)
+  }
+
+  const doRefresh = async (type: string) => {
+    setRefreshing(type); setRefreshMsg('')
+    try {
+      let r: any
+      if (type === 'scan')   r = await api.libScan()
+      else if (type === 'meta')   r = await (api as any).libRefreshAllMeta()
+      else if (type === 'images') r = await (api as any).libRefreshAllImages()
+      setRefreshMsg(r?.message || 'Triggered')
+    } catch(e: any) { setRefreshMsg(e.message) }
+    setRefreshing(null)
+    setTimeout(() => setRefreshMsg(''), 5000)
+  }
+
+  const servers = [
+    ss?.primary && { key: 'primary', label: 'Jellyfin (Primary)', type: 'jf', ...ss.primary, isActive: ss?.active === 'primary' },
+    ss?.backup  && { key: 'backup',  label: 'Jellyfin (Backup)',  type: 'jf', ...ss.backup,  isActive: ss?.active === 'backup' },
+    ss?.plex    && { key: 'plex',    label: 'Plex',               type: 'px', ...ss.plex,    isActive: false },
+  ].filter(Boolean) as any[]
+
   return (
     <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)' }}>
       <div style={{ padding: '24px var(--pad) 48px' }}>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl tracking-[0.4em] uppercase" style={{ fontFamily: 'var(--font-display)', color: 'var(--cream)', opacity: 0.5 }}>Health</h1>
-          <button onClick={() => { refetchHealth(); refetchSys() }}
+          <button onClick={() => { refetchHealth(); refetchSys(); api.serversCheck().then(() => refetchServers()) }}
             className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all hover:opacity-80"
             style={{ background: 'var(--subtle)', border: '1px solid var(--border)', color: 'var(--accent)' }}>
             <RefreshCw size={12} className={fetchingHealth ? 'animate-spin' : ''} /> Refresh
@@ -67,21 +111,81 @@ export default function HealthPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+          {/* Servers */}
+          {servers.length > 0 && (
+            <Card title={`Servers — ${ss?.mode || 'fastest'} mode`} fullWidth>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {servers.map((srv: any) => (
+                  <div key={srv.key} className="rounded-xl p-4"
+                    style={{ background: srv.isActive ? 'rgba(201,168,76,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${srv.isActive ? 'var(--accent)' : 'var(--border2)'}` }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {srv.type === 'px'
+                        ? <Tv size={13} style={{ color: '#e5a00d' }} />
+                        : <Server size={13} style={{ color: srv.isActive ? 'var(--accent)' : 'var(--muted)' }} />}
+                      <StatusDot ok={srv.ok} />
+                      <span className="text-xs font-bold flex-1 truncate" style={{ color: srv.isActive ? 'var(--accent)' : 'var(--cream)' }}>{srv.label}</span>
+                      {srv.isActive && <span className="text-[7px] px-1.5 py-0.5 rounded-full font-bold uppercase" style={{ background: 'rgba(201,168,76,0.15)', color: 'var(--accent)' }}>Active</span>}
+                    </div>
+                    <p className="text-[9px] truncate mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>{srv.url}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold" style={{ color: srv.ok ? '#2ecc71' : '#e74c3c' }}>
+                        {srv.ok ? `${srv.latency}ms` : 'Unreachable'}
+                      </span>
+                      {!srv.isActive && srv.key !== 'plex' && (
+                        <button onClick={() => switchServer(srv.key as 'primary' | 'backup')} disabled={switching || !srv.ok}
+                          className="text-[8px] px-2.5 py-1 rounded-full font-bold uppercase transition-all hover:opacity-80 disabled:opacity-30"
+                          style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+                          {switching ? '…' : 'Use This'}
+                        </button>
+                      )}
+                    </div>
+                    {(srv.name || srv.version) && (
+                      <p className="text-[8px] mt-1.5" style={{ color: 'var(--muted)', opacity: 0.35 }}>
+                        {srv.name}{srv.version ? ` v${srv.version}` : ''}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Library Actions */}
+          <Card title="Library Actions" fullWidth>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {[
+                { key: 'scan',   label: 'Scan Libraries' },
+                { key: 'meta',   label: 'Refresh All Metadata' },
+                { key: 'images', label: 'Refresh All Images' },
+              ].map(btn => (
+                <button key={btn.key} onClick={() => doRefresh(btn.key)} disabled={!!refreshing}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all hover:opacity-80 disabled:opacity-40"
+                  style={{ background: 'var(--subtle)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                  {refreshing === btn.key
+                    ? <Loader size={11} className="animate-spin" />
+                    : <Database size={11} />}
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+            {refreshMsg && <p className="text-[10px] mt-2" style={{ color: '#2ecc71' }}>{refreshMsg}</p>}
+          </Card>
+
           {/* CyanFin */}
           <Card title="CyanFin">
-            <Row label="Version" value={h?.cyanFinVersion ? `v${h.cyanFinVersion}` : 'v0.11.1'} />
+            <Row label="Version" value={h?.cyanFinVersion ? `v${h.cyanFinVersion}` : 'v0.14.0'} />
             {h?.github && <Row label="Latest Release" value={h.github.latestRelease} color={h.github.isLatest ? '#2ecc71' : '#f39c12'} />}
             {h?.github && !h.github.isLatest && <Row label="Update Available" value="↗ GitHub" color="#f39c12" />}
           </Card>
 
           {/* Connection */}
-          <Card title="Connection">
+          <Card title="Jellyfin Connection">
             <Row label="Latency" value={`${latency}ms`} color={latencyColor} />
             <Bar pct={(latency / 500) * 100} color={latencyColor} />
             <Row label="Server" value={h?.serverName} />
             <Row label="Version" value={h?.version} />
             <Row label="OS" value={h?.os} />
-            <Row label="Local Address" value={h?.localAddress} />
           </Card>
 
           {/* Sessions */}
@@ -89,12 +193,12 @@ export default function HealthPage() {
             <Row label="Active" value={h?.activeSessions} color={h?.activeSessions > 0 ? '#2ecc71' : undefined} />
             <Row label="Connected" value={h?.totalSessions} />
             <Row label="Transcoding" value={h?.transcoding} color={h?.transcoding > 0 ? '#f39c12' : '#2ecc71'} />
-            {(h?.nowPlaying || []).map((s: any) => (
-              <div key={s.user} className="mt-2 p-2 rounded" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border2)' }}>
-                <p className="text-[9px] mb-0.5" style={{ color: 'var(--accent)', opacity: 0.6 }}>{s.user} · {s.device}</p>
-                <p className="text-[10px] truncate" style={{ color: 'var(--muted)' }}>{s.title}</p>
+            {(h?.nowPlaying || []).map((sp: any) => (
+              <div key={sp.user} className="mt-2 p-2 rounded" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border2)' }}>
+                <p className="text-[9px] mb-0.5" style={{ color: 'var(--accent)', opacity: 0.6 }}>{sp.user} · {sp.device}</p>
+                <p className="text-[10px] truncate" style={{ color: 'var(--muted)' }}>{sp.title}</p>
                 <div className="h-0.5 rounded mt-1" style={{ background: 'var(--border2)' }}>
-                  <div style={{ width: `${s.progress}%`, height: '100%', background: 'var(--accent)', borderRadius: 2 }} />
+                  <div style={{ width: `${sp.progress}%`, height: '100%', background: 'var(--accent)', borderRadius: 2 }} />
                 </div>
               </div>
             ))}
@@ -102,12 +206,11 @@ export default function HealthPage() {
 
           {/* CPU */}
           {s?.cpuPercent !== undefined && (
-            <Card title={`CPU${s.cpuModel ? ` · ${s.cpuCores}c` : ''}`}>
+            <Card title={`CPU${s.cpuCores ? ` · ${s.cpuCores} cores` : ''}`}>
               <Row label="Usage" value={`${s.cpuPercent}%`} color={cpuColor} />
               <Bar pct={s.cpuPercent} color={cpuColor} />
               <Row label="Load 1m / 5m" value={`${s.load1} / ${s.load5}`} />
               <Row label="Uptime" value={fmtUptime(s.uptimeSeconds)} />
-              {s.cpuModel && <Row label="Model" value={s.cpuModel.substring(0, 30)} />}
             </Card>
           )}
 
@@ -116,7 +219,6 @@ export default function HealthPage() {
             <Card title="Memory">
               <Row label="Used / Total" value={`${s.ramUsed} / ${s.ramTotal} MB`} color={ramColor} />
               <Bar pct={s.ramPercent} color={ramColor} />
-              <Row label="Usage" value={`${s.ramPercent}%`} color={ramColor} />
             </Card>
           )}
 
@@ -155,11 +257,12 @@ export default function HealthPage() {
           {intCfg && (
             <Card title="Integrations">
               {[
-                ['Jellyseerr', intCfg.jellyseerr], ['Radarr', intCfg.radarr],
-                ['Sonarr', intCfg.sonarr], ['Discord', intCfg.discord],
-                ['Anthropic AI', intCfg.anthropic], ['TMDB', intCfg.tmdb],
+                ['Jellyseerr', (intCfg as any).jellyseerr], ['Radarr', (intCfg as any).radarr],
+                ['Sonarr', (intCfg as any).sonarr], ['Discord', (intCfg as any).discord],
+                ['Anthropic', (intCfg as any).anthropic], ['TMDB', (intCfg as any).tmdb],
+                ['Plex', ss?.plex?.ok],
               ].map(([name, active]) => (
-                <Row key={String(name)} label={String(name)} value={active ? '✓ Connected' : '✗ Not set'} color={active ? '#2ecc71' : 'rgba(240,232,213,0.25)'} />
+                <Row key={String(name)} label={String(name)} value={active ? '✓' : '—'} color={active ? '#2ecc71' : 'rgba(240,232,213,0.2)'} />
               ))}
             </Card>
           )}
@@ -171,26 +274,6 @@ export default function HealthPage() {
             </Card>
           )}
         </div>
-
-        {/* Activity log */}
-        {h?.recentActivity && h.recentActivity.length > 0 && (
-          <div className="mt-4">
-            <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.4 }}>Recent Activity</p>
-            <div className="space-y-2">
-              {h.recentActivity.map((a: any, i: number) => {
-                const col = a.severity === 'Error' ? '#e74c3c' : a.severity === 'Warning' ? '#f39c12' : 'var(--muted)'
-                return (
-                  <div key={i} className="flex justify-between items-start gap-4 py-2" style={{ borderBottom: '1px solid var(--border2)' }}>
-                    <span className="text-[10px] flex-1" style={{ color: col }}>{a.name}</span>
-                    <span className="text-[9px] font-mono flex-shrink-0" style={{ color: 'rgba(240,232,213,0.25)' }}>
-                      {a.date ? new Date(a.date).toLocaleString() : ''}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
