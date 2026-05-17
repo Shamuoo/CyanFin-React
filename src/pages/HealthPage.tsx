@@ -71,9 +71,9 @@ export default function HealthPage() {
   const cpuColor = (s?.cpuPercent ?? 0) > 80 ? '#e74c3c' : (s?.cpuPercent ?? 0) > 50 ? '#f39c12' : '#2ecc71'
   const ramColor = (s?.ramPercent ?? 0) > 85 ? '#e74c3c' : (s?.ramPercent ?? 0) > 60 ? '#f39c12' : '#2ecc71'
 
-  const switchServer = async (server: 'primary' | 'backup') => {
+  const switchServer = async (server: 'primary' | 'backup' | 'plex') => {
     setSwitching(true)
-    await api.serversSwitch(server)
+    await api.serversSwitch(server as 'primary' | 'backup')
     await refetchServers()
     qc.invalidateQueries({ queryKey: ['health'] })
     setSwitching(false)
@@ -93,9 +93,9 @@ export default function HealthPage() {
   }
 
   const servers = [
-    ss?.primary && { key: 'primary', label: 'Jellyfin (Primary)', type: 'jf', ...ss.primary, isActive: ss?.active === 'primary' },
-    ss?.backup  && { key: 'backup',  label: 'Jellyfin (Backup)',  type: 'jf', ...ss.backup,  isActive: ss?.active === 'backup' },
-    ss?.plex    && { key: 'plex',    label: 'Plex',               type: 'px', ...ss.plex,    isActive: false },
+    ss?.primary && { key: 'primary', label: 'Jellyfin (Primary)', type: 'jf', ...ss.primary, isActive: ss?.source === 'jellyfin' && ss?.active === 'primary' },
+    ss?.backup  && { key: 'backup',  label: 'Jellyfin (Backup)',  type: 'jf', ...ss.backup,  isActive: ss?.source === 'jellyfin' && ss?.active === 'backup' },
+    ss?.plex    && { key: 'plex',    label: 'Plex',               type: 'px', ...ss.plex,    isActive: ss?.source === 'plex' },
   ].filter(Boolean) as any[]
 
   return (
@@ -114,7 +114,7 @@ export default function HealthPage() {
 
           {/* Servers */}
           {servers.length > 0 && (
-            <Card title={`Servers — ${ss?.mode || 'fastest'} mode`} fullWidth>
+            <Card title={`Servers — ${ss?.source === 'plex' ? '🟠 PLEX FALLBACK' : ss?.mode || 'fastest'} mode`} fullWidth>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {servers.map((srv: any) => (
                   <div key={srv.key} className="rounded-xl p-4"
@@ -132,8 +132,8 @@ export default function HealthPage() {
                       <span className="text-[10px] font-mono font-bold" style={{ color: srv.ok ? '#2ecc71' : '#e74c3c' }}>
                         {srv.ok ? `${srv.latency}ms` : 'Unreachable'}
                       </span>
-                      {!srv.isActive && srv.key !== 'plex' && (
-                        <button onClick={() => switchServer(srv.key as 'primary' | 'backup')} disabled={switching || !srv.ok}
+                      {!srv.isActive && (
+                        <button onClick={() => switchServer(srv.key as 'primary' | 'backup' | 'plex')} disabled={switching || !srv.ok}
                           className="text-[8px] px-2.5 py-1 rounded-full font-bold uppercase transition-all hover:opacity-80 disabled:opacity-30"
                           style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
                           {switching ? '…' : 'Use This'}

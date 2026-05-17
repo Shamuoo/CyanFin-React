@@ -56,7 +56,7 @@ class ApiClient {
 
   // ── Servers ────────────────────────────────────────────────────────────────
   serversStatus() { return this.get<ServerStatus>('/api/servers/status') }
-  serversSwitch(server: 'primary' | 'backup') { return this.post<ServerStatus>('/api/servers/switch', { server }) }
+  serversSwitch(server: 'primary' | 'backup' | 'plex') { return this.post<ServerStatus>('/api/servers/switch', { server }) }
   serversCheck() { return this.get<ServerStatus>('/api/servers/check') }
   testJellyfin(url: string) { return this.get<{ ok: boolean; serverName?: string; version?: string; error?: string }>(`/api/test/jellyfin?url=${encodeURIComponent(url)}`) }
   testPlex(url: string, token: string) { return this.get<{ ok: boolean; error?: string }>(`/api/test/plex?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`) }
