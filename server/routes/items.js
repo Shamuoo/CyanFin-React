@@ -48,7 +48,7 @@ async function handleItems(pathname, query, session, req) {
     mapped.extras = extrasArr.map(e => ({
       id: e.Id, title: e.Name, type: e.ExtraType || e.Type,
       runtime: e.RunTimeTicks,
-      thumbUrl: e.ImageTags?.Primary ? jf.imageUrl(e.Id, 'Primary', { token, maxWidth: 400 }) : null,
+      thumbUrl: e.ImageTags?.Primary ? `/proxy/image?id=${e.Id}&type=Primary&w=400` : null,
     }));
 
     // External ratings (TMDB + OMDB)

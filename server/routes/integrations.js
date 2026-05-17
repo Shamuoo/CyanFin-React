@@ -237,7 +237,7 @@ async function handleIntegrations(pathname, query, body, session) {
         const plexToken = cfg.get('PLEX_TOKEN');
         if (!plexUrl) return { ok: false, error: 'Not configured' };
         try {
-          const plex = require('./plexClient');
+          const plex = require('../plexClient');
           const res = await plex.ping(plexUrl, plexToken);
           return res.ok ? { ok: true, message: `Plex connected · ${res.latency}ms` } : { ok: false, error: 'Could not connect' };
         } catch(e) { return { ok: false, error: e.message }; }

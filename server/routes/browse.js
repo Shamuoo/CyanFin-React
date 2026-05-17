@@ -234,7 +234,7 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => ({
       id: i.Id, title: i.Name, artist: i.AlbumArtist || i.Artists?.[0],
       year: i.ProductionYear,
-      imageUrl: i.ImageTags?.Primary ? jf.imageUrl(i.Id, 'Primary', { token, maxWidth: 400 }) : null,
+      imageUrl: i.ImageTags?.Primary ? `/proxy/image?id=${i.Id}&type=Primary&w=400` : null,
     }));
   }
 

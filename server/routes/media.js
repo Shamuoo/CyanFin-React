@@ -110,11 +110,11 @@ function mapItem(i, token) {
       isFavorite: i.UserData.IsFavorite,
     } : null,
     externalIds: i.ProviderIds || {},
-    posterUrl:   i.ImageTags?.Primary   ? jf.imageUrl(i.Id, 'Primary', { token, maxWidth: 400 }) : null,
-    backdropUrl: i.BackdropImageTags?.length ? jf.backdropUrl(i.Id, 0, token) : null,
-    backdropUrls: (i.BackdropImageTags || []).map((_, idx) => jf.backdropUrl(i.Id, idx, token)),
-    thumbUrl:    i.ImageTags?.Thumb     ? jf.imageUrl(i.Id, 'Thumb', { token, maxWidth: 500 }) : null,
-    logoUrl:     i.ImageTags?.Logo      ? jf.imageUrl(i.Id, 'Logo', { token, maxWidth: 600 }) : null,
+    posterUrl:   i.ImageTags?.Primary   ? `/proxy/image?id=${i.Id}&type=Primary&w=400` : null,
+    backdropUrl: i.BackdropImageTags?.length ? `/proxy/image?id=${i.Id}&type=Backdrop%2F0&w=1920` : null,
+    backdropUrls: (i.BackdropImageTags || []).map((_, idx) => `/proxy/image?id=${i.Id}&type=Backdrop%2F${idx}&w=1920`),
+    thumbUrl:    i.ImageTags?.Thumb     ? `/proxy/image?id=${i.Id}&type=Thumb&w=500` : null,
+    logoUrl:     i.ImageTags?.Logo      ? `/proxy/image?id=${i.Id}&type=Logo&w=600` : null,
     _source: 'jellyfin',
   };
 }
