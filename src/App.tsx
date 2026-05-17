@@ -57,7 +57,7 @@ class ErrorBoundary extends Component<{ children: ReactNode; fallback?: ReactNod
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 function AuthGuard() {
-  const { user, setUser, onboarded, layout } = useStore()
+  const { user, setUser, onboarded, setOnboarded, layout } = useStore()
   if (layout === 'tv') useDpadNavigation()
 
   // Listen for auth expiry
@@ -67,8 +67,16 @@ function AuthGuard() {
     return () => window.removeEventListener('auth:expired', handler)
   }, [setUser])
 
+  // Check server config — if Jellyfin not configured, force setup regardless of localStorage
+  const { data: serverInfo, isLoading: checkingServer } = useQuery({
+    queryKey: ['server-info'],
+    queryFn: () => api.publicInfo(),
+    retry: false,
+    staleTime: 30_000,
+  })
+
   // Check session
-  const { isLoading } = useQuery({
+  const { isLoading: checkingSession } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
       const u = await api.me()
@@ -76,11 +84,19 @@ function AuthGuard() {
       return u
     },
     retry: false,
-    enabled: !user && onboarded,
+    enabled: !user && !!serverInfo?.configured,
     staleTime: Infinity,
   })
 
-  if (!onboarded) return <Navigate to="/setup" replace />
+  const isLoading = checkingServer || (checkingSession && !!serverInfo?.configured)
+
+  // Server says not configured — always show setup
+  if (serverInfo && !serverInfo.configured) {
+    if (onboarded) setOnboarded(false)
+    return <Navigate to="/setup" replace />
+  }
+
+  if (!onboarded && !serverInfo?.configured) return <Navigate to="/setup" replace />
   if (isLoading) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
   return <Outlet />

@@ -134,6 +134,12 @@ async function handler(req, res) {
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     const body = await readBody(req);
     try {
+      // Ensure Jellyfin is initialized with latest config
+      const currentUrl = cfg.get('JELLYFIN_URL');
+      if (currentUrl && !jf.getBaseUrl()) {
+        jf.init(currentUrl, cfg.get('JELLYFIN_API_KEY') || '');
+      }
+      if (!currentUrl) return json(res, { error: 'Jellyfin server not configured. Please complete setup first.' }, 503);
       const result = await jf.authenticate(body.username, body.password);
       const sessionId = auth.createSession({
         token: result.AccessToken,
