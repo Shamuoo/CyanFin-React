@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import MediaCard from '@/components/ui/MediaCard'
 import { useStore } from '@/lib/store'
+import MediaCard from '@/components/ui/MediaCard'
 import type { MediaItem } from '@/types'
 
 export default function MoviesPage() {
   const { setDetailItemId } = useStore()
   const [sort, setSort] = useState('SortName')
+  const [plexSource, setPlexSource] = useState(false)
   const [order, setOrder] = useState('Ascending')
   const [genre, setGenre] = useState('')
   const [start, setStart] = useState(0)

@@ -11,6 +11,7 @@ type View = 'grid' | 'seasons' | 'episodes'
 export default function ShowsPage() {
   const { setDetailItemId, setPlayingItem } = useStore()
   const [sort, setSort] = useState('SortName')
+  const [plexSource, setPlexSource] = useState(false)
   const [order, setOrder] = useState('Ascending')
   const [genre, setGenre] = useState('')
   const [start, setStart] = useState(0)

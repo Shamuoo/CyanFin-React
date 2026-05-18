@@ -180,3 +180,14 @@ export default function AudioBar() {
     </AnimatePresence>
   )
 }
+
+// Hook to access audio bar state from other components
+export function useAudioBar() {
+  const [state, setState] = useState<any>(null)
+  useEffect(() => {
+    const update = (e: any) => setState(e.detail)
+    window.addEventListener('audiobar:state', update)
+    return () => window.removeEventListener('audiobar:state', update)
+  }, [])
+  return state
+}

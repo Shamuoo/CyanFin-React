@@ -232,9 +232,33 @@ async function findMatchOnServer(targetUrl, targetKey, providerIds) {
   } catch { return null; }
 }
 
+
+// Find equivalent item on target server using IMDB/TMDB IDs
+async function getMatchingItemId(itemId, targetServer) {
+  const jf = require('./jellyfin');
+  const currentKey = state.active === 'primary'
+    ? cfg.get('JELLYFIN_API_KEY') : (cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY'));
+
+  try {
+    // Get provider IDs from current item
+    const data = await new Promise((resolve, reject) => {
+      const url = `${jf.getBaseUrl()}/Items/${itemId}?fields=ProviderIds&api_key=${currentKey}`;
+      httpGet(url).then(r => resolve(r.data)).catch(reject);
+    });
+    if (!data?.ProviderIds) return null;
+
+    const targetUrl = targetServer === 'backup' ? cfg.get('JELLYFIN_BACKUP_URL') : cfg.get('JELLYFIN_URL');
+    const targetKey = targetServer === 'backup'
+      ? (cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY'))
+      : cfg.get('JELLYFIN_API_KEY');
+
+    return await findMatchOnServer(targetUrl, targetKey, data.ProviderIds);
+  } catch { return null; }
+}
+
 module.exports = {
   start, stop, checkAll, getStatus, forceSwitch,
   getActiveToken, authenticateBackup,
-  isPlexFallback, isOffline, findMatchOnServer,
+  isPlexFallback, isOffline, findMatchOnServer, getMatchingItemId,
   pingJellyfin, pingPlex,
 };

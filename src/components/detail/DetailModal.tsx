@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Play, ExternalLink, ChevronLeft, Youtube } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import api from '@/lib/api'
+import { toast } from '@/components/ui/Toast'
 import PersonalRating from '@/components/ui/PersonalRating'
 import MediaRow from '@/components/ui/MediaRow'
 import type { MediaItem, MediaSource } from '@/types'
@@ -85,64 +86,84 @@ export default function DetailModal() {
 
 
 function IntegrationActions({ item }: { item: MediaItem }) {
-  const { jellyfinUrl } = useStore()
-  const [requested, setRequested] = useState(false)
-  const [shared, setShared] = useState(false)
   const [isFav, setIsFav] = useState(item.userData?.isFavorite || false)
   const [isWatched, setIsWatched] = useState((item.userData?.playedPercentage || 0) >= 90)
+  const [requested, setRequested] = useState(false)
+  const [requesting, setRequesting] = useState(false)
+  const [shared, setShared] = useState(false)
 
-  const { data: intCfg } = useQuery({ queryKey: ['integrations-config'], queryFn: api.integrationsConfig.bind(api), staleTime: 60_000 })
+  const { data: intCfg } = useQuery({
+    queryKey: ['integrations-config'], queryFn: api.integrationsConfig.bind(api), staleTime: 60_000,
+  })
+  const cfg = intCfg as any
 
   const toggleFav = async () => {
-    try {
-      await api.post(`/api/user/favorite`, { itemId: item.id, favorite: !isFav })
-      setIsFav(f => !f)
-    } catch(e) {}
+    try { await api.toggleFavorite(item.id, !isFav); setIsFav(f => !f) } catch {}
   }
-
   const toggleWatched = async () => {
-    try {
-      await api.post(`/api/user/watched`, { itemId: item.id, watched: !isWatched })
-      setIsWatched(w => !w)
-    } catch(e) {}
+    try { await api.toggleWatched(item.id, !isWatched); setIsWatched(w => !w) } catch {}
   }
-
   const requestMedia = async () => {
+    if (requesting || requested) return
+    setRequesting(true)
     try {
       await api.requestMedia(item.type === 'Movie' ? 'movie' : 'tv', item.id)
       setRequested(true)
-    } catch(e) {}
+      toast.success(`${item.title} requested`)
+    } catch(e: any) { toast.error(e.message || 'Request failed') }
+    setRequesting(false)
   }
-
   const shareDiscord = async () => {
     try {
       await api.discordNotify({ title: item.title ?? '', overview: item.overview || '', posterUrl: item.posterUrl || '', type: item.type, year: String(item.year || '') })
-      setShared(true)
-    } catch(e) {}
+      setShared(true); setTimeout(() => setShared(false), 3000)
+    } catch {}
   }
 
-  const btnStyle = (active?: boolean) => ({
-    padding: '6px 14px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-    letterSpacing: '0.08em', textTransform: 'uppercase' as const, cursor: 'pointer',
-    border: '1px solid rgba(255,255,255,0.1)',
-    background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
-    color: active ? 'var(--cream)' : 'var(--muted)',
-    transition: 'all 0.15s',
-  })
+  const pill = (label: string, active?: boolean, onClick?: () => void) => (
+    <button onClick={onClick} style={{
+      padding: '6px 14px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+      letterSpacing: '0.08em', textTransform: 'uppercase' as const, cursor: onClick ? 'pointer' : 'default',
+      border: '1px solid rgba(255,255,255,0.1)',
+      background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
+      color: active ? 'var(--cream)' : 'var(--muted)', transition: 'all 0.15s',
+    }}>{label}</button>
+  )
 
   return (
-    <div className="flex gap-2 flex-wrap mb-5 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-      <button onClick={toggleFav} style={btnStyle(isFav)}>{isFav ? '♥ Favourited' : '♡ Favourite'}</button>
-      <button onClick={toggleWatched} style={btnStyle(isWatched)}>{isWatched ? '✓ Watched' : '○ Mark Watched'}</button>
-      {intCfg?.jellyseerr && (item.type === 'Movie' || item.type === 'Series') && (
-        <button onClick={requestMedia} disabled={requested} style={btnStyle(requested)}>
-          {requested ? '✓ Requested' : '+ Request'}
-        </button>
-      )}
-      {intCfg?.discord && (
-        <button onClick={shareDiscord} disabled={shared} style={btnStyle(shared)}>
-          {shared ? '✓ Shared' : '📢 Share'}
-        </button>
+    <div className="mb-5 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      {/* User actions */}
+      <div className="flex gap-2 flex-wrap mb-3">
+        {pill(isFav ? '♥ Favourited' : '♡ Favourite', isFav, toggleFav)}
+        {pill(isWatched ? '✓ Watched' : 'Mark watched', isWatched, toggleWatched)}
+        {cfg?.discord && pill(shared ? '✓ Shared' : '⬡ Discord', shared, shareDiscord)}
+      </div>
+
+      {/* Request row — Jellyseerr / Radarr / Sonarr */}
+      {(cfg?.jellyseerr || cfg?.radarr || cfg?.sonarr) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {cfg?.jellyseerr && (
+            <button onClick={requestMedia} disabled={requesting || requested}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all hover:opacity-80 disabled:opacity-50"
+              style={{ background: requested ? 'rgba(46,204,113,0.1)' : 'rgba(201,168,76,0.08)', color: requested ? '#2ecc71' : 'var(--accent)', border: `1px solid ${requested ? 'rgba(46,204,113,0.3)' : 'var(--border)'}` }}>
+              {requesting ? '…' : requested ? '✓ Requested' : '↓ Request — Jellyseerr'}
+            </button>
+          )}
+          {!cfg?.jellyseerr && cfg?.radarr && item.type === 'Movie' && (
+            <button onClick={requestMedia} disabled={requesting || requested}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all hover:opacity-80 disabled:opacity-50"
+              style={{ background: 'rgba(201,168,76,0.08)', color: 'var(--accent)', border: '1px solid var(--border)' }}>
+              {requesting ? '…' : requested ? '✓ Sent to Radarr' : '↓ Add to Radarr'}
+            </button>
+          )}
+          {!cfg?.jellyseerr && cfg?.sonarr && item.type === 'Series' && (
+            <button onClick={requestMedia} disabled={requesting || requested}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all hover:opacity-80 disabled:opacity-50"
+              style={{ background: 'rgba(201,168,76,0.08)', color: 'var(--accent)', border: '1px solid var(--border)' }}>
+              {requesting ? '…' : requested ? '✓ Sent to Sonarr' : '↓ Add to Sonarr'}
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

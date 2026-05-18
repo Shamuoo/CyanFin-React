@@ -50,7 +50,7 @@ export default function MediaCard({ item, onClick, width = 110 }: Props) {
             {item.qualities.map(q => (
               <span key={q} className={`chip text-[7px] ${qualityClass(q)}`}
                 style={q.startsWith('4K') ? { background: 'var(--accent)', color: 'var(--bg)' } : {}}>
-                {q}
+                {q.replace('1080p','FHD').replace('720p','HD').replace(' 3D','·3D')}
               </span>
             ))}
           </div>

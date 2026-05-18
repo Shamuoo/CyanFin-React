@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.16.2';
+const VERSION = '0.16.5';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -375,6 +375,14 @@ async function handler(req, res) {
       if (pathname.startsWith('/api/ai/')) {
         const aiResult = await handleAI(pathname, body, session);
         if (aiResult !== null) return json(res, aiResult);
+      }
+
+      // Match item on another server (for failover resume)
+      if (pathname === '/api/servers/match') {
+        const { itemId, targetServer } = body;
+        if (!itemId) return json(res, { matchId: null });
+        const matchId = await sm.getMatchingItemId(itemId, targetServer || 'backup');
+        return json(res, { matchId });
       }
 
       // Servers switch / check
