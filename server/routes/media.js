@@ -134,15 +134,48 @@ function defaultAudio(streams) {
 
 // ── Quality from media source ─────────────────────────────────────────────────
 function qualityFromSource(src) {
-  const height = src.Height || (src.MediaStreams || []).find(s => s.Type === 'Video')?.Height || 0;
-  const is3D = (src.Video3DFormat || '') !== '';
+  const videoStream = (src.MediaStreams || []).find(s => s.Type === 'Video');
+  const height = src.Height || videoStream?.Height || 0;
+  const width  = src.Width  || videoStream?.Width  || 0;
+  const is3D   = (src.Video3DFormat || '') !== '';
+  const name   = (src.Name || src.Path || '').toLowerCase();
+  const profile = (videoStream?.Profile || '').toLowerCase();
+  const codec   = (videoStream?.Codec  || '').toLowerCase();
+  const bitDepth = videoStream?.BitDepth || 8;
+
+  // 4K signals: resolution, name hints, HDR/DV profiles
+  const is4K =
+    height >= 2160 || width >= 3840 ||
+    name.includes('4k') || name.includes('2160') || name.includes('uhd') ||
+    profile.includes('main 10') && (height >= 1800 || width >= 3000) ||
+    name.includes('bluray.2160') || name.includes('blu-ray.2160');
+
+  // 1080p signals
+  const is1080 =
+    (height >= 1080 && height < 2160) ||
+    (width  >= 1920 && width  < 3840 && !is4K) ||
+    (name.includes('1080') && !is4K);
+
+  // 720p signals
+  const is720 =
+    (height >= 720 && height < 1080 && !is4K && !is1080) ||
+    (name.includes('720') && !is4K && !is1080);
+
   let base = '';
-  if (height >= 2160 || (src.Name || '').includes('4K')) base = '4K';
-  else if (height >= 1080) base = '1080p';
-  else if (height >= 720) base = '720p';
-  else if (height > 0) base = 'SD';
+  if (is4K)        base = '4K';
+  else if (is1080) base = '1080p';
+  else if (is720)  base = '720p';
+  else if (height > 0 || width > 0) base = 'SD';
+
   if (!base) return [];
-  return [is3D ? `${base} 3D` : base];
+
+  // HDR / Dolby Vision badge
+  const isHDR = bitDepth >= 10 ||
+    name.includes('hdr') || name.includes('dv') || name.includes('dolby.vision') ||
+    profile.includes('dolby') || codec === 'dvhe' || codec === 'dvh1';
+
+  const suffix = is3D ? ' 3D' : isHDR && is4K ? ' HDR' : '';
+  return [base + suffix];
 }
 
 // ── Map Jellyfin item to CyanFin MediaItem ────────────────────────────────────

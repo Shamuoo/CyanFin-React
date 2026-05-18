@@ -13,6 +13,21 @@ import Screensaver from '@/components/ui/Screensaver'
 import ToastContainer from '@/components/ui/Toast'
 import KeyboardShortcuts from '@/components/ui/KeyboardShortcuts'
 
+
+function ClockDisplay() {
+  const [time, setTime] = useState(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })), 10000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <div className="text-center py-1 text-[10px] font-bold tracking-widest"
+      style={{ background: 'rgba(0,0,0,0.2)', color: 'rgba(255,255,255,0.3)' }}>
+      {time}
+    </div>
+  )
+}
+
 export default function Layout() {
   const store = useStore()
   const { user, setUser, showMusic, mode, showWeather, city } = store

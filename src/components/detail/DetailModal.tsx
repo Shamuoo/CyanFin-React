@@ -362,73 +362,122 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   return (
     <div className="flex flex-col" style={{ minHeight: '100%' }}>
 
-      {/* ── CINEMATIC HERO ── */}
-      <div className="relative flex-shrink-0" style={{ height: 'clamp(220px, 45vh, 400px)' }}>
-        {/* Backdrop */}
+      {/* ── CINEMATIC HERO — full height backdrop, blur-from-bottom ── */}
+      <div className="relative flex-shrink-0" style={{ height: 'clamp(260px, 52vh, 480px)' }}>
+        {/* Full backdrop */}
         {backdrop && (
-          <div key={activeBackdrop} className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url('${backdrop}')`,
-              animation: 'fadeIn 0.8s ease' }} />
+          <div key={activeBackdrop} className="absolute inset-0"
+            style={{ backgroundImage: `url('${backdrop}')`, backgroundSize: 'cover', backgroundPosition: 'center top', animation: 'fadeIn 0.7s ease' }} />
         )}
+        {/* Dark base fallback */}
+        {!backdrop && <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 100%)' }} />}
 
-        {/* Gradient overlays - cinematic vignette */}
+        {/* Bottom blur + fade overlay — the key effect */}
         <div className="absolute inset-0" style={{
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, transparent 30%, transparent 50%, var(--bg) 100%)',
+          background: 'linear-gradient(to bottom, transparent 0%, transparent 35%, rgba(0,0,0,0.5) 60%, var(--bg) 100%)',
         }} />
+        {/* Left vignette */}
         <div className="absolute inset-0" style={{
-          background: 'linear-gradient(to right, rgba(0,0,0,0.6) 0%, transparent 60%)',
+          background: 'linear-gradient(to right, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
         }} />
 
-        {/* Logo + title overlay bottom-left */}
-        <div className="absolute bottom-0 left-0 right-0 px-8 pb-6">
+        {/* Content overlaid at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 px-7 pb-5">
+          {/* Logo or title */}
           {item.logoUrl
             ? <img src={item.logoUrl} alt={item.title} className="object-contain mb-3"
-                style={{ maxHeight: 80, maxWidth: 320,
-                  filter: 'drop-shadow(0 2px 24px rgba(0,0,0,1)) brightness(1.1)' }} />
-            : <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px,4.5vw,52px)',
-                  letterSpacing: '0.07em', color: 'var(--cream)',
-                  textShadow: '0 2px 32px rgba(0,0,0,0.95)', marginBottom: 8, lineHeight: 1 }}>
+                style={{ maxHeight: 72, maxWidth: 300, filter: 'drop-shadow(0 2px 20px rgba(0,0,0,1)) brightness(1.05)' }} />
+            : <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 4vw, 48px)',
+                  letterSpacing: '0.07em', color: 'white', textShadow: '0 2px 24px rgba(0,0,0,0.9)',
+                  marginBottom: 8, lineHeight: 1 }}>
                 {item.title}
               </h1>
           }
 
-          {item.type === 'Episode' && (
-            <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: 'var(--accent)', opacity: 0.8 }}>
-              {item.seriesName} · S{String(item.parentIndexNumber||0).padStart(2,'0')}E{String(item.indexNumber||0).padStart(2,'0')}
-            </p>
-          )}
-
-          {/* Metadata row — year · runtime · rating · quality · audio */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-            {item.year && <span className="text-[11px]" style={{ color: 'rgba(240,232,213,0.5)' }}>{item.year}</span>}
-            {item.runtime && <span className="text-[11px]" style={{ color: 'rgba(240,232,213,0.5)' }}>{item.runtime}m</span>}
+          {/* Metadata + ratings all in one compact row */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            {item.type === 'Episode' && (
+              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--accent)', opacity: 0.9 }}>
+                {item.seriesName} · S{String(item.parentIndexNumber||0).padStart(2,'0')}E{String(item.indexNumber||0).padStart(2,'0')}
+              </span>
+            )}
+            {item.year && <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.55)' }}>{item.year}</span>}
+            {item.runtime && <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>· {item.runtime}m</span>}
             {item.rating && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(240,232,213,0.6)', border: '1px solid rgba(255,255,255,0.12)' }}>
+              <span className="text-[8px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)' }}>
                 {item.rating}
               </span>
             )}
-            {(item.qualities || []).slice(0,1).map(q => (
-              <span key={q} className="text-[9px] px-2 py-0.5 rounded-full font-bold"
-                style={{ background: q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.15)',
-                  color: q.startsWith('4K') ? 'var(--bg)' : 'var(--blue)',
-                  border: `1px solid ${q.startsWith('4K') ? 'transparent' : 'rgba(93,173,226,0.3)'}` }}>
+            {(item.qualities||[]).slice(0,1).map(q => (
+              <span key={q} className="text-[8px] px-1.5 py-0.5 rounded-full font-bold"
+                style={{ background: q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.2)', color: q.startsWith('4K') ? 'var(--bg)' : '#5dade2', border: 'none' }}>
                 {q}
               </span>
             ))}
-            {item.audio && (
-              <span className="text-[10px]" style={{ color: 'rgba(240,232,213,0.45)' }}>{item.audio}</span>
+            {item.audio && <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{item.audio}</span>}
+
+            {/* Ratings inline — compact, no cutoff */}
+            {item.externalRatings?.imdb != null && (
+              <a href={item.externalRatings.imdbUrl||'#'} target="_blank" rel="noreferrer"
+                className="flex items-center gap-0.5 hover:opacity-75"
+                style={{ color: '#f5c518', textDecoration: 'none', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                ★ {item.externalRatings.imdb}
+              </a>
+            )}
+            {item.externalRatings?.rt != null && (
+              <span className="text-[10px] font-bold" style={{ color: item.externalRatings.rt >= 60 ? '#fa5700' : '#888', whiteSpace: 'nowrap' }}>
+                {item.externalRatings.rt >= 60 ? '🍅' : '🫙'} {item.externalRatings.rt}%
+              </span>
+            )}
+            {item.externalRatings?.metascore != null && (
+              <span className="text-[10px] font-bold" style={{ color: '#66af44', whiteSpace: 'nowrap' }}>
+                MC {item.externalRatings.metascore}
+              </span>
+            )}
+            {item.externalRatings?.letterboxdUrl && (
+              <a href={item.externalRatings.letterboxdUrl} target="_blank" rel="noreferrer"
+                className="text-[9px] font-bold hover:opacity-75"
+                style={{ color: '#00a550', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                LB
+              </a>
+            )}
+          </div>
+
+          {/* Action buttons overlaid on hero */}
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {canPlay && (
+              <button onClick={() => onPlay(selectedSourceId, selectedAudioIndex)}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-full font-bold tracking-wider uppercase text-sm transition-all hover:opacity-90 active:scale-95"
+                style={{ background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--font-display)', letterSpacing: '0.12em', backdropFilter: 'blur(8px)' }}>
+                <Play size={14} fill="currentColor" />
+                {item.userData?.playedPercentage && item.userData.playedPercentage > 5 ? 'Resume' : 'Play'}
+              </button>
+            )}
+            {trailerKey && (
+              <a href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold tracking-wide text-sm transition-all hover:opacity-80"
+                style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)', textDecoration: 'none' }}>
+                <Youtube size={13} /> Trailer
+              </a>
+            )}
+            {jellyfinUrl && (
+              <a href={`${jellyfinUrl}/web/#/details?id=${item.id}`} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 px-3 py-2.5 rounded-full text-sm transition-all hover:opacity-70"
+                style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none' }}>
+                <ExternalLink size={12} />
+              </a>
             )}
           </div>
         </div>
 
         {/* Backdrop dots */}
         {backdrops.length > 1 && (
-          <div className="absolute bottom-6 right-6 flex gap-1.5">
-            {backdrops.slice(0, 6).map((_, i) => (
+          <div className="absolute bottom-5 right-6 flex gap-1.5">
+            {backdrops.slice(0, 5).map((_, i) => (
               <button key={i} onClick={() => setActiveBackdrop(i)}
                 className="rounded-full transition-all"
-                style={{ width: i === activeBackdrop ? 16 : 6, height: 6,
-                  background: i === activeBackdrop ? 'var(--accent)' : 'rgba(255,255,255,0.25)' }} />
+                style={{ width: i === activeBackdrop ? 14 : 5, height: 5,
+                  background: i === activeBackdrop ? 'var(--accent)' : 'rgba(255,255,255,0.3)' }} />
             ))}
           </div>
         )}
