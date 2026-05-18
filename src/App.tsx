@@ -94,19 +94,16 @@ function AuthGuard() {
     staleTime: Infinity,
   })
 
-  // Wait for server info before making any routing decisions
+  // Wait for server info before routing — prevents flash to setup
   if (checkingServer) return <Spinner />
 
-  // Server says not configured — always show setup regardless of localStorage
+  // ONLY show setup if server has no Jellyfin URL configured
+  // Never trigger from localStorage flag on minor updates
   if (serverInfo && !serverInfo.configured) {
-    if (onboarded) setOnboarded(false)
     return <Navigate to="/setup" replace />
   }
 
-  // Not onboarded and server not confirmed configured
-  if (!onboarded) return <Navigate to="/setup" replace />
-
-  // Session check
+  // Server is configured — go to login/home
   if (checkingSession) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
   return <Outlet />

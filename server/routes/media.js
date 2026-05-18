@@ -84,7 +84,18 @@ function formatAudio(stream) {
   const spatial = (stream.AudioSpatialFormat || '').toLowerCase();
   const profile = (stream.Profile || '').toLowerCase();
   const codec   = (stream.Codec || '').toLowerCase();
-  const flag    = LANG_FLAGS[(stream.Language || '').toLowerCase()] || '';
+  const langCode = (stream.Language || '').toLowerCase();
+  // Jellyfin sometimes uses display names instead of codes
+  const DISPLAY_FLAGS = {
+    english:'🇬🇧', french:'🇫🇷', german:'🇩🇪', spanish:'🇪🇸',
+    japanese:'🇯🇵', korean:'🇰🇷', chinese:'🇨🇳', italian:'🇮🇹',
+    portuguese:'🇵🇹', russian:'🇷🇺', arabic:'🇸🇦', hindi:'🇮🇳',
+    dutch:'🇳🇱', swedish:'🇸🇪', norwegian:'🇳🇴', finnish:'🇫🇮',
+    danish:'🇩🇰', polish:'🇵🇱', turkish:'🇹🇷', czech:'🇨🇿',
+    thai:'🇹🇭', ukrainian:'🇺🇦', hungarian:'🇭🇺', romanian:'🇷🇴',
+    greek:'🇬🇷', hebrew:'🇮🇱', vietnamese:'🇻🇳', indonesian:'🇮🇩',
+  };
+  const flag = LANG_FLAGS[langCode] || DISPLAY_FLAGS[langCode] || '';
 
   let format = '';
   if (spatial.includes('atmos') || profile.includes('atmos')) format = 'Atmos';

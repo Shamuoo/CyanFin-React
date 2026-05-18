@@ -26,14 +26,15 @@ export default function DetailModal() {
     enabled: !!detailItemId,
   })
 
-  const handlePlay = async (mediaSourceId?: string, audioIndex?: number) => {
-    if (!item) return
+  const handlePlay = async (mediaSourceId?: string, audioIndex?: number, episode?: MediaItem) => {
+    const target = episode || item
+    if (!target) return
     try {
-      const info = await api.playbackInfo(item.id, mediaSourceId, audioIndex)
+      const info = await api.playbackInfo(target.id, mediaSourceId, audioIndex)
       setPlayingItem({
-        id: item.id, title: item.title ?? '',
+        id: target.id, title: episode ? `${item?.title ?? ''} · ${episode.title ?? ''}` : (target.title ?? ''),
         streamUrl: info.streamUrl, hlsUrl: info.hlsUrl,
-        startTime: item.userData?.playbackPositionTicks ? item.userData.playbackPositionTicks / 10_000_000 : 0,
+        startTime: (target?.userData?.playbackPositionTicks ?? 0) / 10_000_000,
       } as any)
       setDetailItemId(null)
       navigate('/player')
@@ -165,9 +166,119 @@ function SimilarRow({ itemId }: { itemId: string }) {
   )
 }
 
+function SeasonsPanel({ item, onPlayEpisode }: { item: MediaItem; onPlayEpisode: (ep: MediaItem) => void }) {
+  const [selectedSeason, setSelectedSeason] = useState<string | null>(null)
+
+  const { data: seasons } = useQuery({
+    queryKey: ['seasons', item.id],
+    queryFn: () => api.seasons(item.id),
+    enabled: item.type === 'Series',
+    staleTime: 5 * 60_000,
+  })
+
+  const seasonList = Array.isArray(seasons) ? seasons : []
+
+  const activeSeason = selectedSeason || seasonList[0]?.id || null
+
+  const { data: episodes } = useQuery({
+    queryKey: ['episodes', item.id, activeSeason],
+    queryFn: () => api.episodes(item.id, activeSeason!),
+    enabled: !!activeSeason,
+    staleTime: 5 * 60_000,
+  })
+
+  const episodeList = Array.isArray(episodes) ? episodes : []
+
+  if (item.type !== 'Series') return null
+  if (seasonList.length === 0) return null
+
+  return (
+    <div className="mb-7">
+      <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.4 }}>Episodes</p>
+
+      {/* Season selector */}
+      {seasonList.length > 1 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
+          {seasonList.map(s => (
+            <button key={s.id}
+              onClick={() => setSelectedSeason(s.id)}
+              className="flex-shrink-0 text-[10px] px-3 py-1.5 rounded-full font-bold transition-all"
+              style={{
+                background: (activeSeason === s.id) ? 'var(--accent)' : 'var(--subtle)',
+                color: (activeSeason === s.id) ? 'var(--bg)' : 'var(--muted)',
+                border: `1px solid ${(activeSeason === s.id) ? 'transparent' : 'var(--border2)'}`,
+              }}>
+              {s.title || s.seasonName || `Season ${s.indexNumber}`}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Episode list */}
+      <div className="space-y-2">
+        {episodeList.map(ep => {
+          const pct = ep.userData?.playedPercentage || 0
+          const played = ep.userData?.played
+          return (
+            <button key={ep.id}
+              onClick={() => onPlayEpisode(ep)}
+              className="w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all hover:opacity-80 group"
+              style={{ background: 'var(--bg2)', border: '1px solid var(--border2)' }}>
+              {/* Thumbnail */}
+              <div className="relative flex-shrink-0 rounded-lg overflow-hidden"
+                style={{ width: 120, height: 68, background: 'var(--bg3)' }}>
+                {ep.thumbUrl || ep.posterUrl ? (
+                  <img src={ep.thumbUrl || ep.posterUrl || undefined} alt=""
+                    className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"
+                    style={{ color: 'var(--muted)', fontSize: 24 }}>▶</div>
+                )}
+                {/* Progress bar */}
+                {pct > 0 && pct < 100 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)' }} />
+                  </div>
+                )}
+                {played && (
+                  <div className="absolute inset-0 flex items-center justify-center"
+                    style={{ background: 'rgba(0,0,0,0.4)' }}>
+                    <span style={{ color: '#2ecc71', fontSize: 18 }}>✓</span>
+                  </div>
+                )}
+                {/* Play overlay on hover */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: 'rgba(0,0,0,0.4)' }}>
+                  <span style={{ color: 'white', fontSize: 20 }}>▶</span>
+                </div>
+              </div>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="text-[10px] font-bold" style={{ color: 'var(--accent)', opacity: 0.6 }}>
+                    E{String(ep.indexNumber || 0).padStart(2,'0')}
+                  </span>
+                  <span className="text-xs font-bold truncate" style={{ color: 'var(--cream)' }}>{ep.title}</span>
+                  {ep.runtime && <span className="text-[9px] flex-shrink-0" style={{ color: 'var(--muted)' }}>{ep.runtime}m</span>}
+                </div>
+                {ep.overview && (
+                  <p className="text-[10px] leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>
+                    {ep.overview}
+                  </p>
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+
 function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   item: MediaItem; onClose: () => void
-  onPlay: (mediaSourceId?: string, audioIndex?: number) => void
+  onPlay: (mediaSourceId?: string, audioIndex?: number, episode?: MediaItem) => void
   jellyfinUrl: string
 }) {
   const navigate = useNavigate()
@@ -279,24 +390,25 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
             </p>
           )}
 
-          {/* Metadata row */}
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            {[item.year?.toString(), item.runtime ? `${item.runtime}m` : null, item.rating].filter(Boolean).map(v => (
-              <span key={v} className="text-[10px]" style={{ color: 'var(--muted)' }}>{v}</span>
-            ))}
-            {item.score && <span className="text-[10px]" style={{ color: 'var(--muted)' }}>★ {parseFloat(String(item.score)).toFixed(1)}</span>}
-            {(item.qualities || []).map(q => (
+          {/* Metadata row — year · runtime · rating · quality · audio */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+            {item.year && <span className="text-[11px]" style={{ color: 'rgba(240,232,213,0.5)' }}>{item.year}</span>}
+            {item.runtime && <span className="text-[11px]" style={{ color: 'rgba(240,232,213,0.5)' }}>{item.runtime}m</span>}
+            {item.rating && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(240,232,213,0.6)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                {item.rating}
+              </span>
+            )}
+            {(item.qualities || []).slice(0,1).map(q => (
               <span key={q} className="text-[9px] px-2 py-0.5 rounded-full font-bold"
                 style={{ background: q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.15)',
                   color: q.startsWith('4K') ? 'var(--bg)' : 'var(--blue)',
-                  border: `1px solid ${q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.3)'}` }}>
+                  border: `1px solid ${q.startsWith('4K') ? 'transparent' : 'rgba(93,173,226,0.3)'}` }}>
                 {q}
               </span>
             ))}
             {item.audio && (
-              <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.07)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>
-                {item.audio}
-              </span>
+              <span className="text-[10px]" style={{ color: 'rgba(240,232,213,0.45)' }}>{item.audio}</span>
             )}
           </div>
         </div>
@@ -391,6 +503,11 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
           <p className="text-sm leading-relaxed mb-6" style={{ color: 'rgba(240,232,213,0.65)', lineHeight: 1.75, maxWidth: '65ch' }}>
             {item.overview}
           </p>
+        )}
+
+        {/* Seasons + Episodes for TV shows */}
+        {item.type === 'Series' && (
+          <SeasonsPanel item={item} onPlayEpisode={ep => onPlay(undefined, undefined, ep)} />
         )}
 
         {/* Director + genres */}
