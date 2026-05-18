@@ -71,6 +71,117 @@ async function handleLibrary(pathname, query, session, req) {
     return thresholds;
   }
 
+
+  // ── Library management — all servers ──────────────────────────────────────────
+  if (pathname === '/api/library/all-servers') {
+    const cfg = require('../config');
+    const sm = require('../serverManager');
+    const http = require('http');
+    const https = require('https');
+
+    async function getJfLibraries(baseUrl, apiKey, userId) {
+      if (!baseUrl || !userId) return null;
+      return new Promise(resolve => {
+        const url = `${baseUrl}/Users/${userId}/Views?api_key=${apiKey}`;
+        try {
+          const t = new URL(url);
+          const lib = t.protocol === 'https:' ? https : http;
+          const req = lib.request(url, { timeout: 8000 }, res => {
+            let d = ''; res.on('data', c => d += c);
+            res.on('end', () => {
+              try {
+                const items = JSON.parse(d).Items || [];
+                resolve(items.map(l => ({
+                  id: l.Id, name: l.Name,
+                  type: l.CollectionType || 'mixed',
+                  imageUrl: l.ImageTags?.Primary ? `/proxy/image?id=${l.Id}&type=Primary&w=200` : null,
+                })));
+              } catch { resolve([]); }
+            });
+          });
+          req.on('error', () => resolve(null));
+          req.on('timeout', () => { req.destroy(); resolve(null); });
+          req.end();
+        } catch { resolve(null); }
+      });
+    }
+
+    async function getPlexSections(plexUrl, plexToken) {
+      if (!plexUrl || !plexToken) return null;
+      return new Promise(resolve => {
+        const url = `${plexUrl}/library/sections?X-Plex-Token=${plexToken}`;
+        try {
+          const t = new URL(url);
+          const lib = t.protocol === 'https:' ? https : http;
+          const req = lib.request(url, { headers: { Accept: 'application/json' }, timeout: 8000 }, res => {
+            let d = ''; res.on('data', c => d += c);
+            res.on('end', () => {
+              try {
+                const dirs = JSON.parse(d).MediaContainer?.Directory || [];
+                resolve(dirs.map(s => ({
+                  id: s.key, name: s.title,
+                  type: s.type, // 'movie' | 'show' | 'music'
+                  count: s.count,
+                })));
+              } catch { resolve([]); }
+            });
+          });
+          req.on('error', () => resolve(null));
+          req.on('timeout', () => { req.destroy(); resolve(null); });
+          req.end();
+        } catch { resolve(null); }
+      });
+    }
+
+    const [primary, backup, plexSections] = await Promise.all([
+      getJfLibraries(cfg.get('JELLYFIN_URL'), cfg.get('JELLYFIN_API_KEY'), session.userId),
+      getJfLibraries(cfg.get('JELLYFIN_BACKUP_URL'), cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY'), session.userId),
+      getPlexSections(cfg.get('PLEX_URL'), cfg.get('PLEX_TOKEN')),
+    ]);
+
+    // Match libraries across servers by type + name similarity
+    const TYPE_MAP = { movies: 'movie', tvshows: 'show', music: 'music', movie: 'movie', show: 'show' };
+    const normalizeType = t => TYPE_MAP[(t||'').toLowerCase()] || t;
+
+    const matched = [];
+    const primaryLibs = primary || [];
+
+    for (const pLib of primaryLibs) {
+      const nType = normalizeType(pLib.type);
+      const backupMatch = (backup || []).find(b =>
+        normalizeType(b.type) === nType &&
+        b.name.toLowerCase().replace(/[^a-z0-9]/g,'') === pLib.name.toLowerCase().replace(/[^a-z0-9]/g,'')
+      ) || (backup || []).find(b => normalizeType(b.type) === nType);
+
+      const plexMatch = (plexSections || []).find(p =>
+        normalizeType(p.type) === nType
+      );
+
+      matched.push({
+        type: nType,
+        primary: pLib,
+        backup: backupMatch || null,
+        plex: plexMatch || null,
+        synced: !!backupMatch,
+      });
+    }
+
+    // Add plex-only sections
+    for (const ps of (plexSections || [])) {
+      const alreadyMatched = matched.find(m => m.plex?.id === ps.id);
+      if (!alreadyMatched) {
+        matched.push({ type: normalizeType(ps.type), primary: null, backup: null, plex: ps, synced: false });
+      }
+    }
+
+    return {
+      matched,
+      primary: { available: !!primary, count: (primary||[]).length },
+      backup:  { available: !!backup,  count: (backup||[]).length },
+      plex:    { available: !!plexSections, count: (plexSections||[]).length },
+    };
+  }
+
   if (pathname === '/api/library/quality-report') {
     const data = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=300&fields=MediaStreams,ProductionYear&SortBy=SortName`, token);
     const qOrder = ['4K', '1080p', '720p', '480p', 'SD'];

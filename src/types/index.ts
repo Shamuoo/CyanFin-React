@@ -208,7 +208,7 @@ export interface PublicConfig {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
-export type Theme = 'cinema' | 'midnight' | 'ember' | 'arctic' | 'neon' | 'oled'
+export type Theme = 'cinema' | 'midnight' | 'ember' | 'arctic' | 'neon'
 export type Layout = 'desktop' | 'tv' | 'mobile'
 export type AIProvider = 'claude' | 'gemini' | 'ollama'
 

@@ -6,7 +6,6 @@ import { useStore } from '@/lib/store'
 import api from '@/lib/api'
 import PersonalRating from '@/components/ui/PersonalRating'
 import MediaRow from '@/components/ui/MediaRow'
-import CastOverlay from '@/components/ui/CastOverlay'
 import type { MediaItem, MediaSource } from '@/types'
 import { useNavigate } from 'react-router-dom'
 
@@ -286,7 +285,6 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   const [selectedAudioIndex, setSelectedAudioIndex] = useState<number | undefined>()
   const [mediaSources, setMediaSources] = useState<MediaSource[]>([])
   const [activeBackdrop, setActiveBackdrop] = useState(0)
-  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string; imageTag?: string | null } | null>(null)
   const themeSongRef = useRef<HTMLAudioElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
@@ -340,19 +338,8 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
     return () => { clearInterval(fade); audio.pause(); audio.src = '' }
   }, [item.themeSongUrl])
 
-  const openPersonPage = (p: { id: string; name: string; imageTag?: string | null }) => {
-    setSelectedPerson(null)
-    onClose()
-    navigate(`/person/${p.id}`, { state: { name: p.name, imageTag: p.imageTag } })
-  }
-
   return (
     <div className="flex flex-col" style={{ minHeight: '100%' }}>
-
-      {selectedPerson && (
-        <CastOverlay personId={selectedPerson.id} personName={selectedPerson.name}
-          personImageTag={selectedPerson.imageTag} onClose={() => setSelectedPerson(null)} />
-      )}
 
       {/* ── CINEMATIC HERO ── */}
       <div className="relative flex-shrink-0" style={{ height: '55vh', minHeight: 320 }}>
@@ -568,7 +555,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
             <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
               {item.cast.slice(0, 15).map(actor => (
                 <button key={actor.id}
-                  onClick={() => setSelectedPerson({ id: actor.id, name: actor.name, imageTag: actor.imageTag })}
+                  onClick={() => { onClose(); navigate(`/person/${actor.id}`, { state: { name: actor.name, imageTag: actor.imageTag } }) }}
                   className="flex flex-col items-center gap-1.5 flex-shrink-0 hover:opacity-75 transition-opacity"
                   style={{ width: 68, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
                   <div className="rounded-xl overflow-hidden" style={{ width: 68, height: 88, background: 'var(--bg3)' }}>

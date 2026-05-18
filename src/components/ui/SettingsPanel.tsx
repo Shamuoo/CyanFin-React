@@ -9,7 +9,6 @@ import type { Theme, Layout, Mode } from '@/types'
 
 const themes: { id: Theme; label: string; gradient: string }[] = [
   { id: 'cinema',   label: 'Cinema',   gradient: 'linear-gradient(135deg,#0a0804,#c9a84c)' },
-  { id: 'oled',     label: 'OLED',     gradient: 'linear-gradient(135deg,#000000,#c9a84c)' },
   { id: 'midnight', label: 'Midnight', gradient: 'linear-gradient(135deg,#050810,#4a9eff)' },
   { id: 'ember',    label: 'Ember',    gradient: 'linear-gradient(135deg,#0d0805,#e8602a)' },
   { id: 'arctic',   label: 'Arctic',   gradient: 'linear-gradient(135deg,#e8eef5,#1a6fd4)' },

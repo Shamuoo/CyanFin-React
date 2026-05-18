@@ -38,6 +38,7 @@ interface AppState {
   city: string
   units: 'C' | 'F'
   showMusic: boolean
+  pureBlack: boolean  // OLED toggle — forces #000 backgrounds on any theme
   showSS: boolean
   playSounds: boolean
   screensaverDelay: number
@@ -87,6 +88,7 @@ export const useStore = create<AppState>()(
       city: 'Sydney',
       units: 'C',
       showMusic: true,
+  pureBlack: false,
   showSS: true,
   playSounds: true,
   screensaverDelay: 5,

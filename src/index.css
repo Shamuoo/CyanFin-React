@@ -134,3 +134,12 @@ body {
 @supports (padding: env(safe-area-inset-bottom)) {
   .fixed.bottom-0 { padding-bottom: env(safe-area-inset-bottom); }
 }
+
+/* ── OLED pure-black override (applied on top of any theme) ── */
+[data-oled="true"] {
+  --bg: #000000 !important;
+  --bg2: #030303 !important;
+  --bg3: #080808 !important;
+  --subtle: rgba(255,255,255,0.03) !important;
+  --border2: rgba(255,255,255,0.05) !important;
+}

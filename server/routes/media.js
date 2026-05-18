@@ -111,13 +111,23 @@ function formatAudio(stream) {
   else if (codec === 'mp3')   format = 'MP3';
 
   const parts = [chLabel, format].filter(Boolean).join(' ');
-  return flag ? (parts ? `${parts} ${flag}` : flag) : (parts || null);
+  // Build label: codec+channels + flag (or ISO code if no flag)
+  if (flag) {
+    return parts ? `${parts} ${flag}` : flag;
+  }
+  // No flag — use short uppercase language code
+  const shortCode = langCode.length === 3 ? langCode.toUpperCase()
+    : langCode.length === 2 ? langCode.toUpperCase() : '';
+  if (shortCode && shortCode !== 'UND') {
+    return parts ? `${parts} ${shortCode}` : shortCode;
+  }
+  return parts || null;
 }
 
 function defaultAudio(streams) {
   if (!streams) return null;
-  const s = streams.find(s => s.Type === 'Audio' && s.IsDefault && s.Language === 'eng')
-         || streams.find(s => s.Type === 'Audio' && s.IsDefault)
+  // Prefer default English, then any default, then first audio
+  const s = streams.find(s => s.Type === 'Audio' && s.IsDefault)
          || streams.find(s => s.Type === 'Audio');
   return formatAudio(s);
 }
