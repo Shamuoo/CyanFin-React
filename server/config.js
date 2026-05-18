@@ -27,6 +27,7 @@ const SCHEMA = {
   SONARR_URL:             { type: 'url',    label: 'Sonarr URL' },
   SONARR_API_KEY:         { type: 'string', label: 'Sonarr API Key', secret: true },
   DISCORD_WEBHOOK_URL:    { type: 'url',    label: 'Discord Webhook URL' },
+  CYANFIN_BACKUP_URL:     { type: 'url',    label: 'Backup CyanFin URL' },
   HOME_SECTIONS:          { type: 'json',   label: 'Home Sections Config' },
 };
 

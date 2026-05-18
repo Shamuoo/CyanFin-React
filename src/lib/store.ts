@@ -54,7 +54,8 @@ interface AppState {
   autoplayNext: boolean        // auto-play next episode
   resumeThreshold: number      // % watched before showing as "resume" (default 5)
   showClock: boolean           // show clock in nav
-  compactMode: boolean         // tighter card spacing
+  compactMode: boolean
+  customBg: boolean         // tighter card spacing
 
   // Setter shortcuts
   setAccentColor: (c: string | null) => void
@@ -112,6 +113,7 @@ export const useStore = create<AppState>()(
       resumeThreshold: 5,
       showClock: false,
       compactMode: false,
+      customBg: false,  // whether a custom background is active
       setAccentColor: (accentColor: string | null) => set({ accentColor }),
 
       setSetting: (key, value) => set({ [key]: value } as Partial<AppState>),

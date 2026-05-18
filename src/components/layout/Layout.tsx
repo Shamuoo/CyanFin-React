@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2, Activity, Sparkles } from 'lucide-react'
+import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2, Activity, Sparkles, Star } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -62,12 +62,17 @@ export default function Layout() {
     { to: '/shows', icon: <Tv size={14} />, label: 'TV Shows' },
     ...(showMusic ? [{ to: '/music', icon: <Music size={14} />, label: 'Music' }] : []),
     { to: '/library', icon: <Wrench size={14} />, label: 'Library' },
+    { to: '/collections', icon: <Star size={14} />, label: 'Collections' },
     { to: '/stats', icon: <BarChart2 size={14} />, label: 'Stats' },
     { to: '/health', icon: <Activity size={14} />, label: 'Health' },
   ]
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--bg)', position: 'relative' }}>
+      {(store as any).customBg && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: 'url(/api/config/background)', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.12, zIndex: 0 }} />
+      )}
       {/* Nav */}
       <nav className="flex-shrink-0 flex items-center h-14 px-8 gap-1 z-50 relative"
         style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border2)' }}>

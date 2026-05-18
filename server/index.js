@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.17.1';
+const VERSION = '0.17.3';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -73,6 +73,44 @@ async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // ── Background image upload ────────────────────────────────────────────────
+  if (pathname === '/api/config/background' && req.method === 'POST') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    const bgPath = path.join(path.dirname(configPath), 'bg.jpg');
+    // Read raw body as buffer
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      const buf = Buffer.concat(chunks);
+      if (buf.length > 20 * 1024 * 1024) { json(res, { error: 'File too large (max 20MB)' }, 400); return; }
+      fs.writeFileSync(bgPath, buf);
+      json(res, { ok: true, url: '/api/config/background' });
+    });
+    return;
+  }
+
+  // ── Background image delete ─────────────────────────────────────────────────
+  if (pathname === '/api/config/background' && req.method === 'DELETE') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    const bgPath = path.join(path.dirname(configPath), 'bg.jpg');
+    try { fs.unlinkSync(bgPath); } catch {}
+    return json(res, { ok: true });
+  }
+
+  // ── Background image serve ──────────────────────────────────────────────────
+  if (pathname === '/api/config/background' && req.method === 'GET') {
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    const bgPath = path.join(path.dirname(configPath), 'bg.jpg');
+    if (!fs.existsSync(bgPath)) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-cache' });
+    fs.createReadStream(bgPath).pipe(res);
+    return;
+  }
 
   // ── PUBLIC: manifest ──────────────────────────────────────────────────────
   if (pathname === '/manifest.json' || pathname === '/manifest.webmanifest') {
@@ -422,11 +460,14 @@ async function handler(req, res) {
       return;
     }
 
-    // SPA fallback — serve index.html
+    // SPA fallback — serve index.html with injected config
     const indexPath = path.join(PUBLIC_DIR, 'index.html');
     if (fs.existsSync(indexPath)) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-      fs.createReadStream(indexPath).pipe(res);
+      let html = fs.readFileSync(indexPath, 'utf8');
+      const backupUrl = cfg.get('CYANFIN_BACKUP_URL');
+      if (backupUrl) html = html.replace('</head>', `<meta name="cf-backup" content="${backupUrl}"></head>`);
+      res.end(html);
     } else {
       res.writeHead(500); res.end('Server not built. Run npm run build.');
     }

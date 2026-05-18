@@ -19,6 +19,7 @@ import HealthPage from '@/pages/HealthPage'
 import NowPlayingPage from '@/pages/NowPlayingPage'
 import UpcomingPage from '@/pages/UpcomingPage'
 import PersonPage from '@/pages/PersonPage'
+import CollectionsPage from '@/pages/CollectionsPage'
 import PlayerPage from '@/pages/PlayerPage'
 
 // Layout
@@ -149,6 +150,7 @@ export default function App() {
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
+                  <Route path="/collections" element={<ErrorBoundary><CollectionsPage /></ErrorBoundary>} />
                   <Route path="/onboarding" element={<OnboardingPage />} />
                 </Route>
               </Route>

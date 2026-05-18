@@ -186,6 +186,74 @@ async function handleLibrary(pathname, query, session, req) {
     };
   }
 
+
+  // ── Library sync diff — compare primary vs backup, show missing items ─────────
+  if (pathname === '/api/library/sync-diff') {
+    const cfg = require('../config');
+    const http = require('http');
+    const https = require('https');
+    const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
+    const backupKey = cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY') || '';
+    if (!backupUrl) return { error: 'No backup server configured', items: [] };
+
+    async function getAllItems(baseUrl, apiKey, userId) {
+      return new Promise(resolve => {
+        const url = `${baseUrl}/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=2000&fields=ProviderIds,ProductionYear&api_key=${apiKey}`;
+        try {
+          const t = new URL(url);
+          const lib2 = t.protocol === 'https:' ? https : http;
+          const req = lib2.request(url, { timeout: 15000 }, res => {
+            let d = ''; res.on('data', c => d += c);
+            res.on('end', () => { try { resolve(JSON.parse(d).Items || []); } catch { resolve([]); } });
+          });
+          req.on('error', () => resolve(null));
+          req.on('timeout', () => { req.destroy(); resolve(null); });
+          req.end();
+        } catch { resolve(null); }
+      });
+    }
+
+    const primaryUrl = cfg.get('JELLYFIN_URL');
+    const primaryKey = cfg.get('JELLYFIN_API_KEY') || '';
+    const [primaryItems, backupItems] = await Promise.all([
+      getAllItems(primaryUrl, primaryKey, session.userId),
+      getAllItems(backupUrl, backupKey, session.userId),
+    ]);
+
+    if (!primaryItems || !backupItems) {
+      return { error: 'Could not reach one or both servers', items: [] };
+    }
+
+    // Build backup lookup by IMDB/TMDB
+    const backupByImdb = new Set(backupItems.map(i => i.ProviderIds?.Imdb).filter(Boolean));
+    const backupByTmdb = new Set(backupItems.map(i => i.ProviderIds?.Tmdb).filter(Boolean));
+    const backupByName = new Set(backupItems.map(i => i.Name?.toLowerCase().trim()));
+
+    // Find items on primary that are missing from backup
+    const missing = primaryItems.filter(item => {
+      const imdb = item.ProviderIds?.Imdb;
+      const tmdb = item.ProviderIds?.Tmdb;
+      if (imdb && backupByImdb.has(imdb)) return false;
+      if (tmdb && backupByTmdb.has(tmdb)) return false;
+      if (backupByName.has(item.Name?.toLowerCase().trim())) return false;
+      return true;
+    }).map(item => ({
+      id: item.Id,
+      title: item.Name,
+      year: item.ProductionYear,
+      imdbId: item.ProviderIds?.Imdb,
+      tmdbId: item.ProviderIds?.Tmdb,
+      posterUrl: item.ImageTags?.Primary ? `/proxy/image?id=${item.Id}&type=Primary&w=200` : null,
+    }));
+
+    return {
+      primaryCount: primaryItems.length,
+      backupCount: backupItems.length,
+      missingCount: missing.length,
+      items: missing.slice(0, 100), // cap at 100
+    };
+  }
+
   if (pathname === '/api/library/quality-report') {
     const data = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=300&fields=MediaStreams,ProductionYear&SortBy=SortName`, token);
     const qOrder = ['4K', '1080p', '720p', '480p', 'SD'];

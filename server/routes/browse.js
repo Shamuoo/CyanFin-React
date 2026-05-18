@@ -252,6 +252,34 @@ async function handleBrowse(pathname, query, session) {
     return { hasNext: true, episode: mapItem(eps[curIdx + 1], token) };
   }
 
+
+  // ── Create collection ────────────────────────────────────────────────────────
+  if (pathname === '/api/collections/create' && req.method === 'POST') {
+    const { name, ids } = req._body || {};
+    if (!name) return { error: 'Name required' };
+    // Create the collection
+    const result = await jf.post(`/Collections?Name=${encodeURIComponent(name)}&Ids=${(ids||[]).join(',')}`, {}, token);
+    return { id: result.Id, name, success: true };
+  }
+
+  // ── Add to collection ────────────────────────────────────────────────────────
+  if (pathname.match(/^\/api\/collections\/[^/]+\/add$/) && req.method === 'POST') {
+    const colId = pathname.split('/')[3];
+    const { ids } = req._body || {};
+    if (!ids?.length) return { error: 'No item ids' };
+    await jf.post(`/Collections/${colId}/Items?Ids=${ids.join(',')}`, {}, token);
+    return { success: true };
+  }
+
+  // ── Remove from collection ───────────────────────────────────────────────────
+  if (pathname.match(/^\/api\/collections\/[^/]+\/remove$/) && req.method === 'POST') {
+    const colId = pathname.split('/')[3];
+    const { ids } = req._body || {};
+    if (!ids?.length) return { error: 'No item ids' };
+    await jf.del(`/Collections/${colId}/Items?Ids=${ids.join(',')}`, token);
+    return { success: true };
+  }
+
   // ── Collections ────────────────────────────────────────────────────────────
   if (pathname === '/api/collections') {
     if (fromPlex) return []; // Plex has playlists, not box sets — skip for now

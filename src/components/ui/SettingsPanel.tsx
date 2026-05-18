@@ -188,6 +188,35 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
 
+              {/* Custom background */}
+              <SectionTitle>Background Image</SectionTitle>
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="flex-1 text-center py-2 rounded-lg cursor-pointer text-xs font-bold uppercase tracking-wide hover:opacity-80"
+                    style={{ background: 'var(--subtle)', border: '1px dashed var(--border2)', color: 'var(--muted)' }}>
+                    Upload Image
+                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      await api.uploadBackground(file)
+                      store.setSetting('customBg' as any, true)
+                    }} />
+                  </label>
+                  {(store as any).customBg && (
+                    <button onClick={async () => { await api.deleteBackground(); store.setSetting('customBg' as any, false) }}
+                      className="px-3 py-2 rounded-lg text-xs hover:opacity-80"
+                      style={{ background: 'var(--subtle)', border: '1px solid var(--border2)', color: 'var(--muted)' }}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+                {(store as any).customBg && (
+                  <div className="w-full h-16 rounded-lg bg-cover bg-center"
+                    style={{ backgroundImage: 'url(/api/config/background)', border: '1px solid var(--border2)', opacity: 0.7 }} />
+                )}
+                <p className="text-[8px] mt-1" style={{ color: 'var(--muted)', opacity: 0.4 }}>Shown as a subtle overlay behind all content</p>
+              </div>
+
               <SectionTitle>Layout</SectionTitle>
               <div className="flex gap-2">
                 {(['desktop','tv','mobile'] as Layout[]).map(l => (

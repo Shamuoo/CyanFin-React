@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { RefreshCw, Server, Tv, CheckCircle, AlertCircle } from 'lucide-react'
 import api from '@/lib/api'
+import { useState } from 'react'
 
 function LibraryRow({ match }: { match: any }) {
   const typeIcon = match.type === 'movie' ? '🎬' : match.type === 'show' ? '📺' : match.type === 'music' ? '🎵' : '📁'
@@ -49,6 +50,14 @@ function LibraryRow({ match }: { match: any }) {
 }
 
 export default function LibraryPage() {
+  const [showDiff, setShowDiff] = useState(false)
+  const { data: diff, isLoading: diffLoading, refetch: refetchDiff } = useQuery({
+    queryKey: ['library-sync-diff'],
+    queryFn: () => api.libSyncDiff(),
+    enabled: showDiff,
+    staleTime: 5 * 60_000,
+  })
+
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['all-server-libraries'],
     queryFn: () => api.allServerLibraries(),
@@ -88,6 +97,41 @@ export default function LibraryPage() {
             ))}
           </div>
         )}
+
+        {/* Sync diff */}
+        <div className="mb-4">
+          <button onClick={() => setShowDiff(s => !s)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:opacity-80 mb-3"
+            style={{ background: showDiff ? 'rgba(231,76,60,0.1)' : 'var(--subtle)', border: '1px solid var(--border)', color: showDiff ? '#e74c3c' : 'var(--muted)' }}>
+            {diffLoading ? '…' : showDiff ? '▲ Hide Diff' : '⊕ Check Sync'}
+          </button>
+          {showDiff && diff && !(diff as any).error && (
+            <div className="rounded-xl p-4 mb-3" style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.2)' }}>
+              <p className="text-xs font-bold mb-1" style={{ color: '#e74c3c' }}>
+                {(diff as any).missingCount} items on primary missing from backup
+              </p>
+              <p className="text-[9px] mb-3" style={{ color: 'var(--muted)' }}>
+                Primary: {(diff as any).primaryCount} · Backup: {(diff as any).backupCount}
+              </p>
+              <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                {((diff as any).items || []).map((item: any) => (
+                  <div key={item.id} className="flex items-center gap-2 py-1">
+                    {item.posterUrl && <img src={item.posterUrl} alt="" className="w-6 h-8 object-cover rounded flex-shrink-0" />}
+                    <p className="text-[10px] flex-1 truncate" style={{ color: 'var(--muted)' }}>{item.title} {item.year ? `(${item.year})` : ''}</p>
+                    {item.imdbId && (
+                      <a href={`https://www.imdb.com/title/${item.imdbId}/`} target="_blank" rel="noreferrer"
+                        className="text-[8px] flex-shrink-0 hover:opacity-70"
+                        style={{ color: '#f5c518' }}>IMDb</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {showDiff && (diff as any)?.error && (
+            <p className="text-xs mb-3" style={{ color: '#e74c3c' }}>{(diff as any).error}</p>
+          )}
+        </div>
 
         {isLoading && (
           <div className="flex justify-center py-20">

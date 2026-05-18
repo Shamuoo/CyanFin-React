@@ -9,14 +9,22 @@ import type { MediaItem } from '@/types'
 
 // ── Section definitions ──
 const ALL_SECTIONS = [
-  { key: 'continue',    label: 'Continue Watching', query: () => api.continueWatching() },
-  { key: 'recent',      label: 'Recently Added',    query: () => api.recentlyAdded() },
-  { key: 'popular',     label: 'Popular',           query: () => api.popular() },
-  { key: 'history',     label: 'Watch History',     query: () => api.history() },
-  { key: 'shows',       label: 'TV Shows',          query: () => api.shows({ sort: 'DateCreated', order: 'Descending', limit: 20 }).then(r => r.items || []) },
-  { key: 'toprated',    label: 'Top Rated',         query: () => api.movies({ sort: 'CommunityRating', order: 'Descending', limit: 20 }).then(r => r.items || []) },
-  { key: 'collections', label: 'Collections',       query: () => api.collections() },
-  { key: 'best3d',      label: 'Best in 3D',        query: () => api.best3D() },
+  { key: 'continue',    label: 'Continue Watching',    query: () => api.continueWatching() },
+  { key: 'recent',      label: 'Recently Added',       query: () => api.recentlyAdded() },
+  { key: 'popular',     label: 'Popular',              query: () => api.popular() },
+  { key: 'history',     label: 'Watch History',        query: () => api.history() },
+  { key: 'shows',       label: 'TV Shows',             query: () => api.shows({ sort: 'DateCreated', order: 'Descending', limit: 20 }).then(r => r.items || []) },
+  { key: 'toprated',    label: 'Top Rated',            query: () => api.movies({ sort: 'CommunityRating', order: 'Descending', limit: 20 }).then(r => r.items || []) },
+  { key: 'collections', label: 'Collections',          query: () => api.collections() },
+  { key: 'best3d',      label: 'Best in 3D',           query: () => api.best3D() },
+  { key: 'upcoming',    label: 'Upcoming Releases',    query: () => api.get<any[]>('/api/upcoming/movies').catch(() => []) },
+  { key: 'action',      label: 'Action',               query: () => api.movies({ genre: 'Action',   limit: 20 }).then(r => r.items || []) },
+  { key: 'comedy',      label: 'Comedy',               query: () => api.movies({ genre: 'Comedy',   limit: 20 }).then(r => r.items || []) },
+  { key: 'drama',       label: 'Drama',                query: () => api.movies({ genre: 'Drama',    limit: 20 }).then(r => r.items || []) },
+  { key: 'scifi',       label: 'Sci-Fi',               query: () => api.movies({ genre: 'Science Fiction', limit: 20 }).then(r => r.items || []) },
+  { key: 'horror',      label: 'Horror',               query: () => api.movies({ genre: 'Horror',   limit: 20 }).then(r => r.items || []) },
+  { key: 'documentary', label: 'Documentaries',        query: () => api.movies({ genre: 'Documentary', limit: 20 }).then(r => r.items || []) },
+  { key: 'random',      label: 'Random Pick',          query: () => api.random() },
 ]
 
 const DEFAULT_ORDER = ALL_SECTIONS.map(s => s.key)
@@ -26,9 +34,16 @@ export default function HomePage() {
   const { setDetailItemId, setPlayingItem, homeSectionOrder, homeSectionHidden, setHomeSections } = useStore()
   const [configOpen, setConfigOpen] = useState(false)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [showEditor, setShowEditor] = useState(false)
   const [dragOver, setDragOver] = useState<number | null>(null)
 
-  const order = homeSectionOrder?.length ? homeSectionOrder : DEFAULT_ORDER
+  // Merge any new sections added in updates into saved order
+  const order = (() => {
+    const saved = homeSectionOrder?.length ? homeSectionOrder : DEFAULT_ORDER
+    const allKeys = ALL_SECTIONS.map(s => s.key)
+    const missing = allKeys.filter(k => !saved.includes(k))
+    return missing.length ? [...saved, ...missing] : saved
+  })()
   const hidden = homeSectionHidden || DEFAULT_HIDDEN
 
   const sections = order
@@ -72,6 +87,51 @@ export default function HomePage() {
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)' }}>
+
+      {/* Home layout editor */}
+      {showEditor && (
+        <div className="mx-4 mt-4 mb-2 rounded-xl p-4" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[8px] font-bold tracking-[0.3em] uppercase" style={{ color: 'var(--accent)', opacity: 0.5 }}>Customise Home</p>
+            <button onClick={() => setShowEditor(false)} style={{ color: 'var(--muted)', fontSize: 12 }}>✕</button>
+          </div>
+          <p className="text-[9px] mb-3" style={{ color: 'var(--muted)', opacity: 0.5 }}>Drag rows on the page to reorder. Toggle visibility below.</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {ALL_SECTIONS.map(sec => {
+              const isHidden = hidden.includes(sec.key)
+              return (
+                <button key={sec.key}
+                  onClick={() => {
+                    const newHidden = isHidden ? hidden.filter(k => k !== sec.key) : [...hidden, sec.key]
+                    const newOrder = order.includes(sec.key) ? order : [...order, sec.key]
+                    setHomeSections(newOrder, newHidden)
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all hover:opacity-80"
+                  style={{ background: isHidden ? 'var(--subtle)' : 'rgba(201,168,76,0.08)', border: `1px solid ${isHidden ? 'var(--border2)' : 'var(--border)'}` }}>
+                  <span style={{ fontSize: 11 }}>{isHidden ? '○' : '●'}</span>
+                  <span className="text-[10px] font-bold" style={{ color: isHidden ? 'var(--muted)' : 'var(--accent)' }}>{sec.label}</span>
+                </button>
+              )
+            })}
+          </div>
+          <button onClick={() => setHomeSections(DEFAULT_ORDER, [])}
+            className="mt-3 text-[9px] hover:opacity-70"
+            style={{ color: 'var(--muted)', opacity: 0.4 }}>
+            Reset to defaults
+          </button>
+        </div>
+      )}
+
+      {/* Layout edit button */}
+      <div className="sticky top-0 z-10" style={{ pointerEvents: 'none' }}>
+      <div className="absolute top-4 right-4" style={{ pointerEvents: 'all' }}>
+        <button onClick={() => setShowEditor(e => !e)}
+          className="text-[9px] px-3 py-1.5 rounded-full font-bold uppercase tracking-wide transition-all hover:opacity-80"
+          style={{ background: showEditor ? 'var(--accent)' : 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', color: showEditor ? 'var(--bg)' : 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          ⊞ Edit
+        </button>
+      </div>
+      </div>
 
       {/* Hero */}
       {heroItem && (

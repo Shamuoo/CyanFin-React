@@ -9,9 +9,31 @@ class ApiError extends Error {
   }
 }
 
+// CyanFin multi-server: try backup if primary unreachable
+let _cyanfinBase = ''  // empty = use relative URLs (same origin)
+
+async function checkCyanFinServers() {
+  const backup = (window as any).__CF_BACKUP__
+  if (!backup) return
+  try {
+    await fetch('/api/public/info', { signal: AbortSignal.timeout(3000) })
+  } catch {
+    // Primary unreachable — switch to backup
+    _cyanfinBase = backup
+    console.log('[cyanfin] Switched to backup:', backup)
+  }
+}
+
+// Inject backup URL from env (set by server in index.html or meta tag)
+if (typeof window !== 'undefined') {
+  const meta = document.querySelector('meta[name="cf-backup"]')
+  if (meta) (window as any).__CF_BACKUP__ = meta.getAttribute('content')
+  setTimeout(checkCyanFinServers, 5000)  // check after 5s
+}
+
 class ApiClient {
   private async fetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
-    const res = await fetch(path, { credentials: 'include', ...opts })
+    const res = await fetch(_cyanfinBase + path, { credentials: 'include', ...opts })
 
     if (res.status === 401) {
       const isPolling = path.includes('now-playing') || path.includes('servers/status') || path.includes('servers/check')
@@ -95,6 +117,9 @@ class ApiClient {
     return this.get<{ hasNext: boolean; episode?: MediaItem }>(`/api/next-episode?seriesId=${seriesId}&parentIndexNumber=${parentIndexNumber}&indexNumber=${indexNumber}`)
   }
   collections() { return this.get<MediaItem[]>('/api/collections') }
+  createCollection(name: string, ids: string[]) { return this.post<any>('/api/collections/create', { name, ids }) }
+  addToCollection(colId: string, ids: string[]) { return this.post<any>(`/api/collections/${colId}/add`, { ids }) }
+  removeFromCollection(colId: string, ids: string[]) { return this.post<any>(`/api/collections/${colId}/remove`, { ids }) }
   collectionItems(id: string) { return this.get<MediaItem[]>(`/api/collections/${id}/items`) }
 
   // ── Music ─────────────────────────────────────────────────────────────────
@@ -133,6 +158,11 @@ class ApiClient {
   topGenres() { return this.get('/api/stats/top-genres') }
   topMovies() { return this.get('/api/stats/top-movies') }
   statsSummary() { return this.get('/api/stats/summary') }
+  uploadBackground(file: File) {
+    return fetch('/api/config/background', { method: 'POST', credentials: 'include', body: file }).then(r => r.json())
+  }
+  deleteBackground() { return this.delete('/api/config/background') }
+
   syncStatus() { return this.get<any>('/api/stats/sync-status') }
 
   // ── Integrations ──────────────────────────────────────────────────────────
@@ -146,6 +176,7 @@ class ApiClient {
   libMissing() { return this.get('/api/library/missing-content') }
   libVersions() { return this.get('/api/library/versions-report') }
   libScan() { return this.get('/api/library/scan') }
+  libSyncDiff() { return this.get<any>('/api/library/sync-diff') }
   allServerLibraries() { return this.get<any>('/api/library/all-servers') }
   libRefreshAllMeta() { return this.get('/api/library/refresh-all-metadata') }
   libRefreshAllImages() { return this.get('/api/library/refresh-all-images') }
