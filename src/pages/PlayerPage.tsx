@@ -20,6 +20,7 @@ type Panel = 'none' | 'subtitles' | 'chapters'
 
 export default function PlayerPage() {
   const { playingItem, setPlayingItem } = useStore()
+  const { skipLength = 10, autoplayNext = true } = useStore() as any
   const navigate = useNavigate()
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -218,7 +219,7 @@ export default function PlayerPage() {
 
   // ── Show next episode card 2 mins before end ──
   useEffect(() => {
-    if (!nextEpisode || !duration || duration < 120) return
+    if (!nextEpisode || !duration || duration < 120 || !autoplayNext) return
     if (duration - currentTime < 120 && !showNextCard) setShowNextCard(true)
   }, [currentTime, duration, nextEpisode, showNextCard])
 
@@ -260,8 +261,8 @@ export default function PlayerPage() {
       const v = videoRef.current; if (!v) return
       switch(e.key) {
         case ' ': case 'k': e.preventDefault(); v.paused ? v.play() : v.pause(); showControls(); break
-        case 'ArrowLeft': e.preventDefault(); v.currentTime = Math.max(0, v.currentTime - 10); showControls(); break
-        case 'ArrowRight': e.preventDefault(); v.currentTime = Math.min(v.duration||0, v.currentTime + 10); showControls(); break
+        case 'ArrowLeft': e.preventDefault(); v.currentTime = Math.max(0, v.currentTime - skipLength); showControls(); break
+        case 'ArrowRight': e.preventDefault(); v.currentTime = Math.min(v.duration||0, v.currentTime + skipLength); showControls(); break
         case 'ArrowUp': e.preventDefault(); v.volume = Math.min(1, v.volume + 0.1); break
         case 'ArrowDown': e.preventDefault(); v.volume = Math.max(0, v.volume - 0.1); break
         case 'f': case 'F': document.fullscreenElement ? document.exitFullscreen() : containerRef.current?.requestFullscreen(); break

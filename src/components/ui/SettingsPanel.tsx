@@ -13,6 +13,10 @@ const themes: { id: Theme; label: string; gradient: string }[] = [
   { id: 'ember',    label: 'Ember',    gradient: 'linear-gradient(135deg,#0d0805,#e8602a)' },
   { id: 'arctic',   label: 'Arctic',   gradient: 'linear-gradient(135deg,#e8eef5,#1a6fd4)' },
   { id: 'neon',     label: 'Neon',     gradient: 'linear-gradient(135deg,#060608,#00ffe0)' },
+  { id: 'rose',     label: 'Rose',     gradient: 'linear-gradient(135deg,#0d0608,#e84393)' },
+  { id: 'forest',   label: 'Forest',   gradient: 'linear-gradient(135deg,#060d08,#4caf7d)' },
+  { id: 'slate',    label: 'Slate',    gradient: 'linear-gradient(135deg,#0a0b0e,#8b9cf4)' },
+  { id: 'mocha',    label: 'Mocha',    gradient: 'linear-gradient(135deg,#1e1e2e,#cba6f7)' },
 ]
 
 const integrationFields = [
@@ -37,7 +41,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const store = useStore()
-  const [tab, setTab] = useState<'appearance' | 'integrations' | 'servers'>('appearance')
+  const [tab, setTab] = useState<'appearance' | 'playback' | 'servers' | 'integrations'>('appearance')
   const [intValues, setIntValues] = useState<Record<string, string>>({})
 
   // Load current config values from server
@@ -125,7 +129,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 
         {/* Tabs */}
         <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border2)' }}>
-          {(['appearance', 'servers', 'integrations'] as const).map(t => (
+          {(['appearance', 'playback', 'servers', 'integrations'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 py-2.5 text-[10px] font-bold tracking-widest uppercase transition-all"
               style={{ color: tab === t ? 'var(--accent)' : 'var(--muted)', borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent' }}>
@@ -139,12 +143,49 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           {tab === 'appearance' && (
             <>
               <SectionTitle>Theme</SectionTitle>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 gap-2 mb-1">
                 {themes.map(t => (
-                  <button key={t.id} onClick={() => store.setTheme(t.id)} title={t.label}
-                    className="h-8 rounded-lg transition-all"
-                    style={{ background: t.gradient, border: store.theme === t.id ? '2px solid white' : '2px solid transparent', outline: store.theme === t.id ? '1px solid rgba(255,255,255,0.3)' : 'none' }} />
+                  <button key={t.id} onClick={() => store.setTheme(t.id)}
+                    className="flex flex-col items-center gap-1 pb-1 group"
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                    <div className="w-full h-7 rounded-lg transition-all"
+                      style={{ background: t.gradient, border: store.theme === t.id ? '2px solid white' : '2px solid var(--border2)', outline: store.theme === t.id ? '1px solid rgba(255,255,255,0.3)' : 'none' }} />
+                    <span className="text-[8px] font-bold" style={{ color: store.theme === t.id ? 'var(--accent)' : 'var(--muted)', opacity: store.theme === t.id ? 1 : 0.5 }}>{t.label}</span>
+                  </button>
                 ))}
+              </div>
+
+              {/* Accent colour */}
+              <SectionTitle>Accent Colour</SectionTitle>
+              <div className="flex items-center gap-3 mb-4">
+                <input type="color" value={store.accentColor || '#c9a84c'}
+                  onChange={e => store.setAccentColor(e.target.value)}
+                  className="rounded cursor-pointer flex-shrink-0"
+                  style={{ width: 36, height: 36, border: '1px solid var(--border2)', background: 'none', padding: 2 }} />
+                <p className="text-xs flex-1" style={{ color: 'var(--muted)' }}>
+                  {store.accentColor ? store.accentColor : 'Using theme default'}
+                </p>
+                {store.accentColor && (
+                  <button onClick={() => store.setAccentColor(null)}
+                    className="text-[9px] px-2 py-1 rounded hover:opacity-70"
+                    style={{ color: 'var(--muted)', border: '1px solid var(--border2)' }}>
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              {/* OLED toggle */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs font-bold" style={{ color: 'var(--cream)' }}>OLED Mode</p>
+                  <p className="text-[9px]" style={{ color: 'var(--muted)' }}>Pure black backgrounds</p>
+                </div>
+                <button onClick={() => store.setSetting('pureBlack' as any, !(store as any).pureBlack)}
+                  className="relative rounded-full transition-all flex-shrink-0"
+                  style={{ width: 40, height: 22, background: (store as any).pureBlack ? 'var(--accent)' : 'var(--border2)' }}>
+                  <span className="absolute top-0.5 rounded-full transition-all"
+                    style={{ width: 18, height: 18, background: 'white', left: (store as any).pureBlack ? 20 : 2 }} />
+                </button>
               </div>
 
               <SectionTitle>Layout</SectionTitle>
@@ -191,6 +232,64 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 className="w-full px-3 py-2 rounded text-sm outline-none"
                 style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }}
                 placeholder="Brisbane" />
+            </>
+          )}
+
+          {tab === 'playback' && (
+            <>
+              <SectionTitle>Skip Length</SectionTitle>
+              <div className="flex gap-2 mb-4">
+                {([5, 10, 30] as const).map(s => {
+                  const active = (store as any).skipLength === s
+                  return (
+                    <button key={s} onClick={() => store.setSetting('skipLength' as any, s)}
+                      className="flex-1 py-2 text-xs font-bold uppercase tracking-wide rounded transition-all"
+                      style={{ background: active ? 'var(--subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--muted)', border: `1px solid ${active ? 'var(--border)' : 'var(--border2)'}` }}>
+                      {s}s
+                    </button>
+                  )
+                })}
+              </div>
+
+              <SectionTitle>Autoplay Next Episode</SectionTitle>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>Auto-advance at episode end</p>
+                <button onClick={() => store.setSetting('autoplayNext' as any, !(store as any).autoplayNext)}
+                  className="relative rounded-full flex-shrink-0"
+                  style={{ width: 40, height: 22, background: (store as any).autoplayNext ? 'var(--accent)' : 'var(--border2)' }}>
+                  <span className="absolute top-0.5 rounded-full transition-all"
+                    style={{ width: 18, height: 18, background: 'white', left: (store as any).autoplayNext ? 20 : 2 }} />
+                </button>
+              </div>
+
+              <SectionTitle>Resume Threshold</SectionTitle>
+              <p className="text-[9px] mb-2" style={{ color: 'var(--muted)' }}>
+                Show "Resume" if watched more than {(store as any).resumeThreshold}%
+              </p>
+              <input type="range" min="1" max="20" step="1"
+                value={(store as any).resumeThreshold}
+                onChange={e => store.setSetting('resumeThreshold' as any, parseInt(e.target.value))}
+                className="w-full mb-4" style={{ accentColor: 'var(--accent)' }} />
+
+              <SectionTitle>Interface</SectionTitle>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>Show clock in nav</p>
+                <button onClick={() => store.setSetting('showClock' as any, !(store as any).showClock)}
+                  className="relative rounded-full flex-shrink-0"
+                  style={{ width: 40, height: 22, background: (store as any).showClock ? 'var(--accent)' : 'var(--border2)' }}>
+                  <span className="absolute top-0.5 rounded-full transition-all"
+                    style={{ width: 18, height: 18, background: 'white', left: (store as any).showClock ? 20 : 2 }} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>Compact card spacing</p>
+                <button onClick={() => store.setSetting('compactMode' as any, !(store as any).compactMode)}
+                  className="relative rounded-full flex-shrink-0"
+                  style={{ width: 40, height: 22, background: (store as any).compactMode ? 'var(--accent)' : 'var(--border2)' }}>
+                  <span className="absolute top-0.5 rounded-full transition-all"
+                    style={{ width: 18, height: 18, background: 'white', left: (store as any).compactMode ? 20 : 2 }} />
+                </button>
+              </div>
             </>
           )}
 

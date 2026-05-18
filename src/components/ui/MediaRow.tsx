@@ -15,7 +15,7 @@ interface Props {
 export default function MediaRow({ title, items, onItemClick, cardWidth = 110, loading }: Props) {
   const safeItems = Array.isArray(items) ? items : []
   if (!safeItems.length && !loading) return null
-  if (loading && !safeItems.length) {
+  if (loading && safeItems.length === 0) {
     return (
       <div className="mb-8">
         <div className="h-2.5 rounded mb-4" style={{ background: 'var(--subtle)', width: 120, margin: '0 var(--pad) 16px' }} />

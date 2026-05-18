@@ -47,6 +47,17 @@ interface AppState {
   jellyfinUrl: string
 
   // Generic setter
+
+  // Customisation
+  accentColor: string | null   // null = use theme default
+  skipLength: 10 | 30 | 5     // seconds to skip forward/back
+  autoplayNext: boolean        // auto-play next episode
+  resumeThreshold: number      // % watched before showing as "resume" (default 5)
+  showClock: boolean           // show clock in nav
+  compactMode: boolean         // tighter card spacing
+
+  // Setter shortcuts
+  setAccentColor: (c: string | null) => void
   setSetting: <K extends keyof AppState>(key: K, value: AppState[K]) => void
 }
 
@@ -88,13 +99,20 @@ export const useStore = create<AppState>()(
       city: 'Sydney',
       units: 'C',
       showMusic: true,
-  pureBlack: false,
-  showSS: true,
-  playSounds: true,
-  screensaverDelay: 5,
-  mode: 'advanced' as Mode,
-  setMode: (mode) => set({ mode }),
-  jellyfinUrl: '',
+      pureBlack: false,
+      showSS: true,
+      playSounds: true,
+      screensaverDelay: 5,
+      mode: 'advanced' as Mode,
+      setMode: (mode) => set({ mode }),
+      jellyfinUrl: '',
+      accentColor: null,
+      skipLength: 10 as (10 | 30 | 5),
+      autoplayNext: true,
+      resumeThreshold: 5,
+      showClock: false,
+      compactMode: false,
+      setAccentColor: (accentColor: string | null) => set({ accentColor }),
 
       setSetting: (key, value) => set({ [key]: value } as Partial<AppState>),
     }),

@@ -1,14 +1,16 @@
 {
   "name": "cyanfin-react",
   "private": true,
-  "version": "0.16.5",
+  "version": "0.17.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:build": "electron-builder"
+    "electron:build": "electron-builder",
+    "electron:win": "electron-builder --win",
+    "electron:mac": "electron-builder --mac"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
@@ -37,28 +39,73 @@
   "build": {
     "appId": "com.cyanfin.app",
     "productName": "CyanFin",
+    "copyright": "CyanFin \u2014 AI-assisted by Claude (Anthropic)",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "build-resources"
     },
     "files": [
       "electron/",
       "server/",
       "server/public/",
-      "package.json"
+      "package.json",
+      "!node_modules/**",
+      "!src/**",
+      "!dist/**"
+    ],
+    "extraResources": [
+      {
+        "from": "server",
+        "to": "server"
+      },
+      {
+        "from": "server/public",
+        "to": "server/public"
+      }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "public/favicon.svg"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build-resources/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CyanFin",
+      "runAfterFinish": true,
+      "installerIcon": "build-resources/icon.ico",
+      "uninstallerIcon": "build-resources/icon.ico",
+      "installerHeaderIcon": "build-resources/icon.ico"
     },
     "mac": {
-      "target": "dmg",
-      "icon": "public/favicon.svg",
-      "category": "public.app-category.entertainment"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build-resources/icon.icns",
+      "category": "public.app-category.entertainment",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "public/favicon.svg",
+      "icon": "build-resources/icon.png",
       "category": "AudioVideo"
-    }
+    },
+    "publish": null
   }
 }

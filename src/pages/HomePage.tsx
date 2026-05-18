@@ -45,7 +45,7 @@ export default function HomePage() {
     const t = setInterval(() => setHeroIdx(i => (i + 1) % heroItems.length), 7000)
     return () => clearInterval(t)
   }, [heroItems.length])
-  const heroItem = heroItems[heroIdx]
+  const heroItem = heroItems.length > 0 ? heroItems[heroIdx % heroItems.length] : null
 
   const handlePlay = async (item: MediaItem) => {
     try {

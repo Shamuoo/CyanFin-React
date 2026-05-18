@@ -35,6 +35,46 @@
   --pad: 32px; --radius: 6px; --radius-lg: 12px;
 }
 
+[data-theme="rose"] {
+  --bg: #0d0608; --bg2: #160a0e; --bg3: #1f0f14;
+  --accent: #e84393; --accent2: #f072b0;
+  --cream: #fde8f0; --muted: rgba(253,232,240,0.4);
+  --subtle: rgba(232,67,147,0.06); --border: rgba(232,67,147,0.15); --border2: rgba(255,255,255,0.07);
+  --red: #e74c3c; --green: #2ecc71; --blue: #5dade2; --orange: #f39c12;
+  --font-display: 'Bebas Neue', sans-serif; --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 6px; --radius-lg: 12px;
+}
+
+[data-theme="forest"] {
+  --bg: #060d08; --bg2: #0a1510; --bg3: #101e14;
+  --accent: #4caf7d; --accent2: #72c99b;
+  --cream: #e8f5ec; --muted: rgba(232,245,236,0.4);
+  --subtle: rgba(76,175,125,0.06); --border: rgba(76,175,125,0.15); --border2: rgba(255,255,255,0.07);
+  --red: #e74c3c; --green: #4caf7d; --blue: #5dade2; --orange: #f39c12;
+  --font-display: 'Bebas Neue', sans-serif; --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 6px; --radius-lg: 12px;
+}
+
+[data-theme="slate"] {
+  --bg: #0a0b0e; --bg2: #12141a; --bg3: #1a1d26;
+  --accent: #8b9cf4; --accent2: #a8b4f8;
+  --cream: #e8eaf8; --muted: rgba(232,234,248,0.4);
+  --subtle: rgba(139,156,244,0.06); --border: rgba(139,156,244,0.15); --border2: rgba(255,255,255,0.07);
+  --red: #e74c3c; --green: #2ecc71; --blue: #8b9cf4; --orange: #f39c12;
+  --font-display: 'Bebas Neue', sans-serif; --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 6px; --radius-lg: 12px;
+}
+
+[data-theme="mocha"] {
+  --bg: #1e1e2e; --bg2: #313244; --bg3: #45475a;
+  --accent: #cba6f7; --accent2: #d5b8f9;
+  --cream: #cdd6f4; --muted: rgba(205,214,244,0.5);
+  --subtle: rgba(203,166,247,0.08); --border: rgba(203,166,247,0.2); --border2: rgba(205,214,244,0.1);
+  --red: #f38ba8; --green: #a6e3a1; --blue: #89b4fa; --orange: #fab387;
+  --font-display: 'Bebas Neue', sans-serif; --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 6px; --radius-lg: 12px;
+}
+
 [data-theme="midnight"] {
   --bg: #050810; --bg2: #0a0e1a; --bg3: #111829;
   --accent: #4a9eff; --accent2: #7bbfff;

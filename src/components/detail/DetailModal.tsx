@@ -363,7 +363,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
     <div className="flex flex-col" style={{ minHeight: '100%' }}>
 
       {/* ── CINEMATIC HERO ── */}
-      <div className="relative flex-shrink-0" style={{ height: '55vh', minHeight: 320 }}>
+      <div className="relative flex-shrink-0" style={{ height: 'clamp(220px, 45vh, 400px)' }}>
         {/* Backdrop */}
         {backdrop && (
           <div key={activeBackdrop} className="absolute inset-0 bg-cover bg-center"
