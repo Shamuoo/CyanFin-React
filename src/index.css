@@ -23,6 +23,18 @@
   --radius-lg: 12px;
 }
 
+
+[data-theme="oled"] {
+  --bg: #000000; --bg2: #050505; --bg3: #0a0a0a;
+  --accent: #c9a84c; --accent2: #e8c97a;
+  --cream: #f0e8d5; --muted: rgba(240,232,213,0.4);
+  --subtle: rgba(240,232,213,0.04); --border: rgba(201,168,76,0.12); --border2: rgba(255,255,255,0.06);
+  --red: #e74c3c; --green: #2ecc71; --blue: #5dade2; --orange: #f39c12;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 6px; --radius-lg: 12px;
+}
+
 [data-theme="midnight"] {
   --bg: #050810; --bg2: #0a0e1a; --bg3: #111829;
   --accent: #4a9eff; --accent2: #7bbfff;

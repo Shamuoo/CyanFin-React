@@ -132,6 +132,7 @@ class ApiClient {
   topGenres() { return this.get('/api/stats/top-genres') }
   topMovies() { return this.get('/api/stats/top-movies') }
   statsSummary() { return this.get('/api/stats/summary') }
+  syncStatus() { return this.get<any>('/api/stats/sync-status') }
 
   // ── Integrations ──────────────────────────────────────────────────────────
   integrationsConfig() { return this.get<Record<string, boolean>>('/api/integrations/config') }

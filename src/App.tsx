@@ -18,6 +18,7 @@ import StatsPage from '@/pages/StatsPage'
 import HealthPage from '@/pages/HealthPage'
 import NowPlayingPage from '@/pages/NowPlayingPage'
 import UpcomingPage from '@/pages/UpcomingPage'
+import PersonPage from '@/pages/PersonPage'
 import PlayerPage from '@/pages/PlayerPage'
 
 // Layout
@@ -93,16 +94,20 @@ function AuthGuard() {
     staleTime: Infinity,
   })
 
-  const isLoading = checkingServer || (checkingSession && !!serverInfo?.configured)
+  // Wait for server info before making any routing decisions
+  if (checkingServer) return <Spinner />
 
-  // Server says not configured — always show setup
+  // Server says not configured — always show setup regardless of localStorage
   if (serverInfo && !serverInfo.configured) {
     if (onboarded) setOnboarded(false)
     return <Navigate to="/setup" replace />
   }
 
-  if (!onboarded && !serverInfo?.configured) return <Navigate to="/setup" replace />
-  if (isLoading) return <Spinner />
+  // Not onboarded and server not confirmed configured
+  if (!onboarded) return <Navigate to="/setup" replace />
+
+  // Session check
+  if (checkingSession) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
   return <Outlet />
 }
@@ -146,6 +151,7 @@ export default function App() {
                   <Route path="/health" element={<ErrorBoundary><HealthPage /></ErrorBoundary>} />
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
+                  <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
                   <Route path="/onboarding" element={<OnboardingPage />} />
                 </Route>
               </Route>

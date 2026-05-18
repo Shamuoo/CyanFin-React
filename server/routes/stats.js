@@ -73,6 +73,72 @@ async function handleStats(pathname, query, session) {
     };
   }
 
+
+  // ── Backup library sync status ────────────────────────────────────────────────
+  if (pathname === '/api/stats/sync-status') {
+    const cfg = require('../config');
+    const sm = require('../serverManager');
+    const http = require('http');
+    const https = require('https');
+    const backupUrl = cfg.get('JELLYFIN_BACKUP_URL');
+    const backupKey = cfg.get('JELLYFIN_BACKUP_API_KEY') || cfg.get('JELLYFIN_API_KEY') || '';
+    const plexUrl   = cfg.get('PLEX_URL');
+    const plexToken = cfg.get('PLEX_TOKEN');
+
+    async function countItems(baseUrl, apiKey) {
+      if (!baseUrl) return null;
+      return new Promise(resolve => {
+        const url = `${baseUrl}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=0&EnableTotalRecordCount=true&api_key=${apiKey}`;
+        try {
+          const parsed = new URL(url);
+          const lib = parsed.protocol === 'https:' ? https : http;
+          const req = lib.request(url, { timeout: 8000 }, res => {
+            let d = ''; res.on('data', c => d += c);
+            res.on('end', () => { try { resolve(JSON.parse(d).TotalRecordCount || 0); } catch { resolve(0); } });
+          });
+          req.on('error', () => resolve(null));
+          req.on('timeout', () => { req.destroy(); resolve(null); });
+          req.end();
+        } catch { resolve(null); }
+      });
+    }
+
+    async function countPlex(url, tok) {
+      if (!url || !tok) return null;
+      return new Promise(resolve => {
+        const target = `${url}/library/all?X-Plex-Token=${tok}&X-Plex-Container-Size=0`;
+        try {
+          const parsed = new URL(target);
+          const lib = parsed.protocol === 'https:' ? https : http;
+          const req = lib.request(target, { headers: { Accept: 'application/json' }, timeout: 8000 }, res => {
+            let d = ''; res.on('data', c => d += c);
+            res.on('end', () => { try { resolve(JSON.parse(d).MediaContainer?.totalSize || 0); } catch { resolve(0); } });
+          });
+          req.on('error', () => resolve(null));
+          req.on('timeout', () => { req.destroy(); resolve(null); });
+          req.end();
+        } catch { resolve(null); }
+      });
+    }
+
+    const primaryKey = cfg.get('JELLYFIN_API_KEY') || '';
+    const [primaryCount, backupCount, plexCount] = await Promise.all([
+      countItems(cfg.get('JELLYFIN_URL'), primaryKey),
+      countItems(backupUrl, backupKey),
+      countPlex(plexUrl, plexToken),
+    ]);
+
+    const drift = primaryCount != null && backupCount != null
+      ? primaryCount - backupCount : null;
+
+    return {
+      primary: { count: primaryCount, url: cfg.get('JELLYFIN_URL') },
+      backup:  backupUrl ? { count: backupCount, url: backupUrl, drift, inSync: drift === 0 } : null,
+      plex:    plexUrl   ? { count: plexCount, url: plexUrl } : null,
+      lastCheck: Date.now(),
+    };
+  }
+
   // Watch time by day (last 30 days)
   if (pathname === '/api/stats/watch-time') {
     try {

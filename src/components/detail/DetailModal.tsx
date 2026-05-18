@@ -170,14 +170,19 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   onPlay: (mediaSourceId?: string, audioIndex?: number) => void
   jellyfinUrl: string
 }) {
+  const navigate = useNavigate()
   const [selectedSourceId, setSelectedSourceId] = useState<string | undefined>()
   const [selectedAudioIndex, setSelectedAudioIndex] = useState<number | undefined>()
   const [mediaSources, setMediaSources] = useState<MediaSource[]>([])
+  const [activeBackdrop, setActiveBackdrop] = useState(0)
+  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string; imageTag?: string | null } | null>(null)
   const themeSongRef = useRef<HTMLAudioElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const canPlay = item.type === 'Movie' || item.type === 'Episode'
-  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string; imageTag?: string | null } | null>(null)
+  const backdrops = item.backdropUrls?.length ? item.backdropUrls : (item.backdropUrl ? [item.backdropUrl] : [])
+  const backdrop = backdrops[activeBackdrop] || null
+  const selectedSource = mediaSources.find(s => s.id === selectedSourceId) || mediaSources[0]
 
   const { data: _trailerData } = useQuery({
     queryKey: ['trailer', item.externalIds?.Tmdb, item.type],
@@ -186,10 +191,15 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
     staleTime: 24 * 60 * 60_000,
   })
   const trailerKey = (_trailerData as any)?.trailerKey as string | null | undefined
-  const backdrop = item.backdropUrls?.[0] || item.backdropUrl
-  const selectedSource = mediaSources.find(s => s.id === selectedSourceId) || mediaSources[0]
 
-  // Load playback info for version/audio picker
+  // Auto-rotate backdrops
+  useEffect(() => {
+    if (backdrops.length <= 1) return
+    const t = setInterval(() => setActiveBackdrop(i => (i + 1) % backdrops.length), 8000)
+    return () => clearInterval(t)
+  }, [backdrops.length])
+
+  // Load playback info
   useEffect(() => {
     if (!item.id) return
     api.playbackInfo(item.id).then(info => {
@@ -201,129 +211,232 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
         if (def) setSelectedAudioIndex(def.index)
         else if (sources[0].audioStreams?.length) setSelectedAudioIndex(sources[0].audioStreams[0].index)
       }
-    }).catch(e => console.warn('[CyanFin] PlaybackInfo failed:', e.message))
+    }).catch(() => {})
   }, [item.id])
 
-  // Theme song - play muted on open, unmute after 1s
+  // Theme song
   useEffect(() => {
     if (!item.themeSongUrl) return
     const audio = new Audio(item.themeSongUrl)
-    audio.volume = 0
-    audio.loop = true
+    audio.volume = 0; audio.loop = true
     audio.play().catch(() => {})
     themeSongRef.current = audio
-    // Fade in
     let vol = 0
     const fade = setInterval(() => {
-      vol = Math.min(0.35, vol + 0.02)
-      audio.volume = vol
-      if (vol >= 0.35) clearInterval(fade)
-    }, 100)
-    return () => {
-      clearInterval(fade)
-      audio.pause()
-      audio.src = ''
-    }
+      vol = Math.min(0.3, vol + 0.02); audio.volume = vol
+      if (vol >= 0.3) clearInterval(fade)
+    }, 80)
+    return () => { clearInterval(fade); audio.pause(); audio.src = '' }
   }, [item.themeSongUrl])
 
+  const openPersonPage = (p: { id: string; name: string; imageTag?: string | null }) => {
+    setSelectedPerson(null)
+    onClose()
+    navigate(`/person/${p.id}`, { state: { name: p.name, imageTag: p.imageTag } })
+  }
+
   return (
-    <div>
-      {/* Cast overlay */}
+    <div className="flex flex-col" style={{ minHeight: '100%' }}>
+
       {selectedPerson && (
-        <CastOverlay
-          personId={selectedPerson.id}
-          personName={selectedPerson.name}
-          personImageTag={selectedPerson.imageTag}
-          onClose={() => setSelectedPerson(null)}
-        />
+        <CastOverlay personId={selectedPerson.id} personName={selectedPerson.name}
+          personImageTag={selectedPerson.imageTag} onClose={() => setSelectedPerson(null)} />
       )}
-      {/* Backdrop / Video Backdrop */}
-      <div className="relative w-full" style={{ height: '52vh', minHeight: 280 }}>
-        {/* Video backdrop - muted autoplay */}
-        {item.videoBackdropUrl ? (
-          <video ref={videoRef} src={item.videoBackdropUrl} autoPlay muted loop playsInline
-            className="absolute inset-0 w-full h-full object-cover" />
-        ) : backdrop ? (
-          <div className="absolute inset-0 bg-cover bg-top transition-all duration-500"
-            style={{ backgroundImage: `url('${backdrop}')` }} />
-        ) : null}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 60%, rgba(8,6,4,0.95) 100%)' }} />
+
+      {/* ── CINEMATIC HERO ── */}
+      <div className="relative flex-shrink-0" style={{ height: '55vh', minHeight: 320 }}>
+        {/* Backdrop */}
+        {backdrop && (
+          <div key={activeBackdrop} className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url('${backdrop}')`,
+              animation: 'fadeIn 0.8s ease' }} />
+        )}
+
+        {/* Gradient overlays - cinematic vignette */}
+        <div className="absolute inset-0" style={{
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, transparent 30%, transparent 50%, var(--bg) 100%)',
+        }} />
+        <div className="absolute inset-0" style={{
+          background: 'linear-gradient(to right, rgba(0,0,0,0.6) 0%, transparent 60%)',
+        }} />
+
+        {/* Logo + title overlay bottom-left */}
+        <div className="absolute bottom-0 left-0 right-0 px-8 pb-6">
+          {item.logoUrl
+            ? <img src={item.logoUrl} alt={item.title} className="object-contain mb-3"
+                style={{ maxHeight: 80, maxWidth: 320,
+                  filter: 'drop-shadow(0 2px 24px rgba(0,0,0,1)) brightness(1.1)' }} />
+            : <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px,4.5vw,52px)',
+                  letterSpacing: '0.07em', color: 'var(--cream)',
+                  textShadow: '0 2px 32px rgba(0,0,0,0.95)', marginBottom: 8, lineHeight: 1 }}>
+                {item.title}
+              </h1>
+          }
+
+          {item.type === 'Episode' && (
+            <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: 'var(--accent)', opacity: 0.8 }}>
+              {item.seriesName} · S{String(item.parentIndexNumber||0).padStart(2,'0')}E{String(item.indexNumber||0).padStart(2,'0')}
+            </p>
+          )}
+
+          {/* Metadata row */}
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            {[item.year?.toString(), item.runtime ? `${item.runtime}m` : null, item.rating].filter(Boolean).map(v => (
+              <span key={v} className="text-[10px]" style={{ color: 'var(--muted)' }}>{v}</span>
+            ))}
+            {item.score && <span className="text-[10px]" style={{ color: 'var(--muted)' }}>★ {parseFloat(String(item.score)).toFixed(1)}</span>}
+            {(item.qualities || []).map(q => (
+              <span key={q} className="text-[9px] px-2 py-0.5 rounded-full font-bold"
+                style={{ background: q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.15)',
+                  color: q.startsWith('4K') ? 'var(--bg)' : 'var(--blue)',
+                  border: `1px solid ${q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.3)'}` }}>
+                {q}
+              </span>
+            ))}
+            {item.audio && (
+              <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.07)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>
+                {item.audio}
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* Backdrop dots */}
-        {item.backdropUrls && item.backdropUrls.length > 1 && (
-          <div className="absolute bottom-4 right-4 flex gap-1.5">
-            {item.backdropUrls.slice(0, 6).map((_, i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i === 0 ? 'var(--accent)' : 'rgba(255,255,255,0.3)' }} />
+        {backdrops.length > 1 && (
+          <div className="absolute bottom-6 right-6 flex gap-1.5">
+            {backdrops.slice(0, 6).map((_, i) => (
+              <button key={i} onClick={() => setActiveBackdrop(i)}
+                className="rounded-full transition-all"
+                style={{ width: i === activeBackdrop ? 16 : 6, height: 6,
+                  background: i === activeBackdrop ? 'var(--accent)' : 'rgba(255,255,255,0.25)' }} />
             ))}
           </div>
         )}
       </div>
 
-      {/* Info section */}
-      <div className="px-8 pb-8" style={{ marginTop: -80, position: 'relative', zIndex: 10 }}>
-        {/* Logo or title */}
-        {item.logoUrl
-          ? <img src={item.logoUrl} alt={item.title} className="object-contain mb-4"
-              style={{ maxHeight: 96, maxWidth: 360, filter: 'drop-shadow(0 2px 20px rgba(0,0,0,1)) brightness(1.15)' }} />
-          : <h1 className="mb-3 leading-none" style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px,5vw,56px)', letterSpacing: '0.08em', color: 'var(--cream)', textShadow: '0 2px 20px rgba(0,0,0,0.9)' }}>
-              {item.title}
-            </h1>
-        }
+      {/* ── CONTENT BELOW HERO ── */}
+      <div className="flex-1 px-8 pb-10" style={{ marginTop: -8 }}>
 
-        {/* Type / series info */}
-        {item.type === 'Episode' && (
-          <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'var(--accent)', opacity: 0.7 }}>
-            {item.seriesName} · S{String(item.parentIndexNumber||0).padStart(2,'0')}E{String(item.indexNumber||0).padStart(2,'0')}
+        {/* Ratings pills */}
+        {item.externalRatings && (
+          <div className="flex items-center gap-2 flex-wrap mb-5">
+            {item.externalRatings.imdb != null && (
+              <a href={item.externalRatings.imdbUrl || '#'} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold hover:opacity-75 transition-opacity"
+                style={{ background: 'rgba(245,197,24,0.1)', color: '#f5c518', border: '1px solid rgba(245,197,24,0.2)', textDecoration: 'none' }}>
+                <span style={{ fontSize: 8 }}>IMDb</span>{item.externalRatings.imdb}
+              </a>
+            )}
+            {item.externalRatings.tmdb != null && (
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(1,180,228,0.08)', color: '#01b4e4', border: '1px solid rgba(1,180,228,0.15)' }}>
+                <span style={{ fontSize: 8 }}>TMDB</span>{item.externalRatings.tmdb}%
+              </span>
+            )}
+            {item.externalRatings.rt != null && (
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
+                style={{ background: item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.1)' : 'rgba(120,120,120,0.08)', color: item.externalRatings.rt >= 60 ? '#fa5700' : '#888', border: `1px solid ${item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.2)' : 'rgba(120,120,120,0.15)'}` }}>
+                {item.externalRatings.rt >= 60 ? '🍅' : '🫙'}{item.externalRatings.rt}%
+              </span>
+            )}
+            {item.externalRatings.metascore != null && (
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(102,175,68,0.08)', color: '#66af44', border: '1px solid rgba(102,175,68,0.2)' }}>
+                <span style={{ fontSize: 8 }}>MC</span>{item.externalRatings.metascore}
+              </span>
+            )}
+            {item.externalRatings.letterboxdUrl && (
+              <a href={item.externalRatings.letterboxdUrl} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold hover:opacity-75"
+                style={{ background: 'rgba(0,165,80,0.08)', color: '#00a550', border: '1px solid rgba(0,165,80,0.18)', textDecoration: 'none' }}>
+                LB
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-3 flex-wrap mb-6">
+          {canPlay && (
+            <button onClick={() => onPlay(selectedSourceId, selectedAudioIndex)}
+              className="flex items-center gap-2 px-7 py-3.5 rounded-full font-bold tracking-wider uppercase text-sm transition-all hover:opacity-90 active:scale-95"
+              style={{ background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--font-display)', letterSpacing: '0.12em' }}>
+              <Play size={15} fill="currentColor" />
+              {item.userData?.playedPercentage && item.userData.playedPercentage > 5 ? 'Resume' : 'Play'}
+            </button>
+          )}
+          {trailerKey && (
+            <a href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer"
+              className="flex items-center gap-2 px-5 py-3.5 rounded-full font-bold tracking-wider uppercase text-sm transition-all hover:opacity-80"
+              style={{ background: 'rgba(255,0,0,0.08)', color: '#ff4444', border: '1px solid rgba(255,0,0,0.2)', textDecoration: 'none' }}>
+              <Youtube size={14} /> Trailer
+            </a>
+          )}
+          {jellyfinUrl && (
+            <a href={`${jellyfinUrl}/web/#/details?id=${item.id}`} target="_blank" rel="noreferrer"
+              className="flex items-center gap-2 px-4 py-3.5 rounded-full text-sm transition-all hover:opacity-70"
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--border2)', textDecoration: 'none' }}>
+              <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
+
+        {/* Tagline */}
+        {item.tagline && (
+          <p className="text-sm italic mb-4" style={{ color: 'var(--muted)', opacity: 0.6 }}>{item.tagline}</p>
+        )}
+
+        {/* Overview */}
+        {item.overview && (
+          <p className="text-sm leading-relaxed mb-6" style={{ color: 'rgba(240,232,213,0.65)', lineHeight: 1.75, maxWidth: '65ch' }}>
+            {item.overview}
           </p>
         )}
 
-        {/* Tagline */}
-        {item.tagline && <p className="text-sm italic mb-3" style={{ color: 'var(--muted)' }}>{item.tagline}</p>}
-
-        {/* Chips */}
-        <div className="flex flex-wrap gap-1.5 mb-5">
-          {[item.year?.toString(), item.genre, item.rating].filter(Boolean).map(v => (
-            <span key={v} className="chip" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--accent)', border: '1px solid var(--border)' }}>{v}</span>
-          ))}
-          {item.score && <span className="chip" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>★ {parseFloat(String(item.score)).toFixed(1)}</span>}
-          {(item.qualities || []).map(q => (
-            <span key={q} className="chip" style={{ background: q.startsWith('4K') ? 'var(--accent)' : q.includes('3D') ? 'rgba(46,204,113,0.15)' : 'rgba(93,173,226,0.12)', color: q.startsWith('4K') ? 'var(--bg)' : q.includes('3D') ? '#2ecc71' : 'var(--blue)', border: `1px solid ${q.startsWith('4K') ? 'var(--accent)' : 'rgba(93,173,226,0.25)'}` }}>{q}</span>
-          ))}
-          {item.audio && <span className="chip" style={{ background: 'rgba(93,173,226,0.08)', color: 'var(--blue)', border: '1px solid rgba(93,173,226,0.2)' }}>{item.audio}</span>}
-          {item.runtime && (() => { const m = Math.round(item.runtime! / 600_000_000); return <span className="chip" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>{Math.floor(m/60)}h {m%60}m</span> })()}
-          {item.partCount && item.partCount > 1 && <span className="chip" style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--accent)', border: '1px solid rgba(201,168,76,0.2)' }}>📦 {item.partCount} films</span>}
+        {/* Director + genres */}
+        <div className="flex flex-wrap gap-x-8 gap-y-2 mb-6 text-xs">
+          {item.director && (
+            <div>
+              <span style={{ color: 'var(--muted)', opacity: 0.5 }}>Director  </span>
+              <span style={{ color: 'var(--cream)' }}>{item.director}</span>
+            </div>
+          )}
+          {item.genres && item.genres.length > 0 && (
+            <div>
+              <span style={{ color: 'var(--muted)', opacity: 0.5 }}>Genre  </span>
+              <span style={{ color: 'var(--cream)' }}>{item.genres.slice(0,3).join(', ')}</span>
+            </div>
+          )}
         </div>
 
-        {/* Version picker */}
-        {mediaSources.length > 0 && (
-          <div className="mb-3">
-            <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>Version</p>
+        {/* Version / audio pickers */}
+        {mediaSources.length > 1 && (
+          <div className="mb-5">
+            <p className="text-[8px] font-bold tracking-[0.25em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }}>Version</p>
             <div className="flex gap-2 flex-wrap">
-              {mediaSources.map(src => (
-                <button key={src.id}
-                  onClick={() => {
-                    setSelectedSourceId(src.id)
-                    const def = src.audioStreams?.find((a: any) => a.isDefault)
-                    setSelectedAudioIndex(def?.index ?? src.audioStreams?.[0]?.index)
-                  }}
-                  className="px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide transition-all"
-                  style={{ background: selectedSourceId === src.id ? 'var(--accent)' : 'rgba(255,255,255,0.06)', color: selectedSourceId === src.id ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${selectedSourceId === src.id ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}` }}>
-                  {[src.videoCodec?.toUpperCase(), src.name || src.container?.toUpperCase()].filter(Boolean).join(' · ') || 'Version 1'}
+              {mediaSources.map(s => (
+                <button key={s.id} onClick={() => setSelectedSourceId(s.id)}
+                  className="text-[10px] px-3 py-1.5 rounded-full font-bold transition-all"
+                  style={{ background: selectedSourceId === s.id ? 'var(--accent)' : 'var(--subtle)',
+                    color: selectedSourceId === s.id ? 'var(--bg)' : 'var(--muted)',
+                    border: `1px solid ${selectedSourceId === s.id ? 'var(--accent)' : 'var(--border2)'}` }}>
+                  {s.name || s.container}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Audio picker */}
-        {selectedSource?.audioStreams && selectedSource.audioStreams.length > 0 && (
-          <div className="mb-5">
-            <p className="text-[8px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>Audio</p>
+        {selectedSource?.audioStreams && selectedSource.audioStreams.length > 1 && (
+          <div className="mb-6">
+            <p className="text-[8px] font-bold tracking-[0.25em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }}>Audio</p>
             <div className="flex gap-2 flex-wrap">
-              {selectedSource.audioStreams.map(a => (
+              {selectedSource.audioStreams.map((a: any) => (
                 <button key={a.index} onClick={() => setSelectedAudioIndex(a.index)}
-                  className="px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide transition-all"
-                  style={{ background: selectedAudioIndex === a.index ? 'rgba(93,173,226,0.2)' : 'rgba(255,255,255,0.04)', color: selectedAudioIndex === a.index ? 'var(--blue)' : 'var(--muted)', border: `1px solid ${selectedAudioIndex === a.index ? 'rgba(93,173,226,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
+                  className="text-[10px] px-3 py-1.5 rounded-full font-bold transition-all"
+                  style={{ background: selectedAudioIndex === a.index ? 'rgba(201,168,76,0.12)' : 'var(--subtle)',
+                    color: selectedAudioIndex === a.index ? 'var(--accent)' : 'var(--muted)',
+                    border: `1px solid ${selectedAudioIndex === a.index ? 'var(--border)' : 'var(--border2)'}` }}>
                   {a.title}
                 </button>
               ))}
@@ -331,114 +444,27 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
           </div>
         )}
 
-        {/* Ratings row — above play button */}
-        {item.externalRatings && (
-          <div className="flex items-center gap-2 flex-wrap mb-4">
-            {item.externalRatings.imdb != null && (
-              <a href={item.externalRatings.imdbUrl || '#'} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold hover:opacity-75 transition-opacity"
-                style={{ background: 'rgba(245,197,24,0.1)', color: '#f5c518', border: '1px solid rgba(245,197,24,0.2)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                <span style={{ fontSize: 8 }}>IMDb</span>{item.externalRatings.imdb}
-              </a>
-            )}
-            {item.externalRatings.tmdb != null && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
-                style={{ background: 'rgba(1,180,228,0.08)', color: '#01b4e4', border: '1px solid rgba(1,180,228,0.15)', whiteSpace: 'nowrap' }}>
-                <span style={{ fontSize: 8 }}>TMDB</span>{item.externalRatings.tmdb}%
-              </span>
-            )}
-            {item.externalRatings.rt != null && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
-                style={{ background: item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.1)' : 'rgba(120,120,120,0.08)', color: item.externalRatings.rt >= 60 ? '#fa5700' : '#888', border: `1px solid ${item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.2)' : 'rgba(120,120,120,0.15)'}`, whiteSpace: 'nowrap' }}>
-                {item.externalRatings.rt >= 60 ? '🍅' : '🫙'}{item.externalRatings.rt}%
-              </span>
-            )}
-            {item.externalRatings.metascore != null && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
-                style={{ background: 'rgba(102,175,68,0.08)', color: '#66af44', border: '1px solid rgba(102,175,68,0.2)', whiteSpace: 'nowrap' }}>
-                <span style={{ fontSize: 8 }}>MC</span>{item.externalRatings.metascore}
-              </span>
-            )}
-            {item.externalRatings.letterboxdUrl && (
-              <a href={item.externalRatings.letterboxdUrl} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold hover:opacity-75"
-                style={{ background: 'rgba(0,165,80,0.08)', color: '#00a550', border: '1px solid rgba(0,165,80,0.18)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                LB
-              </a>
-            )}
-          </div>
-        )}
-        {/* Action buttons */}
-        <div className="flex gap-2 flex-wrap mb-6">
-          {canPlay && (
-            <button onClick={() => onPlay(selectedSourceId, selectedAudioIndex)}
-              className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold tracking-wider uppercase transition-all hover:opacity-85"
-              style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
-              <Play size={15} fill="currentColor" />
-              {item.userData?.playedPercentage && item.userData.playedPercentage > 5 ? 'Resume' : 'Play'}
-            </button>
-          )}
-          {trailerKey && (
-            <a href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold tracking-wider uppercase transition-all hover:bg-white/10"
-              style={{ background: 'rgba(255,0,0,0.08)', color: '#ff4444', border: '1px solid rgba(255,0,0,0.2)', textDecoration: 'none' }}>
-              <Youtube size={14} /> Trailer
-            </a>
-          )}
-          {jellyfinUrl && (
-            <a href={`${jellyfinUrl}/web/#/details?id=${item.id}`} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold tracking-wider uppercase transition-all hover:bg-white/10"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--muted)', border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none' }}>
-              <ExternalLink size={14} /> Jellyfin
-            </a>
-          )}
-        </div>
-
-
-
-
-        {/* Personal rating */}
-        <PersonalRating itemId={item.id} />
-
-        {/* More like this */}
-        <SimilarRow itemId={item.id} />
-
-        {/* Integration actions */}
-        <IntegrationActions item={item} />
-
-        {/* Overview */}
-        {item.overview && (
-          <p className="text-sm leading-relaxed mb-5 max-w-2xl" style={{ color: 'rgba(240,232,213,0.6)', lineHeight: 1.7 }}>
-            {item.overview}
-          </p>
-        )}
-
-        {/* Crew */}
-        {item.director && (
-          <p className="text-xs mb-5" style={{ color: 'var(--muted)' }}>
-            Directed by <span style={{ color: 'rgba(240,232,213,0.65)', fontWeight: 600 }}>{item.director}</span>
-          </p>
-        )}
-
         {/* Cast */}
         {item.cast && item.cast.length > 0 && (
-          <div className="mb-6">
+          <div className="mb-7">
             <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.4 }}>Cast</p>
-            <div className="flex gap-4 flex-wrap">
-              {item.cast.slice(0, 12).map(actor => (
-                <button key={actor.id} onClick={() => setSelectedPerson({ id: actor.id, name: actor.name, imageTag: actor.imageTag })}
-                  className="flex flex-col items-center gap-1.5 hover:opacity-70 transition-opacity"
-                  style={{ width: 72, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-                  {actor.imageTag
-                    ? <img src={`/proxy/image?id=${actor.id}&type=Primary&w=185`} alt={actor.name}
-                        className="w-16 h-16 rounded-full object-cover"
-                        style={{ border: '2px solid rgba(255,255,255,0.08)', background: 'var(--bg3)' }} />
-                    : <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl"
-                        style={{ background: 'var(--bg3)', border: '2px solid rgba(255,255,255,0.08)', color: 'var(--muted)' }}>
-                        {(actor.name || '?')[0]}
-                      </div>
-                  }
-                  <p className="text-[9px] text-center leading-tight font-medium" style={{ color: 'var(--muted)', maxWidth: 72 }}>{actor.name}</p>
+            <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+              {item.cast.slice(0, 15).map(actor => (
+                <button key={actor.id}
+                  onClick={() => setSelectedPerson({ id: actor.id, name: actor.name, imageTag: actor.imageTag })}
+                  className="flex flex-col items-center gap-1.5 flex-shrink-0 hover:opacity-75 transition-opacity"
+                  style={{ width: 68, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                  <div className="rounded-xl overflow-hidden" style={{ width: 68, height: 88, background: 'var(--bg3)' }}>
+                    {actor.imageTag
+                      ? <img src={`/proxy/image?id=${actor.id}&type=Primary&w=140`} alt={actor.name}
+                          className="w-full h-full object-cover object-top" />
+                      : <div className="w-full h-full flex items-center justify-center text-2xl"
+                          style={{ background: 'var(--bg3)', color: 'var(--muted)' }}>
+                          {actor.name[0]}
+                        </div>
+                    }
+                  </div>
+                  <p className="text-[9px] text-center font-medium leading-tight" style={{ color: 'var(--cream)' }}>{actor.name}</p>
                   {actor.role && <p className="text-[7px] text-center" style={{ color: 'var(--muted)', opacity: 0.5 }}>{actor.role}</p>}
                 </button>
               ))}
@@ -446,29 +472,17 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
           </div>
         )}
 
-        {/* Extras */}
-        {item.extras && item.extras.length > 0 && (
-          <div className="mb-6">
-            <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.4 }}>Extras & Special Features</p>
-            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-              {item.extras.map(extra => (
-                <div key={extra.id} className="flex-shrink-0 w-44 cursor-pointer group">
-                  <div className="relative w-44 h-[99px] rounded-lg overflow-hidden mb-1.5"
-                    style={{ background: 'var(--bg3)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    {extra.thumbUrl && <img src={extra.thumbUrl} alt={extra.title} className="w-full h-full object-cover" />}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ background: 'rgba(0,0,0,0.5)' }}>
-                      <Play size={26} color="white" fill="white" />
-                    </div>
-                  </div>
-                  <p className="text-[9px] font-bold truncate" style={{ color: 'rgba(240,232,213,0.65)' }}>{extra.title}</p>
-                  <p className="text-[8px]" style={{ color: 'var(--muted)', opacity: 0.5 }}>{extra.type || 'Extra'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Personal rating */}
+        <PersonalRating itemId={item.id} />
+
+        {/* Integration actions */}
+        <IntegrationActions item={item} />
+
+        {/* More like this */}
+        <SimilarRow itemId={item.id} />
       </div>
+
+      <style>{`@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }`}</style>
     </div>
   )
 }

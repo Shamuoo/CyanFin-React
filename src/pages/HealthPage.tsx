@@ -118,6 +118,12 @@ export default function HealthPage() {
   const { data: intCfg } = useQuery({
     queryKey: ['integrations-config'], queryFn: api.integrationsConfig.bind(api),
   })
+  const { data: sync, refetch: refetchSync } = useQuery({
+    queryKey: ['sync-status'],
+    queryFn: () => api.syncStatus(),
+    staleTime: 5 * 60_000,
+  })
+
   const { data: ss, refetch: refetchServers } = useQuery({
     queryKey: ['servers-status'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000,
   })
@@ -126,7 +132,7 @@ export default function HealthPage() {
   const s  = sys as any
   const st = ss as any
 
-  const refreshAll = () => { refetchHealth(); refetchSys(); api.serversCheck().then(() => refetchServers()) }
+  const refreshAll = () => { refetchHealth(); refetchSys(); refetchSync(); api.serversCheck().then(() => refetchServers()) }
 
   const switchTo = async (server: 'primary' | 'backup' | 'plex') => {
     setSwitching(true)
