@@ -80,9 +80,13 @@ async function handleLibrary(pathname, query, session, req) {
     const https = require('https');
 
     async function getJfLibraries(baseUrl, apiKey, userId) {
-      if (!baseUrl || !userId) return null;
+      if (!baseUrl) return null;
+      // Use MediaFolders which works with API key alone, fallback to user views
+      const urlToTry = userId
+        ? `${baseUrl}/Users/${userId}/Views?api_key=${apiKey}`
+        : `${baseUrl}/Library/MediaFolders?api_key=${apiKey}`;
       return new Promise(resolve => {
-        const url = `${baseUrl}/Users/${userId}/Views?api_key=${apiKey}`;
+        const url = urlToTry;
         try {
           const t = new URL(url);
           const lib = t.protocol === 'https:' ? https : http;

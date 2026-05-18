@@ -100,8 +100,20 @@ export default function LibraryPage() {
         ))}
 
         {!isLoading && matched.length === 0 && (
-          <div className="text-center py-20" style={{ color: 'var(--muted)', opacity: 0.4 }}>
-            <p>No libraries found — check your server configuration</p>
+          <div className="text-center py-20" style={{ color: 'var(--muted)' }}>
+            <p className="text-sm mb-2" style={{ opacity: 0.5 }}>No libraries found</p>
+            <p className="text-xs mb-4" style={{ opacity: 0.3 }}>
+              {d?.primary?.available === false
+                ? 'Jellyfin primary is unreachable'
+                : d?.primary?.count === 0
+                  ? 'Jellyfin returned 0 libraries — check your API key has access'
+                  : 'Check server configuration in Settings → Servers'}
+            </p>
+            <button onClick={() => refetch()}
+              className="text-xs px-4 py-2 rounded-full hover:opacity-80"
+              style={{ background: 'var(--subtle)', border: '1px solid var(--border)', color: 'var(--accent)' }}>
+              Retry
+            </button>
           </div>
         )}
       </div>
