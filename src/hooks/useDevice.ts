@@ -9,9 +9,11 @@ export type DeviceType = 'tv' | 'phone' | 'tablet' | 'desktop'
 function detect(): DeviceType {
   // Android TV: large screen + no touch, OR explicit TV user agent
   const ua = navigator.userAgent.toLowerCase()
-  const isTV = ua.includes('tv') || ua.includes('googletv') || ua.includes('firetv') ||
-    ua.includes('androidtv') || (window as any).Android?.isTV ||
-    (window.matchMedia('(min-width: 960px)').matches && !('ontouchstart' in window) && window.innerWidth >= 1280)
+  // Only flag as TV if user agent explicitly says TV — never infer from screen size alone
+  const isTV = ua.includes('googletv') || ua.includes('firetv') ||
+    ua.includes('androidtv') || ua.includes('crkey') ||
+    ua.includes('webos') || ua.includes('tizen') ||
+    (window as any).Android?.isTV === true
 
   if (isTV) return 'tv'
 
