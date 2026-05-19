@@ -219,3 +219,48 @@ body {
   .desktop-sidebar { display: none !important; }
   .main-content { padding-bottom: 72px; }
 }
+
+/* ── Android TV / 10-foot UI ─────────────────────────────────────────────── */
+[data-device="tv"] {
+  font-size: 18px;
+  --pad: 48px;
+  --radius: 10px;
+  --radius-lg: 18px;
+}
+
+[data-device="tv"] .media-card { min-height: 180px; border-radius: var(--radius-lg); }
+[data-device="tv"] button, [data-device="tv"] a {
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+[data-device="tv"] button:focus,
+[data-device="tv"] a:focus,
+[data-device="tv"] [tabindex]:focus {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 3px;
+  transform: scale(1.04);
+  box-shadow: 0 0 0 6px rgba(201,168,76,0.15);
+  z-index: 1;
+  position: relative;
+}
+/* TV overscan safe zone */
+[data-device="tv"] main > * {
+  padding-left: calc(var(--pad) + 2vw);
+  padding-right: calc(var(--pad) + 2vw);
+}
+/* Larger text for 10ft viewing */
+[data-device="tv"] .text-xs  { font-size: 14px; }
+[data-device="tv"] .text-sm  { font-size: 16px; }
+[data-device="tv"] .text-base { font-size: 18px; }
+[data-device="tv"] .text-lg  { font-size: 22px; }
+[data-device="tv"] .text-xl  { font-size: 26px; }
+[data-device="tv"] .text-2xl { font-size: 32px; }
+
+/* ── Phone: bigger touch targets ─────────────────────────────────────────── */
+[data-device="phone"] button,
+[data-device="phone"] a {
+  min-height: 40px;
+}
+[data-device="phone"] input {
+  font-size: 16px; /* prevents iOS zoom */
+  min-height: 44px;
+}

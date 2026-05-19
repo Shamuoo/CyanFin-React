@@ -1,302 +1,248 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, RefreshCw, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Server, Tv } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, CheckCircle, XCircle, Loader, Zap, Server, Tv } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/Toast'
 
-type ServerType = 'jellyfin' | 'plex'
-type ServerRole = 'primary' | 'backup'
+type JFServer  = { id: string; name: string; url: string; apiKey: string; priority: number; enabled: boolean }
+type PlexServer = { id: string; name: string; url: string; token: string; priority: number; enabled: boolean }
 
-interface ServerDef {
-  id: string
-  type: ServerType
-  role: ServerRole
-  url: string
-  token?: string
-  label: string
-}
+const EMPTY_JF: JFServer   = { id: '', name: '', url: '', apiKey: '', priority: 1, enabled: true }
+const EMPTY_PX: PlexServer = { id: '', name: '', url: '', token: '', priority: 1, enabled: true }
 
-// Derive server list from current config
-function useServers() {
-  const { data: cfg, refetch: refetchCfg } = useQuery({ queryKey: ['config'], queryFn: api.config.bind(api), staleTime: 5_000 })
-  const { data: status, refetch: refetchStatus } = useQuery({
-    queryKey: ['servers-status'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000,
-  })
-  const servers: (ServerDef & { ok?: boolean; latency?: number | null; active?: boolean })[] = []
+function uid() { return Math.random().toString(36).slice(2, 8) }
 
-  if (cfg) {
-    const c = cfg as any
-    if (c.JELLYFIN_URL || c.jellyfinUrl) {
-      servers.push({
-        id: 'jellyfin-primary', type: 'jellyfin', role: 'primary',
-        url: c.JELLYFIN_URL || c.jellyfinUrl, label: 'Jellyfin (Primary)',
-        ok: (status as any)?.primary?.ok, latency: (status as any)?.primary?.latency,
-        active: (status as any)?.active === 'primary',
-      })
-    }
-    if (c.JELLYFIN_BACKUP_URL) {
-      servers.push({
-        id: 'jellyfin-backup', type: 'jellyfin', role: 'backup',
-        url: c.JELLYFIN_BACKUP_URL, label: 'Jellyfin (Backup)',
-        ok: (status as any)?.backup?.ok, latency: (status as any)?.backup?.latency,
-        active: (status as any)?.active === 'backup',
-      })
-    }
-    if (c.PLEX_URL) {
-      servers.push({
-        id: 'plex', type: 'plex', role: 'primary',
-        url: c.PLEX_URL, label: 'Plex',
-        ok: (status as any)?.plex?.ok, latency: (status as any)?.plex?.latency,
-      })
-    }
-  }
-  return { servers, status, refetchStatus }
+function StatusDot({ ok }: { ok?: boolean }) {
+  if (ok === undefined) return <div className="w-2 h-2 rounded-full" style={{ background: 'var(--border2)' }} />
+  return <div className="w-2 h-2 rounded-full" style={{ background: ok ? '#2ecc71' : '#e74c3c' }} />
 }
 
 export default function ServerManager() {
   const qc = useQueryClient()
-  const { servers, refetchStatus } = useServers()
-  const [showAdd, setShowAdd] = useState(false)
   const [testing, setTesting] = useState<Record<string, boolean>>({})
-  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
-  const [checking, setChecking] = useState(false)
-  const [addError, setAddError] = useState('')
-  const [addSaving, setAddSaving] = useState(false)
-  const { data: cfg, refetch: refetchCfg } = useQuery({ queryKey: ['config'], queryFn: api.config.bind(api), staleTime: 5_000 })
-  const configMode = ((cfg as any)?.JELLYFIN_MODE || 'fastest') as 'fastest' | 'primary' | 'backup'
-  const [mode, setMode] = useState<'fastest' | 'primary' | 'backup'>('fastest')
+  const [addingJF, setAddingJF] = useState(false)
+  const [addingPX, setAddingPX] = useState(false)
+  const [newJF, setNewJF] = useState<JFServer>({...EMPTY_JF})
+  const [newPX, setNewPX] = useState<PlexServer>({...EMPTY_PX})
 
-  // Add server form
-  const [form, setForm] = useState({ type: 'jellyfin' as ServerType, role: 'backup' as ServerRole, url: '', token: '' })
+  const { data: cfg, refetch: refetchCfg } = useQuery({
+    queryKey: ['config'], queryFn: api.config.bind(api), staleTime: 2_000,
+  })
+  const { data: allStatus } = useQuery({
+    queryKey: ['all-servers'], queryFn: () => api.get<any>('/api/servers/all'),
+    refetchInterval: 30_000, staleTime: 15_000,
+  })
 
-  const testServer = async (server: typeof servers[0]) => {
-    setTesting(t => ({ ...t, [server.id]: true }))
-    try {
-      if (server.type === 'jellyfin') {
-        const r = await fetch(`/api/test/jellyfin?url=${encodeURIComponent(server.url)}`).then(r => r.json())
-        setTestResult(t => ({ ...t, [server.id]: { ok: r.ok, msg: r.ok ? `${r.serverName} v${r.version}` : r.error || 'Failed' } }))
-      } else {
-        const r = await api.testIntegration('plex')
-        setTestResult(t => ({ ...t, [server.id]: { ok: r.ok, msg: r.message || r.error || '' } }))
-      }
-    } catch(e: any) {
-      setTestResult(t => ({ ...t, [server.id]: { ok: false, msg: e.message } }))
-    }
-    setTesting(t => ({ ...t, [server.id]: false }))
+  const c = (cfg as any) || {}
+
+  // Parse server arrays from config
+  let jfServers: JFServer[] = []
+  let plexServers: PlexServer[] = []
+  try { jfServers = JSON.parse(c.JELLYFIN_SERVERS || '[]') } catch {
+    if (c.JELLYFIN_URL) jfServers = [{ id: 'primary', name: 'Primary', url: c.JELLYFIN_URL, apiKey: c.JELLYFIN_API_KEY || '', priority: 1, enabled: true }]
+    if (c.JELLYFIN_BACKUP_URL) jfServers.push({ id: 'backup', name: 'Backup', url: c.JELLYFIN_BACKUP_URL, apiKey: c.JELLYFIN_BACKUP_API_KEY || c.JELLYFIN_API_KEY || '', priority: 2, enabled: true })
+  }
+  try { plexServers = JSON.parse(c.PLEX_SERVERS || '[]') } catch {
+    if (c.PLEX_URL && c.PLEX_TOKEN) plexServers = [{ id: 'plex-primary', name: 'Plex', url: c.PLEX_URL, token: c.PLEX_TOKEN, priority: 1, enabled: true }]
   }
 
-  const removeServer = async (server: typeof servers[0]) => {
-    const updates: Record<string, string> = {}
-    if (server.id === 'jellyfin-backup') { updates.JELLYFIN_BACKUP_URL = ''; updates.JELLYFIN_BACKUP_API_KEY = '' }
-    if (server.id === 'plex') { updates.PLEX_URL = ''; updates.PLEX_TOKEN = '' }
-    await api.saveConfig(updates)
+  const getStatus = (id: string) => {
+    const all = allStatus as any
+    const found = [...(all?.jellyfin || []), ...(all?.plex || [])].find(s => s.id === id)
+    return found
+  }
+
+  const saveJF = async (servers: JFServer[]) => {
+    await api.saveConfig({ JELLYFIN_SERVERS: JSON.stringify(servers) })
     qc.invalidateQueries({ queryKey: ['config'] })
-    qc.invalidateQueries({ queryKey: ['servers-status'] })
+    qc.invalidateQueries({ queryKey: ['all-servers'] })
+    refetchCfg()
+    toast.success('Servers saved')
+  }
+  const savePlex = async (servers: PlexServer[]) => {
+    await api.saveConfig({ PLEX_SERVERS: JSON.stringify(servers) })
+    qc.invalidateQueries({ queryKey: ['config'] })
+    qc.invalidateQueries({ queryKey: ['all-servers'] })
+    refetchCfg()
+    toast.success('Plex servers saved')
   }
 
-  const switchTo = async (role: 'primary' | 'backup') => {
-    await api.serversSwitch(role)
-    refetchStatus()
-  }
-
-  const addServer = async () => {
-    if (!form.url) return
-    setAddSaving(true); setAddError('')
-    const updates: Record<string, string> = {}
-    if (form.type === 'jellyfin' && form.role === 'primary') { updates.JELLYFIN_URL = form.url.replace(/\/$/, '') }
-    if (form.type === 'jellyfin' && form.role === 'backup') { updates.JELLYFIN_BACKUP_URL = form.url.replace(/\/$/, '') }
-    if (form.type === 'plex') { updates.PLEX_URL = form.url.replace(/\/$/, ''); if (form.token) updates.PLEX_TOKEN = form.token }
+  const testServer = async (id: string, url: string, apiKey?: string) => {
+    setTesting(t => ({ ...t, [id]: true }))
     try {
-      await api.saveConfig(updates)
-      await qc.invalidateQueries({ queryKey: ['config'] })
-      await qc.invalidateQueries({ queryKey: ['servers-status'] })
-      // Force refetch
-      await refetchCfg()
-      await refetchStatus()
-      setShowAdd(false)
-      setForm({ type: 'jellyfin', role: 'backup', url: '', token: '' })
-    } catch(e: any) {
-      toast.error(e.message || 'Failed to save')
-      setAddError(e.message || 'Failed to save — make sure you are logged in')
-    }
-    setAddSaving(false)
+      const r = await api.testJellyfin(url)
+      toast[r.ok ? 'success' : 'error'](r.ok ? `✓ ${r.serverName || url}` : `✗ ${r.error || 'Unreachable'}`)
+    } catch { toast.error('Test failed') }
+    setTesting(t => ({ ...t, [id]: false }))
   }
 
-  const checkAll = async () => {
-    setChecking(true)
-    await api.serversCheck()
-    refetchStatus()
-    setChecking(false)
+  const [speedTesting, setSpeedTesting] = useState(false)
+  const runSpeedTest = async () => {
+    setSpeedTesting(true)
+    await api.get('/api/servers/speedtest').then(r => qc.setQueryData(['all-servers'], r)).catch(() => {})
+    setSpeedTesting(false)
   }
 
-  const saveMode = async (m: 'fastest' | 'primary' | 'backup') => {
-    setMode(m)
-    await api.saveConfig({ JELLYFIN_MODE: m })
-  }
-
-  const statusDot = (ok?: boolean) => (
-    <span className="w-2 h-2 rounded-full flex-shrink-0"
-      style={{ background: ok === true ? '#2ecc71' : ok === false ? '#e74c3c' : '#666' }} />
-  )
+  const label = (s: { name?: string; url: string }) => s.name || s.url
 
   return (
     <div>
+      {/* Speed test button */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-[8px] font-bold tracking-[0.2em] uppercase" style={{ color: 'var(--accent)', opacity: 0.5 }}>Media Servers</p>
-        <div className="flex gap-2">
-          <button onClick={checkAll} disabled={checking}
-            className="flex items-center gap-1 text-[8px] px-2 py-1 rounded-full transition-all hover:opacity-70"
-            style={{ border: '1px solid var(--border2)', color: 'var(--muted)' }}>
-            <RefreshCw size={8} className={checking ? 'animate-spin' : ''} /> Check All
-          </button>
-          <button onClick={() => setShowAdd(s => !s)}
-            className="flex items-center gap-1 text-[8px] px-2 py-1 rounded-full transition-all hover:opacity-70"
-            style={{ background: 'var(--accent)', color: 'var(--bg)', border: 'none' }}>
-            <Plus size={8} /> Add Server
-          </button>
-        </div>
+        <p className="text-[8px] font-bold tracking-[0.3em] uppercase" style={{ color: 'var(--accent)', opacity: 0.5 }}>Servers</p>
+        <button onClick={runSpeedTest} disabled={speedTesting}
+          className="flex items-center gap-1.5 text-[9px] px-3 py-1.5 rounded-full font-bold uppercase tracking-wide hover:opacity-80 disabled:opacity-40"
+          style={{ background: 'var(--subtle)', border: '1px solid var(--border)', color: 'var(--accent)' }}>
+          {speedTesting ? <Loader size={10} className="animate-spin" /> : <Zap size={10} />}
+          Speed Test
+        </button>
       </div>
 
-      {/* Server list */}
-      <div className="space-y-2 mb-4">
-        {servers.length === 0 && (
-          <p className="text-xs text-center py-4" style={{ color: 'var(--muted)', opacity: 0.4 }}>
-            No servers configured. Add one to get started.
+      {/* Jellyfin servers */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[9px] font-bold flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+            <Server size={11} /> Jellyfin
           </p>
-        )}
-        {servers.map(srv => (
-          <div key={srv.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${srv.active ? 'var(--accent)' : 'var(--border2)'}` }}>
-            <div className="flex items-center gap-2">
-              {srv.type === 'plex'
-                ? <Tv size={14} style={{ color: '#e5a00d', flexShrink: 0 }} />
-                : <Server size={14} style={{ color: srv.active ? 'var(--accent)' : 'var(--muted)', flexShrink: 0 }} />
-              }
-              {statusDot(srv.ok)}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold" style={{ color: srv.active ? 'var(--accent)' : 'var(--cream)' }}>{srv.label}</span>
-                  {srv.active && <span className="text-[7px] px-1.5 py-0.5 rounded-full font-bold uppercase" style={{ background: 'rgba(201,168,76,0.15)', color: 'var(--accent)' }}>Active</span>}
-                  {srv.latency && <span className="text-[8px]" style={{ color: 'var(--muted)' }}>{srv.latency}ms</span>}
-                </div>
-                <p className="text-[9px] truncate" style={{ color: 'var(--muted)' }}>{srv.url}</p>
-              </div>
-              <div className="flex gap-1.5 flex-shrink-0">
-                {/* Test */}
-                <button onClick={() => testServer(srv)}
-                  className="text-[8px] px-2 py-1 rounded-full transition-all hover:opacity-80"
-                  style={{ border: '1px solid var(--border2)', color: testResult[srv.id]?.ok === true ? '#2ecc71' : testResult[srv.id]?.ok === false ? '#e74c3c' : 'var(--muted)' }}>
-                  {testing[srv.id] ? <Loader size={8} className="animate-spin" /> :
-                   testResult[srv.id]?.ok === true ? <CheckCircle size={8} /> :
-                   testResult[srv.id]?.ok === false ? <XCircle size={8} /> : 'Test'}
-                </button>
-                {/* Switch to (Jellyfin only) */}
-                {srv.type === 'jellyfin' && !srv.active && (
-                  <button onClick={() => switchTo(srv.role)}
-                    className="text-[8px] px-2 py-1 rounded-full transition-all hover:opacity-80"
-                    style={{ border: '1px solid var(--border)', color: 'var(--muted)' }}>
-                    Use
-                  </button>
-                )}
-                {/* Remove (not primary Jellyfin) */}
-                {srv.id !== 'jellyfin-primary' && (
-                  <button onClick={() => removeServer(srv)}
-                    className="text-[8px] px-2 py-1 rounded-full transition-all hover:opacity-80"
-                    style={{ border: '1px solid rgba(231,76,60,0.3)', color: '#e74c3c' }}>
-                    <Trash2 size={8} />
-                  </button>
-                )}
-              </div>
-            </div>
-            {testResult[srv.id]?.msg && (
-              <p className="text-[8px] mt-1.5 ml-10" style={{ color: testResult[srv.id]?.ok ? '#2ecc71' : '#e74c3c' }}>
-                {testResult[srv.id].msg}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Failover mode (only show if backup exists) */}
-      {servers.some(s => s.id === 'jellyfin-backup') && (
-        <div className="mb-4">
-          <p className="text-[8px] font-bold tracking-widest uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }}>Failover Mode</p>
-          <div className="flex gap-1.5">
-            {(['fastest', 'primary', 'backup'] as const).map(m => (
-              <button key={m} onClick={() => saveMode(m)}
-                className="flex-1 py-1.5 text-[8px] font-bold uppercase rounded-full transition-all"
-                style={{ background: mode === m ? 'var(--accent)' : 'transparent', color: mode === m ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${mode === m ? 'var(--accent)' : 'var(--border2)'}` }}>
-                {m}
-              </button>
-            ))}
-          </div>
-          <p className="text-[8px] mt-1.5" style={{ color: 'var(--muted)', opacity: 0.4 }}>
-            Fastest = auto-pick lowest latency · Primary/Backup = always prefer one
-          </p>
+          <button onClick={() => setAddingJF(true)}
+            className="text-[9px] px-2 py-1 rounded-full hover:opacity-80"
+            style={{ background: 'rgba(201,168,76,0.08)', color: 'var(--accent)', border: '1px solid var(--border)' }}>
+            + Add
+          </button>
         </div>
-      )}
 
-      {/* Add server form */}
-      <AnimatePresence>
-        {showAdd && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-            <div className="rounded-xl p-4 mb-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)' }}>
-              <p className="text-[8px] font-bold tracking-widest uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.5 }}>Add Server</p>
-
-              {/* Type picker */}
-              <div className="flex gap-2 mb-3">
-                {(['jellyfin', 'plex'] as const).map(t => (
-                  <button key={t} onClick={() => setForm(f => ({ ...f, type: t }))}
-                    className="flex-1 py-1.5 text-[9px] font-bold uppercase rounded-lg transition-all"
-                    style={{ background: form.type === t ? 'rgba(255,255,255,0.08)' : 'transparent', color: form.type === t ? 'var(--cream)' : 'var(--muted)', border: `1px solid ${form.type === t ? 'var(--border)' : 'var(--border2)'}` }}>
-                    {t === 'jellyfin' ? '🎬 Jellyfin' : '🟠 Plex'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Role picker (Jellyfin only) */}
-              {form.type === 'jellyfin' && (
-                <div className="flex gap-2 mb-3">
-                  {(['primary', 'backup'] as const).map(r => (
-                    <button key={r} onClick={() => setForm(f => ({ ...f, role: r }))}
-                      className="flex-1 py-1 text-[8px] font-bold uppercase rounded-lg transition-all"
-                      style={{ background: form.role === r ? 'rgba(255,255,255,0.06)' : 'transparent', color: form.role === r ? 'var(--cream)' : 'var(--muted)', border: `1px solid ${form.role === r ? 'var(--border)' : 'var(--border2)'}` }}>
-                      {r}
-                    </button>
-                  ))}
+        <div className="space-y-2">
+          {jfServers.map(srv => {
+            const st = getStatus(srv.id)
+            return (
+              <div key={srv.id} className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--subtle)', border: '1px solid var(--border2)' }}>
+                <StatusDot ok={st?.ok} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold truncate" style={{ color: 'var(--cream)' }}>{label(srv)}</p>
+                  <p className="text-[8px] truncate" style={{ color: 'var(--muted)' }}>{srv.url}</p>
                 </div>
-              )}
+                <div className="flex items-center gap-1.5 text-[8px] flex-shrink-0">
+                  {st?.latency && <span style={{ color: st.latency < 80 ? '#2ecc71' : st.latency < 300 ? '#f39c12' : '#e74c3c' }}>{st.latency}ms</span>}
+                  {st?.speedMbps != null && <span style={{ color: 'var(--accent)' }}>{st.speedMbps}Mb</span>}
+                  <button onClick={() => testServer(srv.id, srv.url, srv.apiKey)} disabled={testing[srv.id]}
+                    className="px-2 py-0.5 rounded text-[8px] hover:opacity-70"
+                    style={{ background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>
+                    {testing[srv.id] ? '…' : 'Test'}
+                  </button>
+                  <button onClick={() => saveJF(jfServers.filter(s => s.id !== srv.id))}
+                    className="hover:opacity-70 p-0.5" style={{ color: '#e74c3c' }}>
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
-              <input value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
-                placeholder={form.type === 'jellyfin' ? 'http://192.168.1.x:8096' : 'http://192.168.1.x:32400'}
-                className="w-full px-3 py-2 rounded-lg text-xs outline-none mb-2"
-                style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
-
-              {form.type === 'plex' && (
-                <input value={form.token} onChange={e => setForm(f => ({ ...f, token: e.target.value }))}
-                  placeholder="X-Plex-Token" type="password"
-                  className="w-full px-3 py-2 rounded-lg text-xs outline-none mb-2"
+        {addingJF && (
+          <div className="mt-2 p-3 rounded-xl" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+            <div className="space-y-2 mb-3">
+              {[
+                { key: 'name',   ph: 'Name (e.g. "Home Server")' },
+                { key: 'url',    ph: 'URL (e.g. http://192.168.1.125:8096)' },
+                { key: 'apiKey', ph: 'API Key' },
+              ].map(f => (
+                <input key={f.key} value={(newJF as any)[f.key]} onChange={e => setNewJF(s => ({ ...s, [f.key]: e.target.value }))}
+                  placeholder={f.ph}
+                  className="w-full px-2.5 py-2 rounded-lg text-[11px] outline-none"
                   style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
-              )}
-
-              {addError && <p className="text-[9px] mb-2" style={{ color: '#e74c3c' }}>{addError}</p>}
-              <div className="flex gap-2">
-                <button onClick={addServer} disabled={!form.url || addSaving}
-                  className="flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all hover:opacity-85 disabled:opacity-40"
-                  style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
-                  {addSaving ? 'Saving…' : 'Add'}
-                </button>
-                <button onClick={() => setShowAdd(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-bold uppercase"
-                  style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>
-                  Cancel
-                </button>
-              </div>
+              ))}
             </div>
-          </motion.div>
+            <div className="flex gap-2">
+              <button onClick={() => setAddingJF(false)}
+                className="flex-1 py-1.5 rounded-full text-[10px] hover:opacity-70"
+                style={{ background: 'var(--subtle)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>
+                Cancel
+              </button>
+              <button onClick={() => {
+                if (!newJF.url) return
+                const s = { ...newJF, id: uid(), priority: jfServers.length + 1 }
+                saveJF([...jfServers, s])
+                setNewJF({...EMPTY_JF})
+                setAddingJF(false)
+              }}
+                className="flex-1 py-1.5 rounded-full text-[10px] font-bold hover:opacity-80"
+                style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+                Add
+              </button>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </div>
+
+      {/* Plex servers */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[9px] font-bold flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+            <Tv size={11} /> Plex
+          </p>
+          <button onClick={() => setAddingPX(true)}
+            className="text-[9px] px-2 py-1 rounded-full hover:opacity-80"
+            style={{ background: 'rgba(229,160,13,0.08)', color: '#e5a00d', border: '1px solid rgba(229,160,13,0.2)' }}>
+            + Add
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {plexServers.map(srv => {
+            const st = getStatus(srv.id)
+            return (
+              <div key={srv.id} className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--subtle)', border: '1px solid var(--border2)' }}>
+                <StatusDot ok={st?.ok} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold truncate" style={{ color: 'var(--cream)' }}>{label(srv)}</p>
+                  <p className="text-[8px] truncate" style={{ color: 'var(--muted)' }}>{srv.url}</p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {st?.latency && <span className="text-[8px]" style={{ color: 'var(--muted)' }}>{st.latency}ms</span>}
+                  <button onClick={() => savePlex(plexServers.filter(s => s.id !== srv.id))}
+                    className="hover:opacity-70 p-0.5" style={{ color: '#e74c3c' }}>
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {addingPX && (
+          <div className="mt-2 p-3 rounded-xl" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+            <div className="space-y-2 mb-3">
+              {[
+                { key: 'name',  ph: 'Name (e.g. "Home Plex")' },
+                { key: 'url',   ph: 'Plex URL (e.g. http://192.168.1.125:32400)' },
+                { key: 'token', ph: 'Plex Token' },
+              ].map(f => (
+                <input key={f.key} value={(newPX as any)[f.key]} onChange={e => setNewPX(s => ({ ...s, [f.key]: e.target.value }))}
+                  placeholder={f.ph}
+                  className="w-full px-2.5 py-2 rounded-lg text-[11px] outline-none"
+                  style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setAddingPX(false)}
+                className="flex-1 py-1.5 rounded-full text-[10px] hover:opacity-70"
+                style={{ background: 'var(--subtle)', color: 'var(--muted)', border: '1px solid var(--border2)' }}>Cancel</button>
+              <button onClick={() => {
+                if (!newPX.url) return
+                const s = { ...newPX, id: uid(), priority: plexServers.length + 1 }
+                savePlex([...plexServers, s])
+                setNewPX({...EMPTY_PX})
+                setAddingPX(false)
+              }}
+                className="flex-1 py-1.5 rounded-full text-[10px] font-bold hover:opacity-80"
+                style={{ background: '#e5a00d', color: '#000' }}>Add</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
