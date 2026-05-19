@@ -256,6 +256,118 @@ async function getMatchingItemId(itemId, targetServer) {
   } catch { return null; }
 }
 
+// ── Multi-server management ────────────────────────────────────────────────────
+// Reads JELLYFIN_SERVERS / PLEX_SERVERS as JSON arrays
+// Each entry: { id, name, url, apiKey, priority, enabled }
+
+function getJellyfinServers() {
+  try {
+    const raw = cfg.get('JELLYFIN_SERVERS');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  // Fall back to legacy single-server config
+  const servers = [];
+  const url = cfg.get('JELLYFIN_URL');
+  const key = cfg.get('JELLYFIN_API_KEY');
+  if (url) servers.push({ id: 'primary', name: 'Primary', url, apiKey: key || '', priority: 1, enabled: true });
+  const bUrl = cfg.get('JELLYFIN_BACKUP_URL');
+  const bKey = cfg.get('JELLYFIN_BACKUP_API_KEY') || key || '';
+  if (bUrl) servers.push({ id: 'backup', name: 'Backup', url: bUrl, apiKey: bKey, priority: 2, enabled: true });
+  return servers;
+}
+
+function getPlexServers() {
+  try {
+    const raw = cfg.get('PLEX_SERVERS');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  const url = cfg.get('PLEX_URL');
+  const token = cfg.get('PLEX_TOKEN');
+  if (!url || !token) return [];
+  return [{ id: 'plex-primary', name: 'Plex', url, token, priority: 1, enabled: true }];
+}
+
+// Ping a server and return latency
+async function pingServer(server) {
+  const start = Date.now();
+  try {
+    const isJf = !!server.apiKey;
+    const testUrl = isJf
+      ? `${server.url}/System/Info/Public`
+      : `${server.url}/identity`;
+    const headers = isJf ? {} : { 'X-Plex-Token': server.token, Accept: 'application/json' };
+    const result = await httpGet(testUrl, headers);
+    return { ...server, ok: result.ok, latency: Date.now() - start, data: result.data };
+  } catch {
+    return { ...server, ok: false, latency: null };
+  }
+}
+
+// Speed test: fetch a small chunk of content from server
+async function speedTestServer(server) {
+  if (!server.ok || !server.url) return { ...server, speedMbps: null };
+  return new Promise(resolve => {
+    try {
+      const testUrl = server.apiKey
+        ? `${server.url}/System/Info/Public`
+        : `${server.url}/identity`;
+      const start = Date.now();
+      let bytes = 0;
+      const t = new URL(testUrl);
+      const lib = t.protocol === 'https:' ? require('https') : require('http');
+      const req = lib.request(testUrl, { headers: server.token ? { 'X-Plex-Token': server.token } : {}, timeout: 5000 }, res => {
+        res.on('data', chunk => { bytes += chunk.length; });
+        res.on('end', () => {
+          const ms = Date.now() - start;
+          const speedMbps = ms > 0 ? parseFloat(((bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2)) : null;
+          resolve({ ...server, speedMbps });
+        });
+      });
+      req.on('error', () => resolve({ ...server, speedMbps: null }));
+      req.on('timeout', () => { req.destroy(); resolve({ ...server, speedMbps: null }); });
+      req.end();
+    } catch { resolve({ ...server, speedMbps: null }); }
+  });
+}
+
+// Check all servers and rank by latency
+async function checkAllServers() {
+  const jfServers = getJellyfinServers().filter(s => s.enabled);
+  const plexServers = getPlexServers().filter(s => s.enabled);
+
+  const [jfResults, plexResults] = await Promise.all([
+    Promise.all(jfServers.map(pingServer)),
+    Promise.all(plexServers.map(pingServer)),
+  ]);
+
+  // Sort by latency (fastest first, offline last)
+  const sortBySpeed = arr => [...arr].sort((a, b) => {
+    if (!a.ok && !b.ok) return 0;
+    if (!a.ok) return 1;
+    if (!b.ok) return -1;
+    return (a.latency || 9999) - (b.latency || 9999);
+  });
+
+  const rankedJf = sortBySpeed(jfResults);
+  const rankedPlex = sortBySpeed(plexResults);
+
+  // Set active Jellyfin to fastest online server
+  const bestJf = rankedJf.find(s => s.ok);
+  if (bestJf) {
+    jf.init(bestJf.url, bestJf.apiKey || '');
+    state.active = bestJf.id;
+  }
+  state.isOffline = !bestJf && rankedPlex.every(s => !s.ok);
+
+  return { jellyfin: jfResults, plex: plexResults, bestJellyfin: bestJf?.id, timestamp: Date.now() };
+}
+
+module.exports.getJellyfinServers = getJellyfinServers;
+module.exports.getPlexServers = getPlexServers;
+module.exports.pingServer = pingServer;
+module.exports.speedTestServer = speedTestServer;
+module.exports.checkAllServers = checkAllServers;
+
 module.exports = {
   start, stop, checkAll, getStatus, forceSwitch,
   getActiveToken, authenticateBackup,

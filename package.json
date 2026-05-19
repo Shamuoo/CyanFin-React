@@ -1,7 +1,7 @@
 {
   "name": "cyanfin-react",
   "private": true,
-  "version": "0.17.6",
+  "version": "0.18.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,8 @@
     "electron": "electron .",
     "electron:build": "electron-builder",
     "electron:win": "electron-builder --win",
-    "electron:mac": "electron-builder --mac"
+    "electron:mac": "electron-builder --mac",
+    "electron:portable": "electron-builder --win portable"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
@@ -66,6 +67,12 @@
     "win": {
       "target": [
         {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "nsis",
           "arch": [
             "x64"
@@ -85,7 +92,8 @@
       "runAfterFinish": true,
       "installerIcon": "build-resources/icon.ico",
       "uninstallerIcon": "build-resources/icon.ico",
-      "installerHeaderIcon": "build-resources/icon.ico"
+      "installerHeaderIcon": "build-resources/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
       "target": [
@@ -106,6 +114,9 @@
       "icon": "build-resources/icon.png",
       "category": "AudioVideo"
     },
-    "publish": null
+    "publish": null,
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    }
   }
 }

@@ -23,7 +23,11 @@ const http = require('http');
 const fs   = require('fs');
 
 const PORT        = 3002;
-const DATA_DIR    = path.join(app.getPath('userData'), 'cyanfin-data');
+// Portable mode: store data next to the .exe instead of AppData
+const IS_PORTABLE = !!process.env.PORTABLE_EXECUTABLE_DIR
+const DATA_DIR    = IS_PORTABLE
+  ? path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'cyanfin-data')
+  : path.join(app.getPath('userData'), 'cyanfin-data');
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const IS_WIN      = process.platform === 'win32';
 const IS_MAC      = process.platform === 'darwin';

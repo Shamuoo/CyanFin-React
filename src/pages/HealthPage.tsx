@@ -124,6 +124,21 @@ export default function HealthPage() {
     staleTime: 5 * 60_000,
   })
 
+  const [speedTesting, setSpeedTesting] = useState(false)
+  const { data: allServers, refetch: refetchAll } = useQuery({
+    queryKey: ['all-servers'],
+    queryFn: () => api.get<any>('/api/servers/all'),
+    staleTime: 30_000,
+  })
+
+  const runSpeedTest = async () => {
+    setSpeedTesting(true)
+    await api.get('/api/servers/speedtest').then(r => {
+      qc.setQueryData(['all-servers'], r)
+    }).catch(() => {})
+    setSpeedTesting(false)
+  }
+
   const { data: ss, refetch: refetchServers } = useQuery({
     queryKey: ['servers-status'], queryFn: api.serversStatus.bind(api), refetchInterval: 30_000,
   })
@@ -132,7 +147,7 @@ export default function HealthPage() {
   const s  = sys as any
   const st = ss as any
 
-  const refreshAll = () => { refetchHealth(); refetchSys(); refetchSync(); api.serversCheck().then(() => refetchServers()) }
+  const refreshAll = () => { refetchHealth(); refetchSys(); refetchSync(); refetchAll(); api.serversCheck().then(() => refetchServers()) }
 
   const switchTo = async (server: 'primary' | 'backup' | 'plex') => {
     setSwitching(true)
