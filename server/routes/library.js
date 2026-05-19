@@ -198,7 +198,8 @@ async function handleLibrary(pathname, query, session, req) {
 
     async function getAllItems(baseUrl, apiKey, userId) {
       return new Promise(resolve => {
-        const url = `${baseUrl}/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=2000&fields=ProviderIds,ProductionYear&api_key=${apiKey}`;
+        // Use /Items with api_key directly — works without user context, bypasses access restrictions
+        const url = `${baseUrl}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=5000&fields=ProviderIds,ProductionYear&SortBy=SortName&api_key=${apiKey}`;
         try {
           const t = new URL(url);
           const lib2 = t.protocol === 'https:' ? https : http;

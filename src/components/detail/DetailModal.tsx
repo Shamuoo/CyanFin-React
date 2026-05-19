@@ -543,14 +543,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
 
         {/* Action buttons */}
         <div className="flex gap-3 flex-wrap mb-6">
-          {canPlay && (
-            <button onClick={() => onPlay(selectedSourceId, selectedAudioIndex)}
-              className="flex items-center gap-2 px-7 py-3.5 rounded-full font-bold tracking-wider uppercase text-sm transition-all hover:opacity-90 active:scale-95"
-              style={{ background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--font-display)', letterSpacing: '0.12em' }}>
-              <Play size={15} fill="currentColor" />
-              {item.userData?.playedPercentage && item.userData.playedPercentage > 5 ? 'Resume' : 'Play'}
-            </button>
-          )}
+
           {trailerKey && (
             <a href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer"
               className="flex items-center gap-2 px-5 py-3.5 rounded-full font-bold tracking-wider uppercase text-sm transition-all hover:opacity-80"

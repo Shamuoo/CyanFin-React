@@ -264,18 +264,44 @@ async function handler(req, res) {
     const session = auth.getSessionFromRequest(req);
     if (!session) { res.writeHead(401); res.end(); return; }
     const filename = decodeURIComponent(parsed.query.file || '');
-    if (!filename || filename.includes('..')) { res.writeHead(400); res.end(); return; }
+    if (!filename || filename.includes('..') || filename.includes('/')) { res.writeHead(400); res.end(); return; }
     const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
-    const filePath = path.join(path.dirname(configPath), 'downloads', filename);
-    if (!fs.existsSync(filePath)) { res.writeHead(404); res.end(); return; }
+    const dlDir = path.join(path.dirname(configPath), 'downloads');
+    const filePath = path.join(dlDir, filename);
+    // Security: ensure file is inside downloads dir
+    if (!filePath.startsWith(dlDir)) { res.writeHead(403); res.end(); return; }
+    if (!fs.existsSync(filePath)) {
+      console.log('[download] File not found:', filePath);
+      res.writeHead(404); res.end('Not found'); return;
+    }
     const stat = fs.statSync(filePath);
-    res.writeHead(200, {
-      'Content-Type': 'video/x-matroska',
-      'Content-Length': stat.size,
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Accept-Ranges': 'bytes',
-    });
-    fs.createReadStream(filePath).pipe(res);
+    const ext = path.extname(filename).toLowerCase();
+    const mimeMap = { '.mkv':'video/x-matroska', '.mp4':'video/mp4', '.avi':'video/x-msvideo', '.mov':'video/quicktime', '.webm':'video/webm', '.m4v':'video/mp4' };
+    const mime = mimeMap[ext] || 'video/x-matroska';
+
+    // Range request support (required for HTML5 video scrubbing)
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+      const chunkSize = end - start + 1;
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': mime,
+      });
+      fs.createReadStream(filePath, { start, end }).pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Type': mime,
+        'Content-Length': stat.size,
+        'Accept-Ranges': 'bytes',
+        'Content-Disposition': `inline; filename="${filename}"`,
+      });
+      fs.createReadStream(filePath).pipe(res);
+    }
     return;
   }
 
