@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.17.3';
+const VERSION = '0.17.5';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -167,6 +167,155 @@ async function handler(req, res) {
       });
       return json(res, result);
     } catch(e) { return json(res, { ok: false, error: e.message }); }
+  }
+
+  // ── Download management ────────────────────────────────────────────────────
+  // Start a download — fetches the stream and saves to /data/downloads/
+  if (pathname === '/api/downloads/start' && req.method === 'POST') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    const body = await readBody(req);
+    const { itemId, title } = body;
+    if (!itemId) return json(res, { error: 'No itemId' }, 400);
+
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    const dlDir = path.join(path.dirname(configPath), 'downloads');
+    if (!fs.existsSync(dlDir)) fs.mkdirSync(dlDir, { recursive: true });
+
+    // Get playback info to find stream URL
+    try {
+      const info = await jf.post(`/Items/${itemId}/PlaybackInfo?userId=${session.userId}`, {
+        DeviceProfile: { DirectPlayProfiles: [{ Type: 'Video', Container: 'mp4,mkv,avi,mov' }], TranscodingProfiles: [], SubtitleProfiles: [], ResponseProfiles: [], CodecProfiles: [], ContainerProfiles: [] }
+      }, session.token);
+
+      const source = info.MediaSources?.[0];
+      if (!source) return json(res, { error: 'No media source found' }, 404);
+
+      const streamUrl = `${jf.getBaseUrl()}/Videos/${itemId}/stream?api_key=${session.token}&Static=true&mediaSourceId=${source.Id}`;
+      const safeName = (title || itemId).replace(/[^a-zA-Z0-9 ._-]/g, '_').trim();
+      const ext = source.Container || 'mkv';
+      const filename = `${safeName}.${ext}`;
+      const filePath = path.join(dlDir, filename);
+
+      // Track download state in memory
+      const dlId = require('crypto').randomBytes(8).toString('hex');
+      global._downloads = global._downloads || {};
+      global._downloads[dlId] = { id: dlId, itemId, title: title || itemId, filename, status: 'downloading', progress: 0, size: 0, error: null };
+
+      // Stream to disk in background
+      const downloadFile = () => {
+        const parsed = new URL(streamUrl);
+        const lib = parsed.protocol === 'https:' ? https : http;
+        const fileStream = fs.createWriteStream(filePath);
+        const req2 = lib.request(streamUrl, { timeout: 0 }, res2 => {
+          const total = parseInt(res2.headers['content-length'] || '0');
+          let received = 0;
+          res2.on('data', chunk => {
+            received += chunk.length;
+            if (total > 0) global._downloads[dlId].progress = Math.round((received / total) * 100);
+            global._downloads[dlId].size = received;
+          });
+          res2.pipe(fileStream);
+          fileStream.on('finish', () => { global._downloads[dlId].status = 'complete'; console.log(`[download] Complete: ${filename}`); });
+        });
+        req2.on('error', e => { global._downloads[dlId].status = 'error'; global._downloads[dlId].error = e.message; fs.unlinkSync(filePath); });
+        req2.end();
+      };
+      setImmediate(downloadFile);
+
+      return json(res, { id: dlId, filename, status: 'downloading' });
+    } catch(e) { return json(res, { error: e.message }, 500); }
+  }
+
+  // ── List downloads ─────────────────────────────────────────────────────────
+  if (pathname === '/api/downloads') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    const dlDir = path.join(path.dirname(configPath), 'downloads');
+    const active = Object.values(global._downloads || {});
+
+    // List completed files
+    let files = [];
+    if (fs.existsSync(dlDir)) {
+      files = fs.readdirSync(dlDir).map(f => {
+        const fp = path.join(dlDir, f);
+        const stat = fs.statSync(fp);
+        return { filename: f, size: stat.size, modified: stat.mtimeMs };
+      });
+    }
+    return json(res, { active, files });
+  }
+
+  // ── Delete download ────────────────────────────────────────────────────────
+  if (pathname.startsWith('/api/downloads/') && req.method === 'DELETE') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    const filename = decodeURIComponent(pathname.replace('/api/downloads/', ''));
+    if (filename.includes('..') || filename.includes('/')) return json(res, { error: 'Invalid filename' }, 400);
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    const filePath = path.join(path.dirname(configPath), 'downloads', filename);
+    try { fs.unlinkSync(filePath); } catch {}
+    return json(res, { ok: true });
+  }
+
+  // ── Serve downloaded file ──────────────────────────────────────────────────
+  if (pathname === '/proxy/download') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) { res.writeHead(401); res.end(); return; }
+    const filename = decodeURIComponent(parsed.query.file || '');
+    if (!filename || filename.includes('..')) { res.writeHead(400); res.end(); return; }
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    const filePath = path.join(path.dirname(configPath), 'downloads', filename);
+    if (!fs.existsSync(filePath)) { res.writeHead(404); res.end(); return; }
+    const stat = fs.statSync(filePath);
+    res.writeHead(200, {
+      'Content-Type': 'video/x-matroska',
+      'Content-Length': stat.size,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Accept-Ranges': 'bytes',
+    });
+    fs.createReadStream(filePath).pipe(res);
+    return;
+  }
+
+  // ── User profiles ─────────────────────────────────────────────────────────
+  if (pathname === '/api/profiles') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session) return json(res, { error: 'Unauthorized' }, 401);
+    try {
+      const users = await jf.get('/Users', session.token);
+      return json(res, (Array.isArray(users) ? users : []).map(u => ({
+        id: u.Id,
+        name: u.Name,
+        isAdmin: u.Policy?.IsAdministrator,
+        avatarUrl: u.PrimaryImageTag ? `/proxy/image?id=${u.Id}&type=Primary&w=120` : null,
+        hasPassword: u.HasPassword,
+      })));
+    } catch(e) { return json(res, []); }
+  }
+
+  // ── Switch profile (re-auth as different user) ─────────────────────────────
+  if (pathname === '/api/profiles/switch' && req.method === 'POST') {
+    const body = await readBody(req);
+    const { username, password } = body;
+    try {
+      const currentUrl = cfg.get('JELLYFIN_URL');
+      if (!currentUrl) return json(res, { error: 'Not configured' }, 503);
+      const result = await jf.authenticate(username, password);
+      const [backupToken] = await Promise.all([
+        sm.authenticateBackup(username, password),
+      ]);
+      const sessionId = auth.createSession({
+        token: result.AccessToken,
+        backupToken: backupToken || null,
+        userId: result.User.Id,
+        username: result.User.Name,
+        isAdmin: result.User.Policy?.IsAdministrator,
+      });
+      auth.setSessionCookie(res, sessionId);
+      return json(res, { user: { id: result.User.Id, name: result.User.Name, isAdmin: result.User.Policy?.IsAdministrator } });
+    } catch(e) { return json(res, { error: e.message }, 401); }
   }
 
   // ── AUTH ──────────────────────────────────────────────────────────────────

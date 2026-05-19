@@ -68,6 +68,13 @@ class ApiClient {
   delete<T>(path: string) { return this.fetch<T>(path, { method: 'DELETE' }) }
 
   // ── Auth ───────────────────────────────────────────────────────────────────
+  startDownload(itemId: string, title: string) { return this.post<any>('/api/downloads/start', { itemId, title }) }
+  listDownloads() { return this.get<any>('/api/downloads') }
+  deleteDownload(filename: string) { return this.delete(`/api/downloads/${encodeURIComponent(filename)}`) }
+
+  getProfiles() { return this.get<any[]>('/api/profiles') }
+  switchProfile(username: string, password: string) { return this.post<{ user: any }>('/api/profiles/switch', { username, password }) }
+
   login(username: string, password: string) {
     return this.post<{ user: User }>('/api/auth/login', { username, password })
   }

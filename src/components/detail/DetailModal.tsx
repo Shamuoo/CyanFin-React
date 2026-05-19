@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Play, ExternalLink, ChevronLeft, Youtube } from 'lucide-react'
+import { X, Play, ExternalLink, ChevronLeft, Youtube, Download, Loader } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/Toast'
@@ -310,6 +310,15 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const canPlay = item.type === 'Movie' || item.type === 'Episode'
+  const [downloading, setDownloading] = useState(false)
+  const doDownload = async () => {
+    setDownloading(true)
+    try {
+      await api.startDownload(item.id, item.title || item.id)
+      toast.success(`Downloading ${item.title}…`)
+    } catch(e: any) { toast.error(e.message || 'Download failed') }
+    setDownloading(false)
+  }
   const backdrops = item.backdropUrls?.length ? item.backdropUrls : (item.backdropUrl ? [item.backdropUrl] : [])
   const backdrop = backdrops[activeBackdrop] || null
   const selectedSource = mediaSources.find(s => s.id === selectedSourceId) || mediaSources[0]
@@ -459,6 +468,14 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
                 style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)', textDecoration: 'none' }}>
                 <Youtube size={13} /> Trailer
               </a>
+            )}
+            {canPlay && (
+              <button onClick={doDownload} disabled={downloading}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold text-sm transition-all hover:opacity-80 disabled:opacity-40"
+                style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+                title="Download for offline">
+                {downloading ? <Loader size={13} className="animate-spin" /> : <Download size={13} />}
+              </button>
             )}
             {jellyfinUrl && (
               <a href={`${jellyfinUrl}/web/#/details?id=${item.id}`} target="_blank" rel="noreferrer"

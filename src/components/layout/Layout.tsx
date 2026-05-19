@@ -1,10 +1,11 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2, Activity, Sparkles, Star } from 'lucide-react'
+import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2, Activity, Sparkles, Star, Download } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import SearchOverlay from '@/components/ui/SearchOverlay'
+import ProfileSwitcher from '@/components/ui/ProfileSwitcher'
 import SettingsPanel from '@/components/ui/SettingsPanel'
 import DetailModal from '@/components/detail/DetailModal'
 import AudioBar from '@/components/player/AudioBar'
@@ -63,6 +64,7 @@ export default function Layout() {
     ...(showMusic ? [{ to: '/music', icon: <Music size={14} />, label: 'Music' }] : []),
     { to: '/library', icon: <Wrench size={14} />, label: 'Library' },
     { to: '/collections', icon: <Star size={14} />, label: 'Collections' },
+    { to: '/downloads', icon: <Download size={14} />, label: 'Downloads' },
     { to: '/stats', icon: <BarChart2 size={14} />, label: 'Stats' },
     { to: '/health', icon: <Activity size={14} />, label: 'Health' },
   ]

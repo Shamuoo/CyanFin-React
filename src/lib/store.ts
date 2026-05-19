@@ -55,6 +55,7 @@ interface AppState {
   resumeThreshold: number      // % watched before showing as "resume" (default 5)
   showClock: boolean           // show clock in nav
   compactMode: boolean
+  profilePins: Record<string, string>
   customBg: boolean         // tighter card spacing
 
   // Setter shortcuts
@@ -113,6 +114,7 @@ export const useStore = create<AppState>()(
       resumeThreshold: 5,
       showClock: false,
       compactMode: false,
+      profilePins: {} as Record<string, string>,  // userId → hashed PIN
       customBg: false,  // whether a custom background is active
       setAccentColor: (accentColor: string | null) => set({ accentColor }),
 
