@@ -9,6 +9,7 @@ import type { MediaItem } from '@/types'
 
 // ── Section definitions ──
 const ALL_SECTIONS = [
+  { key: 'nextup',      label: 'New Episodes',         query: () => api.nextUp() },
   { key: 'continue',    label: 'Continue Watching',    query: () => api.continueWatching() },
   { key: 'recent',      label: 'Recently Added',       query: () => api.recentlyAdded() },
   { key: 'popular',     label: 'Popular',              query: () => api.popular() },

@@ -103,6 +103,25 @@ async function handleBrowse(pathname, query, session) {
       return dedup((Array.isArray(data) ? data : data.Items || []).map(i => mapItem(i, token)));
   }
 
+  // ── Instant mix (radio from a track) ────────────────────────────────────────
+  if (pathname.match(/^\/api\/items\/[^/]+\/instant-mix$/)) {
+    const trackId = pathname.split('/')[3];
+    const data = await jf.get(
+      `/Audio/${trackId}/InstantMix?userId=${userId}&Limit=30&fields=MediaStreams,ParentId`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  // ── Next Up (new episodes for shows you watch) ───────────────────────────────
+  if (pathname === '/api/next-up') {
+    const data = await jf.get(
+      `/Shows/NextUp?UserId=${userId}&Limit=20&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags&ImageTypeLimit=1`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
   // ── Continue Watching ──────────────────────────────────────────────────────
   if (pathname === '/api/continue-watching') {
     if (fromPlex) return plex.getContinueWatching(12).catch(() => []);
@@ -481,6 +500,38 @@ async function handleBrowse(pathname, query, session) {
       const data = await jf.get(`/Videos/${id}/Trickplay/${width}/GetBIF`, token);
       return { available: true };
     } catch { return { available: false }; }
+  }
+
+  // ── Watchlist ─────────────────────────────────────────────────────────────────
+  if (pathname === '/api/watchlist') {
+    // Store watchlist as Jellyfin playlist named "CyanFin Watchlist"
+    try {
+      const lists = await jf.get(`/Users/${userId}/Views?api_key=${token}`);
+      // Try to get or create a playlist
+      const playlists = await jf.get(`/Playlists?userId=${userId}&api_key=${token}`).catch(() => ({ Items: [] }));
+      const wl = (playlists.Items || []).find(p => p.Name === 'CyanFin Watchlist');
+      if (!wl) return [];
+      const items = await jf.get(`/Playlists/${wl.Id}/Items?userId=${userId}&api_key=${token}`);
+      return (items.Items || []).map(i => mapItem(i, token));
+    } catch { return []; }
+  }
+
+  if (pathname === '/api/user/watchlist' && req.method === 'POST') {
+    const { itemId, action } = req._body || {};
+    if (!itemId) return { error: 'No itemId' };
+    try {
+      const playlists = await jf.get(`/Playlists?userId=${userId}&api_key=${token}`).catch(() => ({ Items: [] }));
+      let wl = (playlists.Items || []).find(p => p.Name === 'CyanFin Watchlist');
+      if (!wl && action === 'add') {
+        // Create the watchlist playlist
+        const created = await jf.post(`/Playlists?Name=CyanFin+Watchlist&UserId=${userId}&api_key=${token}`, {});
+        wl = { Id: created.Id };
+      }
+      if (!wl) return { error: 'No watchlist' };
+      if (action === 'add') await jf.post(`/Playlists/${wl.Id}/Items?Ids=${itemId}&UserId=${userId}&api_key=${token}`, {});
+      else await jf.del(`/Playlists/${wl.Id}/Items?EntryIds=${itemId}&api_key=${token}`, token);
+      return { ok: true };
+    } catch(e) { return { error: e.message }; }
   }
 
   // ── Upcoming Movies (TMDB) ──────────────────────────────────────────────────

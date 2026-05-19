@@ -98,10 +98,12 @@ class ApiClient {
 
   // ── Browse ─────────────────────────────────────────────────────────────────
   recentlyAdded() { return this.get<MediaItem[]>('/api/recently-added') }
+  nextUp() { return this.get<any[]>('/api/next-up') }
   continueWatching() { return this.get<MediaItem[]>('/api/continue-watching') }
   popular() { return this.get<MediaItem[]>('/api/popular') }
   history() { return this.get<MediaItem[]>('/api/history') }
   random() { return this.get<MediaItem[]>('/api/random') }
+  instantMix(id: string) { return this.get<any[]>(`/api/items/${id}/instant-mix`) }
   similar(id: string) { return this.get<MediaItem[]>(`/api/items/${id}/similar`) }
   trailer(tmdbId: string, type = 'movie') { return this.get<{ trailerKey: string | null }>(`/api/trailer?tmdbId=${tmdbId}&type=${type}`) }
   filmography(personId: string) { return this.get<MediaItem[]>(`/api/person/${personId}/films`) }
@@ -155,6 +157,10 @@ class ApiClient {
   }
 
   // ── User actions ──────────────────────────────────────────────────────────
+  addToWatchlist(id: string) { return this.post('/api/user/watchlist', { itemId: id, action: 'add' }) }
+  removeFromWatchlist(id: string) { return this.post('/api/user/watchlist', { itemId: id, action: 'remove' }) }
+  watchlist() { return this.get<any[]>('/api/watchlist') }
+
   toggleFavorite(itemId: string, favorite: boolean) { return this.post('/api/user/favorite', { itemId, favorite }) }
   toggleWatched(itemId: string, watched: boolean) { return this.post('/api/user/watched', { itemId, watched }) }
 

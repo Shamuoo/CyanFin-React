@@ -120,6 +120,15 @@ function IntegrationActions({ item }: { item: MediaItem }) {
     } catch {}
   }
 
+  const [inWatchlist, setInWatchlist] = useState(false)
+
+  const toggleWatchlist = async () => {
+    try {
+      if (inWatchlist) { await api.removeFromWatchlist(item.id); setInWatchlist(false); toast.info('Removed from watchlist') }
+      else { await api.addToWatchlist(item.id); setInWatchlist(true); toast.success('Added to watchlist') }
+    } catch(e: any) { toast.error(e.message) }
+  }
+
   const pill = (label: string, active?: boolean, onClick?: () => void) => (
     <button onClick={onClick} style={{
       padding: '6px 14px', borderRadius: 20, fontSize: 10, fontWeight: 700,
@@ -135,6 +144,7 @@ function IntegrationActions({ item }: { item: MediaItem }) {
       {/* User actions */}
       <div className="flex gap-2 flex-wrap mb-3">
         {pill(isFav ? '♥ Favourited' : '♡ Favourite', isFav, toggleFav)}
+        {pill(inWatchlist ? '⏱ Watchlist ✓' : '⏱ Watch Later', inWatchlist, toggleWatchlist)}
         {pill(isWatched ? '✓ Watched' : 'Mark watched', isWatched, toggleWatched)}
         {cfg?.discord && pill(shared ? '✓ Shared' : '⬡ Discord', shared, shareDiscord)}
       </div>
@@ -462,7 +472,24 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
                 {item.userData?.playedPercentage && item.userData.playedPercentage > 5 ? 'Resume' : 'Play'}
               </button>
             )}
-            {trailerKey && (
+            {item.type === 'Series' && (
+            <button onClick={async () => {
+              try {
+                const seasons = await api.seasons(item.id) as any[]
+                if (!seasons?.length) return
+                const randomSeason = seasons[Math.floor(Math.random() * seasons.length)]
+                const eps = await api.episodes(item.id, randomSeason.id) as any[]
+                if (!eps?.length) return
+                const ep = eps[Math.floor(Math.random() * eps.length)]
+                onPlay(undefined, undefined, ep)
+              } catch {}
+            }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold transition-all hover:opacity-80"
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--border2)', backdropFilter: 'blur(8px)' }}>
+              🔀 Shuffle
+            </button>
+          )}
+          {trailerKey && (
               <a href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer"
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold tracking-wide text-sm transition-all hover:opacity-80"
                 style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)', textDecoration: 'none' }}>
@@ -503,62 +530,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
       {/* ── CONTENT BELOW HERO ── */}
       <div className="flex-1 px-6 pb-24" style={{ marginTop: -8 }}>
 
-        {/* Ratings pills */}
-        {item.externalRatings && (
-          <div className="flex items-center gap-2 flex-wrap mb-5">
-            {item.externalRatings.imdb != null && (
-              <a href={item.externalRatings.imdbUrl || '#'} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold hover:opacity-75 transition-opacity"
-                style={{ background: 'rgba(245,197,24,0.1)', color: '#f5c518', border: '1px solid rgba(245,197,24,0.2)', textDecoration: 'none' }}>
-                <span style={{ fontSize: 8 }}>IMDb</span>{item.externalRatings.imdb}
-              </a>
-            )}
-            {item.externalRatings.tmdb != null && (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
-                style={{ background: 'rgba(1,180,228,0.08)', color: '#01b4e4', border: '1px solid rgba(1,180,228,0.15)' }}>
-                <span style={{ fontSize: 8 }}>TMDB</span>{item.externalRatings.tmdb}%
-              </span>
-            )}
-            {item.externalRatings.rt != null && (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
-                style={{ background: item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.1)' : 'rgba(120,120,120,0.08)', color: item.externalRatings.rt >= 60 ? '#fa5700' : '#888', border: `1px solid ${item.externalRatings.rt >= 60 ? 'rgba(250,87,0,0.2)' : 'rgba(120,120,120,0.15)'}` }}>
-                {item.externalRatings.rt >= 60 ? '🍅' : '🫙'}{item.externalRatings.rt}%
-              </span>
-            )}
-            {item.externalRatings.metascore != null && (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
-                style={{ background: 'rgba(102,175,68,0.08)', color: '#66af44', border: '1px solid rgba(102,175,68,0.2)' }}>
-                <span style={{ fontSize: 8 }}>MC</span>{item.externalRatings.metascore}
-              </span>
-            )}
-            {item.externalRatings.letterboxdUrl && (
-              <a href={item.externalRatings.letterboxdUrl} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold hover:opacity-75"
-                style={{ background: 'rgba(0,165,80,0.08)', color: '#00a550', border: '1px solid rgba(0,165,80,0.18)', textDecoration: 'none' }}>
-                LB
-              </a>
-            )}
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex gap-3 flex-wrap mb-6">
-
-          {trailerKey && (
-            <a href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 px-5 py-3.5 rounded-full font-bold tracking-wider uppercase text-sm transition-all hover:opacity-80"
-              style={{ background: 'rgba(255,0,0,0.08)', color: '#ff4444', border: '1px solid rgba(255,0,0,0.2)', textDecoration: 'none' }}>
-              <Youtube size={14} /> Trailer
-            </a>
-          )}
-          {jellyfinUrl && (
-            <a href={`${jellyfinUrl}/web/#/details?id=${item.id}`} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 px-4 py-3.5 rounded-full text-sm transition-all hover:opacity-70"
-              style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--border2)', textDecoration: 'none' }}>
-              <ExternalLink size={13} />
-            </a>
-          )}
-        </div>
+        {/* Action buttons — Play is in hero above */}
 
         {/* Tagline */}
         {item.tagline && (

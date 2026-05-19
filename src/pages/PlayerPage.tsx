@@ -55,8 +55,30 @@ export default function PlayerPage() {
   // Next episode
   const [nextEpisode, setNextEpisode] = useState<MediaItem | null>(null)
   const [showNextCard, setShowNextCard] = useState(false)
+  const [subtitleOffset, setSubtitleOffset] = useState(0)  // ms offset
+  const [speedMenu, setSpeedMenu] = useState(false)
+  const [sleepMins, setSleepMins] = useState<number | null>(null)
+  const [sleepLeft, setSleepLeft] = useState<number | null>(null)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const [trickplayPos, setTrickplayPos] = useState<{ x: number; time: number } | null>(null)
   const [trickplayAvailable, setTrickplayAvailable] = useState(false)
+
+  // Sleep timer
+  useEffect(() => {
+    if (!sleepMins) { setSleepLeft(null); return }
+    setSleepLeft(sleepMins * 60)
+    const t = setInterval(() => {
+      setSleepLeft(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(t)
+          videoRef.current?.pause()
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [sleepMins])
   const nextCardTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Panel state
@@ -134,6 +156,7 @@ export default function PlayerPage() {
   useEffect(() => {
     if (!playingItem?.id) return
 
+    if (videoRef.current) videoRef.current.playbackRate = playbackSpeed
     // Check trickplay
     fetch(`/api/trickplay?id=${playingItem.id}`, { credentials: 'include' })
       .then(r => r.json())
@@ -554,6 +577,27 @@ export default function PlayerPage() {
             style={{ fontFamily: 'var(--font-display)', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.2em' }}>
             {playingItem.title}
           </p>
+
+          {/* Playback speed */}
+          <div className="relative">
+            <button onClick={() => setSpeedMenu(s => !s)}
+              className="px-2 py-1 rounded text-[10px] font-bold hover:opacity-70"
+              style={{ color: playbackSpeed !== 1 ? 'var(--accent)' : 'var(--muted)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              {playbackSpeed}×
+            </button>
+            {speedMenu && (
+              <div className="absolute bottom-8 left-0 rounded-xl overflow-hidden"
+                style={{ background: 'var(--bg2)', border: '1px solid var(--border)', zIndex: 10, minWidth: 80 }}>
+                {[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => (
+                  <button key={s} onClick={() => { setPlaybackSpeed(s); setSpeedMenu(false); if (videoRef.current) videoRef.current.playbackRate = s }}
+                    className="block w-full px-4 py-2 text-[11px] text-left hover:bg-white/5"
+                    style={{ color: playbackSpeed === s ? 'var(--accent)' : 'var(--muted)', fontWeight: playbackSpeed === s ? 700 : 400 }}>
+                    {s}×
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Volume */}
           <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
