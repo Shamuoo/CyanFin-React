@@ -53,8 +53,8 @@ export default function DetailModal() {
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }} transition={{ duration: 0.25 }}
-            className="fixed inset-x-0 bottom-0 z-[101] overflow-y-auto scrollbar-hide"
-            style={{ background: 'rgba(8,6,4,0.94)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)', top: '56px' }}>
+            className="fixed inset-x-0 z-[101] overflow-y-auto scrollbar-hide"
+            style={{ top: '56px', bottom: 0, background: 'rgba(8,6,4,0.94)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)' }}>
 
             {/* Close bar */}
             <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-3"
@@ -396,15 +396,15 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
           {item.logoUrl
             ? <img src={item.logoUrl} alt={item.title} className="object-contain mb-3"
                 style={{ maxHeight: 72, maxWidth: 300, filter: 'drop-shadow(0 2px 20px rgba(0,0,0,1)) brightness(1.05)' }} />
-            : <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 4vw, 48px)',
-                  letterSpacing: '0.07em', color: 'white', textShadow: '0 2px 24px rgba(0,0,0,0.9)',
-                  marginBottom: 8, lineHeight: 1 }}>
+            : <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(18px, 3.5vw, 42px)',
+                  letterSpacing: '0.05em', color: 'white', textShadow: '0 2px 24px rgba(0,0,0,0.9)',
+                  marginBottom: 6, lineHeight: 1.1, wordBreak: 'break-word' }}>
                 {item.title}
               </h1>
           }
 
           {/* Metadata + ratings all in one compact row */}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5" style={{ maxWidth: '90%' }}>
             {item.type === 'Episode' && (
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--accent)', opacity: 0.9 }}>
                 {item.seriesName} · S{String(item.parentIndexNumber||0).padStart(2,'0')}E{String(item.indexNumber||0).padStart(2,'0')}
@@ -501,7 +501,7 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
       </div>
 
       {/* ── CONTENT BELOW HERO ── */}
-      <div className="flex-1 px-8 pb-10" style={{ marginTop: -8 }}>
+      <div className="flex-1 px-6 pb-24" style={{ marginTop: -8 }}>
 
         {/* Ratings pills */}
         {item.externalRatings && (
