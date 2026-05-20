@@ -98,6 +98,15 @@ class ApiClient {
 
   // ── Browse ─────────────────────────────────────────────────────────────────
   recentlyAdded() { return this.get<MediaItem[]>('/api/recently-added') }
+  watchHistory(limit = 100) { return this.get<any[]>(`/api/watch-history?limit=${limit}`) }
+  searchFilter(params: Record<string,string>) {
+    const q = new URLSearchParams(params).toString()
+    return this.get<any[]>(`/api/search-filter?${q}`)
+  }
+  exportConfig() { return fetch('/api/config/export', { credentials: 'include' }).then(r => r.blob()) }
+  importConfig(file: File) {
+    return fetch('/api/config/import', { method: 'POST', credentials: 'include', body: file }).then(r => r.json())
+  }
   nextUp() { return this.get<any[]>('/api/next-up') }
   continueWatching() { return this.get<MediaItem[]>('/api/continue-watching') }
   popular() { return this.get<MediaItem[]>('/api/popular') }

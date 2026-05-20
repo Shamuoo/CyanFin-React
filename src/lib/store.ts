@@ -55,6 +55,9 @@ interface AppState {
   resumeThreshold: number      // % watched before showing as "resume" (default 5)
   showClock: boolean           // show clock in nav
   compactMode: boolean
+  subtitleSize: number
+  subtitleColor: string
+  subtitleBg: boolean
   profilePins: Record<string, string>
   customBg: boolean         // tighter card spacing
 
@@ -114,6 +117,9 @@ export const useStore = create<AppState>()(
       resumeThreshold: 5,
       showClock: false,
       compactMode: false,
+      subtitleSize: 100,      // % of default
+      subtitleColor: '#ffffff',
+      subtitleBg: true,       // dark background behind subs
       profilePins: {} as Record<string, string>,  // userId → hashed PIN
       customBg: false,  // whether a custom background is active
       setAccentColor: (accentColor: string | null) => set({ accentColor }),

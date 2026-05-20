@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
+import SearchFilter from '@/components/ui/SearchFilter'
 import { useStore } from '@/lib/store'
 import MediaCard from '@/components/ui/MediaCard'
 import type { MediaItem } from '@/types'

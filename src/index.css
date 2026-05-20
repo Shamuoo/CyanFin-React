@@ -264,3 +264,12 @@ body {
   font-size: 16px; /* prevents iOS zoom */
   min-height: 44px;
 }
+
+/* ── Subtitle customisation (controlled via JS vars) ─────────────────────── */
+video::cue {
+  font-size: calc(var(--sub-size, 1) * 1em);
+  color: var(--sub-color, #ffffff);
+  background-color: var(--sub-bg, rgba(0,0,0,0.7));
+  font-family: var(--font-body);
+  line-height: 1.5;
+}

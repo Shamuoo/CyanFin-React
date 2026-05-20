@@ -122,6 +122,34 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
+  // ── Advanced search with filters ─────────────────────────────────────────────
+  if (pathname === '/api/search-filter') {
+    const { q = '', genre = '', year = '', minRating = '', maxRating = '',
+            quality = '', unwatched = '', type = 'Movie,Episode,Series', limit = '50' } = query;
+    let url = `/Users/${userId}/Items?Recursive=true&IncludeItemTypes=${encodeURIComponent(type)}&Limit=${limit}` +
+      `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags` +
+      `&SortBy=SortName&SortOrder=Ascending`;
+    if (q)          url += `&SearchTerm=${encodeURIComponent(q)}`;
+    if (genre)      url += `&Genres=${encodeURIComponent(genre)}`;
+    if (year)       url += `&Years=${year}`;
+    if (minRating)  url += `&MinCommunityRating=${minRating}`;
+    if (unwatched === '1') url += '&Filters=IsUnplayed';
+    const data = await jf.get(url, token);
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  // ── Watch history ──────────────────────────────────────────────────────────────
+  if (pathname === '/api/watch-history') {
+    const limit = parseInt(query.limit || '100');
+    const data = await jf.get(
+      `/Users/${userId}/Items?Filters=IsPlayed&SortBy=DatePlayed&SortOrder=Descending` +
+      `&Recursive=true&IncludeItemTypes=Movie,Episode&Limit=${limit}` +
+      `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags,SeriesName,ParentIndexNumber,IndexNumber`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
   // ── Continue Watching ──────────────────────────────────────────────────────
   if (pathname === '/api/continue-watching') {
     if (fromPlex) return plex.getContinueWatching(12).catch(() => []);

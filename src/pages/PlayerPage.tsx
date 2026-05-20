@@ -20,7 +20,7 @@ type Panel = 'none' | 'subtitles' | 'chapters'
 
 export default function PlayerPage() {
   const { playingItem, setPlayingItem } = useStore()
-  const { skipLength = 10, autoplayNext = true } = useStore() as any
+  const { skipLength = 10, autoplayNext = true, subtitleSize = 100, subtitleColor = '#ffffff', subtitleBg = true } = useStore() as any
   const navigate = useNavigate()
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -57,11 +57,47 @@ export default function PlayerPage() {
   const [showNextCard, setShowNextCard] = useState(false)
   const [subtitleOffset, setSubtitleOffset] = useState(0)  // ms offset
   const [speedMenu, setSpeedMenu] = useState(false)
+  const [bookmarks, setBookmarks] = useState<{ time: number; label: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`cf_bm_${playingItem?.id}`) || '[]') } catch { return [] }
+  })
+  const [showBookmarks, setShowBookmarks] = useState(false)
+
+  const addBookmark = () => {
+    if (!videoRef.current || !playingItem) return
+    const t = videoRef.current.currentTime
+    const label = `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`
+    const next = [...bookmarks, { time: t, label }].sort((a,b) => a.time - b.time)
+    setBookmarks(next)
+    localStorage.setItem(`cf_bm_${playingItem.id}`, JSON.stringify(next))
+    import('@/components/ui/Toast').then(m => m.toast?.success('Bookmark saved'))
+  }
+  const [aspectMode, setAspectMode] = useState<'contain'|'fill'|'cover'>('contain')
+
+  const prevChapter = () => {
+    if (!videoRef.current || !chapters.length) return
+    const pos = videoRef.current.currentTime
+    const prev = [...chapters].reverse().find(ch => ch.startPositionTicks / 10_000_000 < pos - 2)
+    if (prev) videoRef.current.currentTime = prev.startPositionTicks / 10_000_000
+    else videoRef.current.currentTime = 0
+  }
+  const nextChapter = () => {
+    if (!videoRef.current || !chapters.length) return
+    const pos = videoRef.current.currentTime
+    const next = chapters.find(ch => ch.startPositionTicks / 10_000_000 > pos + 1)
+    if (next) videoRef.current.currentTime = next.startPositionTicks / 10_000_000
+  }
   const [sleepMins, setSleepMins] = useState<number | null>(null)
   const [sleepLeft, setSleepLeft] = useState<number | null>(null)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const [trickplayPos, setTrickplayPos] = useState<{ x: number; time: number } | null>(null)
   const [trickplayAvailable, setTrickplayAvailable] = useState(false)
+
+  // Apply subtitle CSS vars
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sub-size', String(subtitleSize / 100))
+    document.documentElement.style.setProperty('--sub-color', subtitleColor)
+    document.documentElement.style.setProperty('--sub-bg', subtitleBg ? 'rgba(0,0,0,0.75)' : 'transparent')
+  }, [subtitleSize, subtitleColor, subtitleBg])
 
   // Sleep timer
   useEffect(() => {
@@ -380,7 +416,7 @@ export default function PlayerPage() {
       className={`fixed inset-0 bg-black z-50 select-none ${controlsVisible ? 'cursor-default' : 'cursor-none'}`}
       onMouseMove={showControls} onClick={() => { showControls(); if (openPanel !== 'none') setOpenPanel('none') }}>
 
-      <video ref={videoRef} className="w-full h-full object-contain"
+      <video ref={videoRef} style={{ objectFit: aspectMode }} className="w-full h-full object-contain"
         onClick={e => { e.stopPropagation(); videoRef.current?.paused ? videoRef.current.play() : videoRef.current?.pause() }}
         playsInline crossOrigin="anonymous" />
 

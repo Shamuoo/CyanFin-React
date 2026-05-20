@@ -264,6 +264,13 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
             </>
           )}
 
+          {tab === 'appearance' && store.theme && (
+            /* backup/restore at bottom of appearance tab */
+            <></>
+          )}
+
+          {/* Backup/Restore - accessible from servers tab footer */}
+
           {tab === 'playback' && (
             <>
               <SectionTitle>Skip Length</SectionTitle>
@@ -300,6 +307,31 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 onChange={e => store.setSetting('resumeThreshold' as any, parseInt(e.target.value))}
                 className="w-full mb-4" style={{ accentColor: 'var(--accent)' }} />
 
+              <SectionTitle>Subtitles</SectionTitle>
+              <p className="text-[9px] mb-1" style={{ color: 'var(--muted)' }}>Size: {(store as any).subtitleSize}%</p>
+              <input type="range" min="60" max="160" step="10"
+                value={(store as any).subtitleSize}
+                onChange={e => store.setSetting('subtitleSize' as any, parseInt(e.target.value))}
+                className="w-full mb-3" style={{ accentColor: 'var(--accent)' }} />
+              <div className="flex items-center gap-3 mb-4">
+                <div>
+                  <p className="text-xs font-bold" style={{ color: 'var(--cream)' }}>Subtitle colour</p>
+                </div>
+                <input type="color" value={(store as any).subtitleColor}
+                  onChange={e => store.setSetting('subtitleColor' as any, e.target.value)}
+                  className="rounded cursor-pointer flex-shrink-0 ml-auto"
+                  style={{ width: 32, height: 32, border: '1px solid var(--border2)', background: 'none', padding: 2 }} />
+              </div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>Background behind subs</p>
+                <button onClick={() => store.setSetting('subtitleBg' as any, !(store as any).subtitleBg)}
+                  className="relative rounded-full flex-shrink-0"
+                  style={{ width: 40, height: 22, background: (store as any).subtitleBg ? 'var(--accent)' : 'var(--border2)' }}>
+                  <span className="absolute top-0.5 rounded-full transition-all"
+                    style={{ width: 18, height: 18, background: 'white', left: (store as any).subtitleBg ? 20 : 2 }} />
+                </button>
+              </div>
+
               <SectionTitle>Interface</SectionTitle>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs" style={{ color: 'var(--muted)' }}>Show clock in nav</p>
@@ -323,7 +355,34 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           )}
 
           {tab === 'servers' && (
+            <>
             <ServerManager />
+            <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border2)' }}>
+              <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.4 }}>Backup & Restore</p>
+              <div className="flex gap-2">
+                <button onClick={async () => {
+                  const blob = await api.exportConfig()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a'); a.href = url
+                  a.download = `cyanfin-backup-${new Date().toISOString().slice(0,10)}.json`
+                  a.click(); URL.revokeObjectURL(url)
+                }}
+                  className="flex-1 py-2 rounded-full text-xs font-bold hover:opacity-80"
+                  style={{ background: 'var(--subtle)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                  ↓ Export Config
+                </button>
+                <label className="flex-1 py-2 rounded-full text-xs font-bold text-center cursor-pointer hover:opacity-80"
+                  style={{ background: 'var(--subtle)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                  ↑ Import Config
+                  <input type="file" accept=".json" className="hidden" onChange={async e => {
+                    const f = e.target.files?.[0]; if (!f) return
+                    const r = await api.importConfig(f)
+                    if (r.ok) { import('@/components/ui/Toast').then(m => (m as any).toast?.success('Config restored — reload to apply')) }
+                  }} />
+                </label>
+              </div>
+            </div>
+            </>
           )}
 
           {tab === 'integrations' && (

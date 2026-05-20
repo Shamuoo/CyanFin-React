@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.18.1';
+const VERSION = '0.18.2';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -73,6 +73,41 @@ async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // ── Config export (backup) ─────────────────────────────────────────────────
+  if (pathname === '/api/config/export' && req.method === 'GET') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session || !session.isAdmin) { res.writeHead(403); res.end(); return; }
+    const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+    if (!fs.existsSync(configPath)) { res.writeHead(404); res.end(); return; }
+    const data = fs.readFileSync(configPath);
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Disposition': `attachment; filename="cyanfin-config-backup-${new Date().toISOString().slice(0,10)}.json"`,
+    });
+    res.end(data);
+    return;
+  }
+
+  // ── Config import (restore) ──────────────────────────────────────────────────
+  if (pathname === '/api/config/import' && req.method === 'POST') {
+    const session = auth.getSessionFromRequest(req);
+    if (!session || !session.isAdmin) { res.writeHead(403); res.end(); return; }
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      try {
+        const data = Buffer.concat(chunks);
+        const parsed = JSON.parse(data.toString());
+        if (!parsed || typeof parsed !== 'object') { json(res, { error: 'Invalid config' }, 400); return; }
+        const configPath = process.env.CONFIG_PATH || path.join(__dirname, '../data/config.json');
+        fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2));
+        cfg.loadConfig();
+        json(res, { ok: true });
+      } catch(e) { json(res, { error: e.message }, 400); }
+    });
+    return;
+  }
 
   // ── Background image upload ────────────────────────────────────────────────
   if (pathname === '/api/config/background' && req.method === 'POST') {

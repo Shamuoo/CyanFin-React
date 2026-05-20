@@ -1,6 +1,6 @@
 {
   "name": "cyanfin-server",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "description": "CyanFin server",
   "main": "index.js",
   "dependencies": {}
