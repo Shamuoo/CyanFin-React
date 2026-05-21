@@ -549,19 +549,28 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
           <SeasonsPanel item={item} onPlayEpisode={ep => onPlay(undefined, undefined, ep)} />
         )}
 
-        {/* Director + genres */}
-        <div className="flex flex-wrap gap-x-8 gap-y-2 mb-6 text-xs">
+        {/* Metadata grid */}
+        <div className="grid gap-y-2 gap-x-8 mb-6 text-xs"
+          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
           {item.director && (
-            <div>
-              <span style={{ color: 'var(--muted)', opacity: 0.5 }}>Director  </span>
-              <span style={{ color: 'var(--cream)' }}>{item.director}</span>
-            </div>
+            <div><span style={{ color: 'var(--muted)', opacity: 0.5 }}>Director </span>
+              <span style={{ color: 'var(--cream)' }}>{item.director}</span></div>
+          )}
+          {(item as any).writer && (
+            <div><span style={{ color: 'var(--muted)', opacity: 0.5 }}>Writer </span>
+              <span style={{ color: 'var(--cream)' }}>{(item as any).writer}</span></div>
           )}
           {item.genres && item.genres.length > 0 && (
-            <div>
-              <span style={{ color: 'var(--muted)', opacity: 0.5 }}>Genre  </span>
-              <span style={{ color: 'var(--cream)' }}>{item.genres.slice(0,3).join(', ')}</span>
-            </div>
+            <div><span style={{ color: 'var(--muted)', opacity: 0.5 }}>Genre </span>
+              <span style={{ color: 'var(--cream)' }}>{item.genres.slice(0,3).join(', ')}</span></div>
+          )}
+          {(item as any).studios?.length > 0 && (
+            <div><span style={{ color: 'var(--muted)', opacity: 0.5 }}>Studio </span>
+              <span style={{ color: 'var(--cream)' }}>{(item as any).studios[0]}</span></div>
+          )}
+          {(item as any).network && item.type === 'Series' && (
+            <div><span style={{ color: 'var(--muted)', opacity: 0.5 }}>Network </span>
+              <span style={{ color: 'var(--cream)' }}>{(item as any).network}</span></div>
           )}
         </div>
 

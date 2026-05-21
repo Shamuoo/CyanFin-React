@@ -1,5 +1,7 @@
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import type { MediaItem } from '@/types'
+import api from '@/lib/api'
 import { useStore } from '@/lib/store'
 
 interface Props {
@@ -17,6 +19,23 @@ function qualityClass(q: string) {
 
 export default function MediaCard({ item, onClick, width = 110 }: Props) {
   const title = item.type === 'Episode' && item.seriesName ? item.seriesName : (item.title || '')
+  const unplayed = (item as any).userData?.UnplayedItemCount
+  const [trailerKey, setTrailerKey] = useState<string | null>(null)
+  const [showTrailer, setShowTrailer] = useState(false)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleMouseEnter = () => {
+    if (!item.externalIds?.Tmdb) return
+    hoverTimer.current = setTimeout(async () => {
+      if (trailerKey) { setShowTrailer(true); return }
+      const d = await api.trailer(item.externalIds!.Tmdb!).catch(() => ({ trailerKey: null }))
+      if ((d as any).trailerKey) { setTrailerKey((d as any).trailerKey); setShowTrailer(true) }
+    }, 1500)
+  }
+  const handleMouseLeave = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current)
+    setShowTrailer(false)
+  }
 
   return (
     <motion.div
@@ -70,6 +89,27 @@ export default function MediaCard({ item, onClick, width = 110 }: Props) {
             style={{ background: 'rgba(0,0,0,0.75)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>
             ×{item.versionCount}
           </span>
+        )}
+
+        {/* Trailer preview on hover */}
+        {showTrailer && trailerKey && (
+          <div className="absolute inset-0 z-10 rounded-xl overflow-hidden bg-black">
+            <iframe
+              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&loop=1&playlist=${trailerKey}`}
+              className="w-full h-full" allow="autoplay" style={{ pointerEvents: 'none' }} />
+            <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5"
+              style={{ background: 'linear-gradient(transparent,rgba(0,0,0,0.9))' }}>
+              <p className="text-[8px] font-bold truncate" style={{ color: 'white' }}>{title}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Unplayed count badge for shows */}
+        {unplayed > 0 && (
+          <div className="absolute top-1.5 right-1.5 rounded-full text-[8px] font-black px-1.5 py-0.5"
+            style={{ background: 'var(--accent)', color: 'var(--bg)', minWidth: 18, textAlign: 'center' }}>
+            {unplayed > 99 ? '99+' : unplayed}
+          </div>
         )}
 
         {/* Progress bar */}

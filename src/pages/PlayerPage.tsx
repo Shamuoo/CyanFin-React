@@ -91,6 +91,11 @@ export default function PlayerPage() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const [trickplayPos, setTrickplayPos] = useState<{ x: number; time: number } | null>(null)
   const [trickplayAvailable, setTrickplayAvailable] = useState(false)
+  const currentChapter = chapters.find((ch, i) => {
+    const start = ch.startPositionTicks / 10_000_000
+    const next = chapters[i+1]?.startPositionTicks / 10_000_000 || Infinity
+    return currentTime >= start && currentTime < next
+  })
 
   // Apply subtitle CSS vars
   useEffect(() => {

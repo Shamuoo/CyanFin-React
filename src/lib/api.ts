@@ -175,6 +175,7 @@ class ApiClient {
 
   // ── Stats & Health ────────────────────────────────────────────────────────
   health() { return this.get('/api/health') }
+  activeSessions() { return this.get<any>('/api/active-sessions') }
   systemStats() { return this.get('/api/system-stats') }
   watchTime() { return this.get('/api/stats/watch-time') }
   topGenres() { return this.get('/api/stats/top-genres') }

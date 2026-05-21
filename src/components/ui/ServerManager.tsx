@@ -38,12 +38,25 @@ export default function ServerManager() {
   // Parse server arrays from config
   let jfServers: JFServer[] = []
   let plexServers: PlexServer[] = []
-  try { jfServers = JSON.parse(c.JELLYFIN_SERVERS || '[]') } catch {
-    if (c.JELLYFIN_URL) jfServers = [{ id: 'primary', name: 'Primary', url: c.JELLYFIN_URL, apiKey: c.JELLYFIN_API_KEY || '', priority: 1, enabled: true }]
-    if (c.JELLYFIN_BACKUP_URL) jfServers.push({ id: 'backup', name: 'Backup', url: c.JELLYFIN_BACKUP_URL, apiKey: c.JELLYFIN_BACKUP_API_KEY || c.JELLYFIN_API_KEY || '', priority: 2, enabled: true })
+  // Parse multi-server arrays, fall back to legacy single-server fields
+  try {
+    const parsed = c.JELLYFIN_SERVERS ? JSON.parse(c.JELLYFIN_SERVERS) : []
+    jfServers = Array.isArray(parsed) && parsed.length > 0 ? parsed : []
+  } catch {}
+  
+  // Always show legacy fields if no array config exists
+  if (jfServers.length === 0) {
+    if (c.JELLYFIN_URL) jfServers.push({ id: 'primary', name: 'Primary', url: c.JELLYFIN_URL, apiKey: '', priority: 1, enabled: true })
+    if (c.JELLYFIN_BACKUP_URL) jfServers.push({ id: 'backup', name: 'Backup', url: c.JELLYFIN_BACKUP_URL, apiKey: '', priority: 2, enabled: true })
   }
-  try { plexServers = JSON.parse(c.PLEX_SERVERS || '[]') } catch {
-    if (c.PLEX_URL && c.PLEX_TOKEN) plexServers = [{ id: 'plex-primary', name: 'Plex', url: c.PLEX_URL, token: c.PLEX_TOKEN, priority: 1, enabled: true }]
+
+  try {
+    const parsed = c.PLEX_SERVERS ? JSON.parse(c.PLEX_SERVERS) : []
+    plexServers = Array.isArray(parsed) && parsed.length > 0 ? parsed : []
+  } catch {}
+
+  if (plexServers.length === 0 && c.PLEX_URL) {
+    plexServers.push({ id: 'plex-primary', name: 'Plex', url: c.PLEX_URL, token: '', priority: 1, enabled: true })
   }
 
   const getStatus = (id: string) => {

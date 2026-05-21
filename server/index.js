@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.18.2';
+const VERSION = '0.18.3';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -483,7 +483,16 @@ async function handler(req, res) {
   if (pathname === '/api/config') {
     const session = auth.getSessionFromRequest(req);
     if (!session) return json(res, { error: 'Unauthorized' }, 401);
-    return json(res, { version: VERSION, ...cfg.getPublic() });
+    // Admins get full config (URLs visible), non-admins get masked version
+    const data = session.isAdmin ? cfg.getAll() : cfg.getPublic();
+    // Always mask actual secret values for safety, but keep URLs
+    const safe = { ...data, version: VERSION };
+    for (const [key, schema] of Object.entries(cfg.SCHEMA || {})) {
+      if (schema.secret && safe[key] && safe[key] !== '') {
+        safe[key] = '***';
+      }
+    }
+    return json(res, safe);
   }
 
   // ── SERVER STATUS ─────────────────────────────────────────────────────────
@@ -603,7 +612,7 @@ async function handler(req, res) {
       if (itemsResult !== null) return json(res, itemsResult);
 
       // Stats
-      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname === '/api/servers/all' || pathname === '/api/servers/speedtest') {
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname === '/api/servers/all' || pathname === '/api/servers/speedtest' || pathname === '/api/active-sessions') {
         const statsResult = await handleStats(pathname, parsed.query, session);
         if (statsResult !== null) return json(res, statsResult);
       }

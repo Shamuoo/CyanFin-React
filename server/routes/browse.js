@@ -138,6 +138,32 @@ async function handleBrowse(pathname, query, session) {
     return (data.Items || []).map(i => mapItem(i, token));
   }
 
+  // ── Because you watched (personalised row from recent history) ─────────────
+  if (pathname === '/api/because-you-watched') {
+    try {
+      // Get last 5 watched items
+      const history = await jf.get(
+        `/Users/${userId}/Items?Filters=IsPlayed&SortBy=DatePlayed&SortOrder=Descending&Recursive=true&IncludeItemTypes=Movie,Series&Limit=5&fields=Genres,ProviderIds`,
+        token
+      );
+      const recent = (history.Items || []).slice(0, 5);
+      if (!recent.length) return { rows: [] };
+
+      // For each recent item, get similar items
+      const rows = await Promise.all(recent.slice(0, 3).map(async item => {
+        const similar = await jf.get(
+          `/Items/${item.Id}/Similar?userId=${userId}&Limit=12&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags`,
+          token
+        ).catch(() => ({ Items: [] }));
+        const items = (similar.Items || []).map(i => mapItem(i, token));
+        if (!items.length) return null;
+        return { title: `Because you watched ${item.Name}`, items };
+      }));
+
+      return { rows: rows.filter(Boolean) };
+    } catch { return { rows: [] }; }
+  }
+
   // ── Watch history ──────────────────────────────────────────────────────────────
   if (pathname === '/api/watch-history') {
     const limit = parseInt(query.limit || '100');

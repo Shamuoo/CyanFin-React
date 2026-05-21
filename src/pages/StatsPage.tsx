@@ -25,6 +25,13 @@ function BarRow({ label, value, max, color = 'var(--accent)' }: { label: string;
 }
 
 export default function StatsPage() {
+  const { data: activity } = useQuery({
+    queryKey: ['active-sessions'],
+    queryFn: () => api.activeSessions(),
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+  })
+
   const { data: summary, isLoading: loadSum } = useQuery({ queryKey: ['stats-summary'], queryFn: () => api.statsSummary() as Promise<any>, staleTime: 5 * 60_000 })
   const { data: watchTime } = useQuery({ queryKey: ['stats-watchtime'], queryFn: () => api.watchTime() as Promise<any>, staleTime: 5 * 60_000 })
   const { data: genres } = useQuery({ queryKey: ['stats-genres'], queryFn: () => api.topGenres() as Promise<any>, staleTime: 5 * 60_000 })
@@ -40,6 +47,43 @@ export default function StatsPage() {
   return (
     <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg)', padding: '24px var(--pad) 48px' }}>
       <h1 className="text-2xl tracking-[0.4em] uppercase mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--cream)', opacity: 0.5 }}>Stats</h1>
+
+      {/* Who's watching now */}
+      {activity && (activity as any).sessions?.length > 0 && (
+        <div className="mb-8">
+          <p className="text-[8px] font-bold tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--accent)', opacity: 0.4 }}>
+            Now watching ({(activity as any).sessions.length})
+          </p>
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+            {(activity as any).sessions.map((s: any, i: number) => {
+              const pct = s.runtimeTicks && s.positionTicks ? Math.round((s.positionTicks / s.runtimeTicks) * 100) : 0
+              return (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{ background: 'var(--bg2)', border: '1px solid var(--border2)' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold"
+                    style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+                    {s.user?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold truncate" style={{ color: 'var(--cream)' }}>
+                      {s.seriesName || s.item}
+                    </p>
+                    <p className="text-[9px] truncate" style={{ color: 'var(--muted)' }}>
+                      {s.seriesName ? s.item : ''} · {s.client} · {s.deviceName}
+                    </p>
+                    {pct > 0 && (
+                      <div className="mt-1.5 h-0.5 rounded-full" style={{ background: 'var(--border2)' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: s.isPaused ? 'var(--muted)' : 'var(--accent)', borderRadius: 99 }} />
+                      </div>
+                    )}
+                  </div>
+                  {s.isPaused && <span className="text-[8px] flex-shrink-0" style={{ color: 'var(--muted)' }}>⏸</span>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 mb-8 md:grid-cols-4">
