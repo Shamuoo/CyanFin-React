@@ -17,6 +17,10 @@ const themes: { id: Theme; label: string; gradient: string }[] = [
   { id: 'forest',   label: 'Forest',   gradient: 'linear-gradient(135deg,#060d08,#4caf7d)' },
   { id: 'slate',    label: 'Slate',    gradient: 'linear-gradient(135deg,#0a0b0e,#8b9cf4)' },
   { id: 'mocha',    label: 'Mocha',    gradient: 'linear-gradient(135deg,#1e1e2e,#cba6f7)' },
+  { id: 'fluent',   label: 'Fluent',   gradient: 'linear-gradient(135deg,#0a0c10,#0078d4)' },
+  { id: 'sakura',   label: 'Sakura',   gradient: 'linear-gradient(135deg,#0e0a0f,#ff6eb4)' },
+  { id: 'amoled',   label: 'Amoled',   gradient: 'linear-gradient(135deg,#000000,#00e5ff)' },
+  { id: 'sunset',   label: 'Sunset',   gradient: 'linear-gradient(135deg,#0d0906,#ff8c42)' },
 ]
 
 const integrationFields = [
@@ -217,6 +221,28 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <p className="text-[8px] mt-1" style={{ color: 'var(--muted)', opacity: 0.4 }}>Shown as a subtle overlay behind all content</p>
               </div>
 
+              <SectionTitle>Font Style</SectionTitle>
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[['default','Default'],['rounded','Rounded'],['mono','Mono'],['serif','Serif']].map(([id,label]) => (
+                  <button key={id} onClick={() => store.setSetting('fontStyle' as any, id)}
+                    className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all"
+                    style={{ background: (store as any).fontStyle === id ? 'var(--accent)' : 'var(--subtle)', color: (store as any).fontStyle === id ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).fontStyle === id ? 'transparent' : 'var(--border2)'}` }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <SectionTitle>Card Size</SectionTitle>
+              <div className="flex gap-2 mb-4">
+                {([['small','Small'],['medium','Medium'],['large','Large']] as const).map(([id,label]) => (
+                  <button key={id} onClick={() => store.setSetting('cardSize' as any, id)}
+                    className="flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all"
+                    style={{ background: (store as any).cardSize === id ? 'var(--accent)' : 'var(--subtle)', color: (store as any).cardSize === id ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).cardSize === id ? 'transparent' : 'var(--border2)'}` }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
               <SectionTitle>Layout</SectionTitle>
               <div className="flex gap-2">
                 {(['desktop','tv','mobile'] as Layout[]).map(l => (
@@ -296,6 +322,17 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                   <span className="absolute top-0.5 rounded-full transition-all"
                     style={{ width: 18, height: 18, background: 'white', left: (store as any).autoplayNext ? 20 : 2 }} />
                 </button>
+              </div>
+
+              <SectionTitle>Max Streaming Quality</SectionTitle>
+              <div className="flex gap-1.5 mb-4 flex-wrap">
+                {[[0,'Auto'],[2,'2 Mbps'],[4,'4 Mbps'],[8,'8 Mbps'],[20,'20 Mbps'],[40,'40 Mbps']].map(([v,l]) => (
+                  <button key={v} onClick={() => store.setSetting('maxBitrate' as any, v)}
+                    className="px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wide transition-all"
+                    style={{ background: (store as any).maxBitrate === v ? 'var(--accent)' : 'var(--subtle)', color: (store as any).maxBitrate === v ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).maxBitrate === v ? 'transparent' : 'var(--border2)'}` }}>
+                    {l}
+                  </button>
+                ))}
               </div>
 
               <SectionTitle>Resume Threshold</SectionTitle>

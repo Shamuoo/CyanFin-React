@@ -9,7 +9,7 @@ import type { MediaItem } from '@/types'
 
 // ── Section definitions ──
 const ALL_SECTIONS = [
-  { key: 'nextup',      label: 'New Episodes',         query: () => api.nextUp() },
+  { key: 'nextup',      label: 'New Episodes', default: true,         query: () => api.nextUp() },
   { key: 'continue',    label: 'Continue Watching',    query: () => api.continueWatching() },
   { key: 'recent',      label: 'Recently Added',       query: () => api.recentlyAdded() },
   { key: 'popular',     label: 'Popular',              query: () => api.popular() },
@@ -40,6 +40,8 @@ export default function HomePage() {
   const [configOpen, setConfigOpen] = useState(false)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [showEditor, setShowEditor] = useState(false)
+
+
   const [dragOver, setDragOver] = useState<number | null>(null)
 
   // Merge any new sections added in updates into saved order
@@ -65,6 +67,17 @@ export default function HomePage() {
     const t = setInterval(() => setHeroIdx(i => (i + 1) % heroItems.length), 7000)
     return () => clearInterval(t)
   }, [heroItems.length])
+  // Hero keyboard navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target !== document.body) return
+      if (e.key === 'ArrowLeft')  setHeroIdx(i => (i - 1 + heroItems.length) % heroItems.length)
+      if (e.key === 'ArrowRight') setHeroIdx(i => (i + 1) % heroItems.length)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [heroItems.length])
+
   const heroItem = heroItems.length > 0 ? heroItems[heroIdx % heroItems.length] : null
 
   const handlePlay = async (item: MediaItem) => {

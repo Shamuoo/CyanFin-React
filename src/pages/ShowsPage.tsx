@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Play } from 'lucide-react'
 import api from '@/lib/api'
+import { useStore } from '@/lib/store'
 import SearchFilter from '@/components/ui/SearchFilter'
 import MediaCard from '@/components/ui/MediaCard'
-import { useStore } from '@/lib/store'
 import type { MediaItem } from '@/types'
 
 type View = 'grid' | 'seasons' | 'episodes'
@@ -13,6 +13,8 @@ export default function ShowsPage() {
   const { setDetailItemId, setPlayingItem } = useStore()
   const [sort, setSort] = useState('SortName')
   const [plexSource, setPlexSource] = useState(false)
+  const { cardSize = 'medium' } = useStore() as any
+  const cardMin = cardSize === 'small' ? 90 : cardSize === 'large' ? 180 : 130
   const [order, setOrder] = useState('Ascending')
   const [genre, setGenre] = useState('')
   const [start, setStart] = useState(0)
@@ -95,7 +97,7 @@ export default function ShowsPage() {
 
         {fetchingSeasons
           ? <div className="flex justify-center py-16"><div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} /></div>
-          : <div className="grid gap-4 p-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+          : <div className="grid gap-4 p-6" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardMin}px, 28vw), 1fr))` }}>
               {(seasons as MediaItem[]).map(season => (
                 <MediaCard key={season.id} item={season} width={130}
                   onClick={() => { setSelectedSeason(season); setView('episodes') }} />
@@ -189,7 +191,7 @@ export default function ShowsPage() {
           </select>
         </div>
       </div>
-      <div className="grid gap-4 pb-12" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', padding: '0 var(--pad) 48px' }}>
+      <div className="grid gap-4 pb-12" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardMin}px, 28vw), 1fr))`, padding: '0 var(--pad) 80px' }}>
         {allItems.map(item => (
           <MediaCard key={item.id} item={item} width={130}
             onClick={() => { setSelectedShow(item); setView('seasons') }} />

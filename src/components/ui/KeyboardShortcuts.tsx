@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 
@@ -27,6 +28,7 @@ const SHORTCUTS = [
 ]
 
 export default function KeyboardShortcuts() {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {

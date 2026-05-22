@@ -186,7 +186,7 @@ body {
 
 /* ── Mobile responsive improvements ─────────────────────────────────────── */
 @media (max-width: 640px) {
-  :root { --pad: 16px; }
+  :root { --pad: 12px; }
 
   /* Bottom safe area for iPhone */
   .mobile-safe-bottom { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
@@ -256,6 +256,16 @@ body {
 [data-device="tv"] .text-2xl { font-size: 32px; }
 
 /* ── Phone: bigger touch targets ─────────────────────────────────────────── */
+[data-device="phone"] {
+  --pad: 12px;
+}
+
+/* Bottom nav clearance — all scrollable pages */
+[data-device="phone"] .h-full.overflow-y-auto,
+[data-device="phone"] [class*="overflow-y-auto"] {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 16px)) !important;
+}
+
 [data-device="phone"] button,
 [data-device="phone"] a {
   min-height: 40px;
@@ -272,4 +282,103 @@ video::cue {
   background-color: var(--sub-bg, rgba(0,0,0,0.7));
   font-family: var(--font-body);
   line-height: 1.5;
+}
+
+/* ── Fluent (Windows 11 inspired) ─────────────────────────────────────────── */
+[data-theme="fluent"] {
+  --bg: #0a0c10; --bg2: #12151c; --bg3: #1a1e28;
+  --accent: #0078d4; --accent2: #2899f5;
+  --cream: #e8edf8; --muted: rgba(232,237,248,0.45);
+  --subtle: rgba(0,120,212,0.07); --border: rgba(0,120,212,0.18); --border2: rgba(255,255,255,0.07);
+  --red: #f44747; --green: #4ec9b0; --blue: #9cdcfe; --orange: #ce9178;
+  --font-display: 'Segoe UI', 'Inter', sans-serif;
+  --font-body: 'Segoe UI', 'Inter', sans-serif;
+  --pad: 32px; --radius: 8px; --radius-lg: 16px;
+}
+
+/* ── Sakura (iOS / macOS inspired) ────────────────────────────────────────── */
+[data-theme="sakura"] {
+  --bg: #0e0a0f; --bg2: #170d1a; --bg3: #201326;
+  --accent: #ff6eb4; --accent2: #ff9ed0;
+  --cream: #fce8f5; --muted: rgba(252,232,245,0.4);
+  --subtle: rgba(255,110,180,0.06); --border: rgba(255,110,180,0.18); --border2: rgba(255,255,255,0.07);
+  --red: #ff6eb4; --green: #30d158; --blue: #32ade6; --orange: #ff9f0a;
+  --font-display: 'Bebas Neue', sans-serif; --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 12px; --radius-lg: 20px;
+}
+
+/* ── Amoled (pure dark, high contrast) ────────────────────────────────────── */
+[data-theme="amoled"] {
+  --bg: #000000; --bg2: #0a0a0a; --bg3: #111111;
+  --accent: #00e5ff; --accent2: #40efff;
+  --cream: #e0f7ff; --muted: rgba(224,247,255,0.4);
+  --subtle: rgba(0,229,255,0.05); --border: rgba(0,229,255,0.15); --border2: rgba(255,255,255,0.05);
+  --red: #ff1744; --green: #00e676; --blue: #00e5ff; --orange: #ff9100;
+  --font-display: 'Bebas Neue', sans-serif; --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 4px; --radius-lg: 8px;
+}
+
+/* ── Sunset (warm amber/orange) ────────────────────────────────────────────── */
+[data-theme="sunset"] {
+  --bg: #0d0906; --bg2: #180e08; --bg3: #22150c;
+  --accent: #ff8c42; --accent2: #ffac72;
+  --cream: #fef2e4; --muted: rgba(254,242,228,0.4);
+  --subtle: rgba(255,140,66,0.07); --border: rgba(255,140,66,0.18); --border2: rgba(255,255,255,0.07);
+  --red: #ff4136; --green: #2ecc71; --blue: #5dade2; --orange: #ff8c42;
+  --font-display: 'Bebas Neue', sans-serif; --font-body: 'Inter', sans-serif;
+  --pad: 32px; --radius: 6px; --radius-lg: 12px;
+}
+
+/* ── iOS 16 Dynamic Island style mini player (phone) ─────────────────────── */
+.dynamic-island {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  border-radius: 20px;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: auto;
+}
+
+/* ── Windows 11 Mica-style frosted panels ─────────────────────────────────── */
+.mica {
+  background: rgba(var(--bg-raw, 8,6,4), 0.6) !important;
+  backdrop-filter: blur(40px) saturate(1.6) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(1.6) !important;
+}
+
+/* ── Fluent-style focus ring (Windows 11) ─────────────────────────────────── */
+[data-theme="fluent"] button:focus-visible,
+[data-theme="fluent"] a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ── Springy button press (iOS style) ─────────────────────────────────────── */
+button:active, a:active {
+  transform: scale(0.97);
+  transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── Rounded corners for Sakura/Fluent (iOS/Win11 feel) ─────────────────── */
+[data-theme="sakura"] .media-card,
+[data-theme="fluent"] .media-card {
+  border-radius: var(--radius-lg) !important;
+}
+
+/* ── Frosted sidebar on Fluent ────────────────────────────────────────────── */
+[data-theme="fluent"] aside {
+  background: rgba(10,12,16,0.4) !important;
+  backdrop-filter: blur(60px) saturate(1.8) !important;
+  -webkit-backdrop-filter: blur(60px) saturate(1.8) !important;
 }

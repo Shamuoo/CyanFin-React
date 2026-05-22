@@ -55,6 +55,10 @@ interface AppState {
   resumeThreshold: number      // % watched before showing as "resume" (default 5)
   showClock: boolean           // show clock in nav
   compactMode: boolean
+  cardSize: 'small' | 'medium' | 'large'
+  listView: boolean
+  maxBitrate: number
+  fontStyle: 'default' | 'rounded' | 'mono' | 'serif'
   subtitleSize: number
   subtitleColor: string
   subtitleBg: boolean
@@ -117,6 +121,10 @@ export const useStore = create<AppState>()(
       resumeThreshold: 5,
       showClock: false,
       compactMode: false,
+      cardSize: 'medium',
+      maxBitrate: 0,  // 0 = no limit, otherwise Mbps
+      listView: false,
+      fontStyle: 'default',
       subtitleSize: 100,      // % of default
       subtitleColor: '#ffffff',
       subtitleBg: true,       // dark background behind subs

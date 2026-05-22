@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import SearchFilter from '@/components/ui/SearchFilter'
 import { useStore } from '@/lib/store'
+import SearchFilter from '@/components/ui/SearchFilter'
 import MediaCard from '@/components/ui/MediaCard'
 import type { MediaItem } from '@/types'
 
 export default function MoviesPage() {
   const { setDetailItemId } = useStore()
   const [sort, setSort] = useState('SortName')
+  const [genreFilter, setGenreFilter] = useState('')
   const [plexSource, setPlexSource] = useState(false)
+  const { cardSize = 'medium' } = useStore() as any
+  const cardMin = cardSize === 'small' ? 90 : cardSize === 'large' ? 180 : 130
   const [order, setOrder] = useState('Ascending')
   const [genre, setGenre] = useState('')
   const [start, setStart] = useState(0)
@@ -63,7 +66,18 @@ export default function MoviesPage() {
           </select>
         </div>
       </div>
-      <div className="grid gap-4 pb-12" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', padding: '0 var(--pad) 48px' }}>
+      {/* Quick genre pills */}
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-3 px-4 md:px-0" style={{ padding: '0 var(--pad) 12px' }}>
+        {['','Action','Comedy','Drama','Horror','Sci-Fi','Thriller','Documentary','Animation','Fantasy'].map(g => (
+          <button key={g} onClick={() => setGenreFilter(g)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all"
+            style={{ background: genreFilter === g ? 'var(--accent)' : 'var(--subtle)', color: genreFilter === g ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${genreFilter === g ? 'transparent' : 'var(--border2)'}` }}>
+            {g || 'All'}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-4 pb-12" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardMin}px, 28vw), 1fr))`, padding: '0 var(--pad) 80px' }}>
         {allItems.map(item => <MediaCard key={item.id} item={item} onClick={() => setDetailItemId(item.id)} width={130} />)}
       </div>
       {isFetching && <div className="flex justify-center py-6"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border2)', borderTopColor: 'var(--accent)' }} /></div>}
