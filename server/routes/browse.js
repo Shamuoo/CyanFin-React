@@ -164,6 +164,78 @@ async function handleBrowse(pathname, query, session) {
     } catch { return { rows: [] }; }
   }
 
+
+  // ── People directory ─────────────────────────────────────────────────────────
+  if (pathname === '/api/people') {
+    const { limit = '60', q = '' } = query;
+    const url = `/Persons?Limit=${limit}${q ? `&SearchTerm=${encodeURIComponent(q)}` : ''}&SortBy=SortName&fields=PrimaryImageAspectRatio,Overview`;
+    const data = await jf.get(url, token);
+    return (data.Items || []).map(p => ({
+      id: p.Id, name: p.Name, type: p.Type || 'Person',
+      imageUrl: p.PrimaryImageTag ? `/proxy/image?id=${p.Id}&type=Primary&w=200` : null,
+      overview: p.Overview || null,
+    }));
+  }
+
+  // ── Studios ───────────────────────────────────────────────────────────────────
+  if (pathname === '/api/studios') {
+    const data = await jf.get(`/Studios?UserId=${userId}&Limit=40&SortBy=SortName`, token);
+    return (data.Items || []).map(s => ({
+      id: s.Id, name: s.Name,
+      imageUrl: s.PrimaryImageTag ? `/proxy/image?id=${s.Id}&type=Primary&w=200` : null,
+    }));
+  }
+
+  // ── Studio content ────────────────────────────────────────────────────────────
+  if (pathname.match(/^\/api\/studios\/[^/]+\/items$/)) {
+    const studioId = pathname.split('/')[3];
+    const data = await jf.get(
+      `/Users/${userId}/Items?StudioIds=${studioId}&Recursive=true&IncludeItemTypes=Movie,Series&Limit=50&SortBy=SortName&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  // ── TMDB Trending (filter to owned) ──────────────────────────────────────────
+  if (pathname === '/api/trending') {
+    const cfg = require('../config');
+    const tmdbKey = cfg.get('TMDB_API_KEY');
+    if (!tmdbKey) return [];
+    const https = require('https');
+    const tmdbData = await new Promise(resolve => {
+      const req = https.request({
+        hostname: 'api.themoviedb.org',
+        path: `/3/trending/all/week?api_key=${tmdbKey}`,
+        method: 'GET', timeout: 8000,
+      }, res => {
+        let d = ''; res.on('data', c => d += c);
+        res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve({}); } });
+      });
+      req.on('error', () => resolve({}));
+      req.on('timeout', () => { req.destroy(); resolve({}); });
+      req.end();
+    });
+    const titles = (tmdbData.results || []).map(t => t.title || t.name).filter(Boolean);
+    if (!titles.length) return [];
+    // Search each trending item in Jellyfin library
+    const found = await Promise.all(titles.slice(0, 10).map(title =>
+      jf.get(`/Users/${userId}/Items?SearchTerm=${encodeURIComponent(title)}&Recursive=true&IncludeItemTypes=Movie,Series&Limit=1&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags`, token)
+        .then(d => d.Items?.[0] ? mapItem(d.Items[0], token) : null)
+        .catch(() => null)
+    ));
+    return found.filter(Boolean);
+  }
+
+  // ── Random unwatched movie ────────────────────────────────────────────────────
+  if (pathname === '/api/random-unwatched') {
+    const data = await jf.get(
+      `/Users/${userId}/Items?Filters=IsUnplayed&IncludeItemTypes=Movie&Recursive=true&SortBy=Random&Limit=1&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
+      token
+    );
+    const item = data.Items?.[0];
+    return item ? mapItem(item, token) : null;
+  }
+
   // ── Watch history ──────────────────────────────────────────────────────────────
   if (pathname === '/api/watch-history') {
     const limit = parseInt(query.limit || '100');

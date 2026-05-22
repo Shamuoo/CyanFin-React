@@ -98,6 +98,14 @@ class ApiClient {
 
   // ── Browse ─────────────────────────────────────────────────────────────────
   recentlyAdded() { return this.get<MediaItem[]>('/api/recently-added') }
+  people(q = '') { return this.get<any[]>(`/api/people?q=${encodeURIComponent(q)}`) }
+  studios() { return this.get<any[]>('/api/studios') }
+  studioItems(id: string) { return this.get<any[]>(`/api/studios/${id}/items`) }
+  trending() { return this.get<any[]>('/api/trending') }
+  randomUnwatched() { return this.get<any>('/api/random-unwatched') }
+  changelog() { return this.get<any>('/api/changelog') }
+  libRefreshAll() { return this.post('/api/library/refresh-all', {}) }
+
   watchHistory(limit = 100) { return this.get<any[]>(`/api/watch-history?limit=${limit}`) }
   searchFilter(params: Record<string,string>) {
     const q = new URLSearchParams(params).toString()
@@ -203,7 +211,6 @@ class ApiClient {
   allServerLibraries() { return this.get<any>('/api/library/all-servers') }
   libRefreshAllMeta() { return this.get('/api/library/refresh-all-metadata') }
   libRefreshAllImages() { return this.get('/api/library/refresh-all-images') }
-  libRefreshAll() { return this.get('/api/library/scan') }
   libRefreshMeta(id: string) { return this.get(`/api/library/refresh-metadata?id=${id}`) }
   libRefreshImages(id: string) { return this.get(`/api/library/refresh-images?id=${id}`) }
   libAiFix(itemId: string) { return this.post('/api/library/ai-autofix', { itemId }) }

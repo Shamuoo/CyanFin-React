@@ -255,6 +255,13 @@ async function handleLibrary(pathname, query, session, req) {
     };
   }
 
+  // ── Trigger library refresh ──────────────────────────────────────────────────
+  if (pathname === '/api/library/refresh-all') {
+    const sm = require('../serverManager');
+    await jf.post('/Library/Refresh', {}, token).catch(() => {});
+    return { ok: true, message: 'Library scan triggered' };
+  }
+
   if (pathname === '/api/library/quality-report') {
     const data = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=300&fields=MediaStreams,ProductionYear&SortBy=SortName`, token);
     const qOrder = ['4K', '1080p', '720p', '480p', 'SD'];

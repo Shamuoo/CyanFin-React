@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.18.4';
+const VERSION = '0.18.5';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -612,7 +612,7 @@ async function handler(req, res) {
       if (itemsResult !== null) return json(res, itemsResult);
 
       // Stats
-      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname === '/api/servers/all' || pathname === '/api/servers/speedtest' || pathname === '/api/active-sessions') {
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname === '/api/servers/all' || pathname === '/api/servers/speedtest' || pathname === '/api/active-sessions' || pathname === '/api/changelog') {
         const statsResult = await handleStats(pathname, parsed.query, session);
         if (statsResult !== null) return json(res, statsResult);
       }

@@ -221,6 +221,36 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <p className="text-[8px] mt-1" style={{ color: 'var(--muted)', opacity: 0.4 }}>Shown as a subtle overlay behind all content</p>
               </div>
 
+              <SectionTitle>Content Rating Filter</SectionTitle>
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[['','All'],['G','G'],['PG','PG'],['PG-13','PG-13'],['R','R'],['NC-17','NC-17']].map(([v,l]) => (
+                  <button key={v} onClick={() => store.setSetting('ageFilter' as any, v)}
+                    className="px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wide transition-all"
+                    style={{ background: (store as any).ageFilter === v ? 'var(--accent)' : 'var(--subtle)', color: (store as any).ageFilter === v ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).ageFilter === v ? 'transparent' : 'var(--border2)'}` }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[8px] mb-4" style={{ color: 'var(--muted)', opacity: 0.4 }}>
+                Hides content rated above the selected level. Applied to all browse queries.
+              </p>
+
+              <SectionTitle>Sidebar Width</SectionTitle>
+              <div className="flex items-center gap-3 mb-4">
+                <input type="range" min="140" max="280" step="10"
+                  value={(store as any).sidebarWidth || 200}
+                  onChange={e => store.setSetting('sidebarWidth' as any, parseInt(e.target.value))}
+                  className="flex-1" style={{ accentColor: 'var(--accent)' }} />
+                <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--muted)' }}>{(store as any).sidebarWidth || 200}px</span>
+              </div>
+
+              <SectionTitle>Custom CSS</SectionTitle>
+              <textarea value={(store as any).customCSS || ''}
+                onChange={e => store.setSetting('customCSS' as any, e.target.value)}
+                placeholder="/* Your custom styles here */"
+                className="w-full h-24 px-3 py-2 rounded-lg text-[10px] font-mono outline-none resize-none mb-4"
+                style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
+
               <SectionTitle>Font Style</SectionTitle>
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[['default','Default'],['rounded','Rounded'],['mono','Mono'],['serif','Serif']].map(([id,label]) => (

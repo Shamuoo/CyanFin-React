@@ -25,6 +25,7 @@ const ALL_SECTIONS = [
   { key: 'scifi',       label: 'Sci-Fi',               query: () => api.movies({ genre: 'Science Fiction', limit: 20 }).then(r => r.items || []) },
   { key: 'horror',      label: 'Horror',               query: () => api.movies({ genre: 'Horror',   limit: 20 }).then(r => r.items || []) },
   { key: 'documentary', label: 'Documentaries',        query: () => api.movies({ genre: 'Documentary', limit: 20 }).then(r => r.items || []) },
+  { key: 'trending',    label: 'Trending This Week',  query: () => api.trending() },
   { key: 'because',     label: 'Because You Watched', query: async () => {
       const d = await api.get<any>('/api/because-you-watched')
       return d.rows?.[0]?.items || []

@@ -1,4 +1,4 @@
-import { useEffect, Component, type ReactNode } from 'react'
+import { useEffect, useState, Component, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useStore } from '@/lib/store'
@@ -21,6 +21,8 @@ import UpcomingPage from '@/pages/UpcomingPage'
 import PersonPage from '@/pages/PersonPage'
 import CollectionsPage from '@/pages/CollectionsPage'
 import HistoryPage from '@/pages/HistoryPage'
+import PeoplePage from '@/pages/PeoplePage'
+import StudiosPage from '@/pages/StudiosPage'
 import DownloadsPage from '@/pages/DownloadsPage'
 import PlayerPage from '@/pages/PlayerPage'
 
@@ -121,6 +123,30 @@ function Spinner() {
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
+function ChangelogModal({ onClose }: { onClose: () => void }) {
+  const { data } = useQuery({ queryKey: ['changelog'], queryFn: () => api.changelog(), staleTime: Infinity })
+  const cl = (data as any)?.changelog || ''
+  const lines = cl.split('\n').slice(0, 40)
+  return (
+    <div className="fixed inset-0 z-[500] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border2)' }}>
+          <p className="text-sm font-bold" style={{ color: 'var(--cream)' }}>What's New</p>
+          <button onClick={onClose} style={{ color: 'var(--muted)' }}>✕</button>
+        </div>
+        <div className="px-5 py-4 overflow-y-auto max-h-80 text-xs space-y-1" style={{ color: 'var(--muted)' }}>
+          {lines.map((l: string, i: number) => (
+            <p key={i} style={{ color: l.startsWith('##') ? 'var(--accent)' : l.startsWith('-') ? 'var(--cream)' : 'var(--muted)' }}>{l}</p>
+          ))}
+        </div>
+        <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border2)' }}>
+          <button onClick={onClose} className="w-full py-2 rounded-full text-xs font-bold" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>Got it</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -152,6 +178,8 @@ export default function App() {
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
+                  <Route path="/people" element={<ErrorBoundary><PeoplePage /></ErrorBoundary>} />
+                  <Route path="/studios" element={<ErrorBoundary><StudiosPage /></ErrorBoundary>} />
                   <Route path="/history" element={<ErrorBoundary><HistoryPage /></ErrorBoundary>} />
                   <Route path="/collections" element={<ErrorBoundary><CollectionsPage /></ErrorBoundary>} />
                   <Route path="/downloads" element={<ErrorBoundary><DownloadsPage /></ErrorBoundary>} />

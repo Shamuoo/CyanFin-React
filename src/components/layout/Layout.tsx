@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2,
-         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
+         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -35,6 +35,7 @@ export default function Layout() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const { sidebarWidth = 200 } = useStore() as any
   const { isTV, isPhone } = useDevice()
 
   useDpadNavigation(isTV)
@@ -76,6 +77,8 @@ export default function Layout() {
     ...(showMusic ? [{ to: '/music', icon: Music, label: 'Music' }] : []),
     { to: '/collections', icon: Star,      label: 'Collections' },
     { to: '/history',     icon: Clock,      label: 'History' },
+    { to: '/people',      icon: Users,      label: 'People' },
+    { to: '/studios',     icon: Building2,  label: 'Studios' },
     { to: '/downloads',  icon: Download,   label: 'Downloads' },
   ]
   const adminLinks = [
@@ -185,7 +188,7 @@ export default function Layout() {
   }
 
   // ── Desktop Layout: collapsible left sidebar ───────────────────────────────
-  const W = collapsed ? 60 : 200
+  const W = collapsed ? 60 : sidebarWidth
 
   return (
     <div className="h-screen flex overflow-hidden" style={{ background: 'var(--bg)', position: 'relative' }}>

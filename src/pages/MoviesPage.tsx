@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { toast } from '@/components/ui/Toast'
 import { useStore } from '@/lib/store'
 import SearchFilter from '@/components/ui/SearchFilter'
 import MediaCard from '@/components/ui/MediaCard'
 import type { MediaItem } from '@/types'
 
 export default function MoviesPage() {
-  const { setDetailItemId } = useStore()
+  const { setDetailItemId, cardSize = 'medium' } = useStore() as any
   const [sort, setSort] = useState('SortName')
   const [genreFilter, setGenreFilter] = useState('')
   const [plexSource, setPlexSource] = useState(false)
-  const { cardSize = 'medium' } = useStore() as any
   const cardMin = cardSize === 'small' ? 90 : cardSize === 'large' ? 180 : 130
   const [order, setOrder] = useState('Ascending')
   const [genre, setGenre] = useState('')

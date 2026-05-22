@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useStore } from '@/lib/store'
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
-  const { theme, layout, pureBlack, accentColor, fontStyle } = useStore() as any
+  const { theme, layout, pureBlack, accentColor, fontStyle, customCSS } = useStore() as any
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -16,6 +16,10 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
       serif:   "'Georgia', serif",
     }
     document.documentElement.style.setProperty('--font-body', fonts[fontStyle || 'default'])
+    // Custom CSS injection
+    let styleTag = document.getElementById('cf-custom-css') as HTMLStyleElement
+    if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = 'cf-custom-css'; document.head.appendChild(styleTag) }
+    styleTag.textContent = customCSS || ''
     // Custom accent colour
     if (accentColor) {
       document.documentElement.style.setProperty('--accent', accentColor)
@@ -26,7 +30,7 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
       document.documentElement.style.removeProperty('--accent2')
       document.documentElement.style.removeProperty('--border')
     }
-  }, [theme, layout, pureBlack, accentColor, fontStyle])
+  }, [theme, layout, pureBlack, accentColor, fontStyle, customCSS])
 
   return <>{children}</>
 }

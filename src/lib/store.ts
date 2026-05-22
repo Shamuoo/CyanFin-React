@@ -58,6 +58,9 @@ interface AppState {
   cardSize: 'small' | 'medium' | 'large'
   listView: boolean
   maxBitrate: number
+  customCSS: string
+  sidebarWidth: number
+  ageFilter: string
   fontStyle: 'default' | 'rounded' | 'mono' | 'serif'
   subtitleSize: number
   subtitleColor: string
@@ -122,7 +125,10 @@ export const useStore = create<AppState>()(
       showClock: false,
       compactMode: false,
       cardSize: 'medium',
-      maxBitrate: 0,  // 0 = no limit, otherwise Mbps
+      maxBitrate: 0,
+      customCSS: '',
+      sidebarWidth: 200,
+      ageFilter: '',  // 0 = no limit, otherwise Mbps
       listView: false,
       fontStyle: 'default',
       subtitleSize: 100,      // % of default
