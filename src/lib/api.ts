@@ -98,7 +98,7 @@ class ApiClient {
 
   // ── Browse ─────────────────────────────────────────────────────────────────
   recentlyAdded() { return this.get<MediaItem[]>('/api/recently-added') }
-  people(q = '') { return this.get<any[]>(`/api/people?q=${encodeURIComponent(q)}`) }
+  people(q = '', limit = 200, startIndex = 0) { return this.get<any>(`/api/people?q=${encodeURIComponent(q)}&limit=${limit}&startIndex=${startIndex}`) }
   studios() { return this.get<any[]>('/api/studios') }
   studioItems(id: string) { return this.get<any[]>(`/api/studios/${id}/items`) }
   trending() { return this.get<any[]>('/api/trending') }

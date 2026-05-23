@@ -167,22 +167,28 @@ async function handleBrowse(pathname, query, session) {
 
   // ── People directory ─────────────────────────────────────────────────────────
   if (pathname === '/api/people') {
-    const { limit = '60', q = '' } = query;
-    const url = `/Persons?Limit=${limit}${q ? `&SearchTerm=${encodeURIComponent(q)}` : ''}&SortBy=SortName&fields=PrimaryImageAspectRatio,Overview`;
+    const { limit = '200', q = '', startIndex = '0' } = query;
+    const url = `/Persons?Limit=${limit}&StartIndex=${startIndex}${q ? `&SearchTerm=${encodeURIComponent(q)}` : ''}&SortBy=SortName&fields=PrimaryImageAspectRatio,Overview`;
     const data = await jf.get(url, token);
-    return (data.Items || []).map(p => ({
-      id: p.Id, name: p.Name, type: p.Type || 'Person',
-      imageUrl: p.PrimaryImageTag ? `/proxy/image?id=${p.Id}&type=Primary&w=200` : null,
-      overview: p.Overview || null,
-    }));
+    return {
+      items: (data.Items || []).map(p => ({
+        id: p.Id, name: p.Name, type: p.Type || 'Person',
+        imageUrl: p.PrimaryImageTag ? `/proxy/image?id=${p.Id}&type=Primary&w=300` : null,
+        overview: p.Overview || null,
+      })),
+      total: data.TotalRecordCount || 0,
+    };
   }
 
   // ── Studios ───────────────────────────────────────────────────────────────────
   if (pathname === '/api/studios') {
-    const data = await jf.get(`/Studios?UserId=${userId}&Limit=40&SortBy=SortName`, token);
+    const data = await jf.get(`/Studios?UserId=${userId}&Limit=200&SortBy=SortName`, token);
     return (data.Items || []).map(s => ({
       id: s.Id, name: s.Name,
-      imageUrl: s.PrimaryImageTag ? `/proxy/image?id=${s.Id}&type=Primary&w=200` : null,
+      // Try logo image first, then thumb, then primary
+      logoUrl:   s.ImageTags?.Logo  ? `/proxy/image?id=${s.Id}&type=Logo&w=300` : null,
+      thumbUrl:  s.ImageTags?.Thumb ? `/proxy/image?id=${s.Id}&type=Thumb&w=300` : null,
+      imageUrl:  s.PrimaryImageTag  ? `/proxy/image?id=${s.Id}&type=Primary&w=300` : null,
     }));
   }
 

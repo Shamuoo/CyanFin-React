@@ -33,8 +33,24 @@ const ALL_SECTIONS = [
   { key: 'random',      label: 'Random Pick',          query: () => api.random() },
 ]
 
-const DEFAULT_ORDER = ALL_SECTIONS.map(s => s.key)
-const DEFAULT_HIDDEN: string[] = []
+// Fixed rows always shown first, genre rows randomised
+const FIXED_TOP = ['nextup','continue','because','newmovies','recent']
+const FIXED_BOTTOM = ['history','random','best3d']
+const GENRE_ROWS = ALL_SECTIONS.map(s => s.key).filter(k => !FIXED_TOP.includes(k) && !FIXED_BOTTOM.includes(k))
+
+function shuffleOnce<T>(arr: T[], seed = 1): T[] {
+  // Deterministic daily shuffle so it changes each day but is consistent per session
+  const day = Math.floor(Date.now() / 86_400_000)
+  let s = seed + day
+  return [...arr].sort(() => { s ^= s << 13; s ^= s >> 7; s ^= s << 17; return (s % 3) - 1 })
+}
+
+const DEFAULT_ORDER = [
+  ...FIXED_TOP,
+  ...shuffleOnce(GENRE_ROWS),
+  ...FIXED_BOTTOM,
+]
+const DEFAULT_HIDDEN = ['best3d','thriller','animation']
 
 export default function HomePage() {
   const { setDetailItemId, setPlayingItem, homeSectionOrder, homeSectionHidden, setHomeSections } = useStore()
@@ -60,8 +76,7 @@ export default function HomePage() {
 
   // Hero
   const { data: heroRecent } = useQuery({ queryKey: ['hero-recent'], queryFn: () => api.recentlyAdded(), staleTime: 60_000 })
-  const { data: heroPopular } = useQuery({ queryKey: ['hero-popular'], queryFn: () => api.popular(), staleTime: 60_000 })
-  const heroItems = [...(heroRecent || []), ...(heroPopular || [])].filter(i => i.backdropUrl).filter((v,i,a) => a.findIndex(x => x.id === v.id) === i).slice(0, 8)
+  const heroItems = (heroRecent as any[] || []).filter((i: any) => i.backdropUrl).slice(0, 8)
   const [heroIdx, setHeroIdx] = useState(0)
   useEffect(() => {
     if (heroItems.length <= 1) return
