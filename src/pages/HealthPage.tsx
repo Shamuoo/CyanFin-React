@@ -125,6 +125,12 @@ export default function HealthPage() {
   })
 
   const [speedTesting, setSpeedTesting] = useState(false)
+  const { data: adminSess } = useQuery({
+    queryKey: ['admin-sessions'],
+    queryFn: () => api.adminSessions(),
+    refetchInterval: 15_000, staleTime: 10_000,
+  })
+
   const { data: allServers, refetch: refetchAll } = useQuery({
     queryKey: ['all-servers'],
     queryFn: () => api.get<any>('/api/servers/all'),

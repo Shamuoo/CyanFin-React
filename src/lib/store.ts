@@ -58,7 +58,9 @@ interface AppState {
   cardSize: 'small' | 'medium' | 'large'
   listView: boolean
   maxBitrate: number
+  preferredSubLang: string
   customCSS: string
+  heroStyle: 'cinematic' | 'minimal' | 'spotlight'
   sidebarWidth: number
   ageFilter: string
   fontStyle: 'default' | 'rounded' | 'mono' | 'serif'
@@ -126,7 +128,9 @@ export const useStore = create<AppState>()(
       compactMode: false,
       cardSize: 'medium',
       maxBitrate: 0,
+      preferredSubLang: '',  // e.g. 'eng' — auto-select this subtitle language
       customCSS: '',
+      heroStyle: 'cinematic' as 'cinematic' | 'minimal' | 'spotlight',
       sidebarWidth: 200,
       ageFilter: '',  // 0 = no limit, otherwise Mbps
       listView: false,

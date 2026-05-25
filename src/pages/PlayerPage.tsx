@@ -20,7 +20,7 @@ type Panel = 'none' | 'subtitles' | 'chapters'
 
 export default function PlayerPage() {
   const { playingItem, setPlayingItem } = useStore()
-  const { skipLength = 10, autoplayNext = true, subtitleSize = 100, subtitleColor = '#ffffff', subtitleBg = true } = useStore() as any
+  const { skipLength = 10, autoplayNext = true, subtitleSize = 100, subtitleColor = '#ffffff', subtitleBg = true, preferredSubLang = '' } = useStore() as any
   const navigate = useNavigate()
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -91,6 +91,9 @@ export default function PlayerPage() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const [trickplayPos, setTrickplayPos] = useState<{ x: number; time: number } | null>(null)
   const [trickplayAvailable, setTrickplayAvailable] = useState(false)
+  const [qualityMenu, setQualityMenu] = useState(false)
+  const [introData, setIntroData] = useState<{ IntroStart?: number; IntroEnd?: number } | null>(null)
+  const [showSkipIntro, setShowSkipIntro] = useState(false)
   const currentChapter = chapters.find((ch, i) => {
     const start = ch.startPositionTicks / 10_000_000
     const next = chapters[i+1]?.startPositionTicks / 10_000_000 || Infinity
@@ -198,6 +201,12 @@ export default function PlayerPage() {
     if (!playingItem?.id) return
 
     if (videoRef.current) videoRef.current.playbackRate = playbackSpeed
+    // Fetch intro timestamps
+    fetch(`/api/items/${playingItem.id}/intro-skip`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { if (d?.IntroEnd) setIntroData(d) })
+      .catch(() => {})
+
     // Check trickplay
     fetch(`/api/trickplay?id=${playingItem.id}`, { credentials: 'include' })
       .then(r => r.json())
@@ -368,6 +377,7 @@ export default function PlayerPage() {
           isPaused: video.paused,
           isMuted: video.muted,
           volumeLevel: Math.round(video.volume * 100),
+          playbackRate: video.playbackRate,
         }),
       }).catch(() => {})
     }, 10_000)
@@ -382,6 +392,7 @@ export default function PlayerPage() {
         body: JSON.stringify({
           itemId, mediaSourceId,
           positionTicks: Math.round((video?.currentTime || 0) * 10_000_000),
+          runtimeTicks: Math.round((video?.duration || 0) * 10_000_000),
         }),
       }).catch(() => {})
     }
@@ -565,6 +576,19 @@ export default function PlayerPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Skip intro button */}
+      {showSkipIntro && introData?.IntroEnd && (
+        <button
+          onClick={() => { if (videoRef.current) videoRef.current.currentTime = introData!.IntroEnd! }}
+          className="absolute right-8 font-bold uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
+          style={{ bottom: 120, zIndex: 20, padding: '10px 24px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.3)', color: 'white', fontSize: 13,
+            letterSpacing: '0.12em', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}>
+          Skip Intro →
+        </button>
+      )}
 
       {/* Controls overlay */}
       <div className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}

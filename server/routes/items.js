@@ -219,7 +219,7 @@ async function handleItems(pathname, query, session, req) {
       return { ok: true };
     }
   }
-  if (false && pathname === '/api/playback/start' && req.method === 'POST') {
+  if (pathname === '/api/playback/start' && req.method === 'POST') {
     const { itemId, mediaSourceId, positionTicks = 0, audioStreamIndex, subtitleStreamIndex } = req._body || {};
     if (!itemId) return { error: 'No itemId' };
     await jf.post('/Sessions/Playing', {
@@ -227,6 +227,8 @@ async function handleItems(pathname, query, session, req) {
       PositionTicks: positionTicks, IsPaused: false, IsMuted: false,
       AudioStreamIndex: audioStreamIndex, SubtitleStreamIndex: subtitleStreamIndex,
       PlayMethod: 'DirectPlay', RepeatMode: 'RepeatNone',
+      PlaySessionId: `cyanfin-${session.userId}-${Date.now()}`,
+      CanSeek: true, BufferedRanges: [],
     }, token).catch(() => {});
     return { ok: true };
   }
@@ -245,12 +247,16 @@ async function handleItems(pathname, query, session, req) {
   }
 
   if (pathname === '/api/playback/stop' && req.method === 'POST') {
-    const { itemId, mediaSourceId, positionTicks = 0 } = req._body || {};
+    const { itemId, mediaSourceId, positionTicks = 0, runtimeTicks = 0 } = req._body || {};
     if (!itemId) return { error: 'No itemId' };
     await jf.post('/Sessions/Playing/Stopped', {
       ItemId: itemId, MediaSourceId: mediaSourceId,
       PositionTicks: positionTicks, PlayMethod: 'DirectPlay',
     }, token).catch(() => {});
+    // Auto-mark as played if watched >85%
+    if (runtimeTicks && positionTicks / runtimeTicks > 0.85) {
+      await jf.post(`/Users/${userId}/PlayedItems/${itemId}`, {}, token).catch(() => {});
+    }
     return { ok: true };
   }
 

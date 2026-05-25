@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { useStore } from '@/lib/store'
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -25,6 +26,13 @@ function BarRow({ label, value, max, color = 'var(--accent)' }: { label: string;
 }
 
 export default function StatsPage() {
+  const { city = 'Sydney', showWeather } = useStore() as any
+  const { data: weather } = useQuery({
+    queryKey: ['weather-stats', city],
+    queryFn: () => api.weather(city),
+    enabled: !!showWeather, staleTime: 15 * 60_000,
+  })
+
   const { data: activity } = useQuery({
     queryKey: ['active-sessions'],
     queryFn: () => api.activeSessions(),
@@ -81,6 +89,25 @@ export default function StatsPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Weather */}
+      {showWeather && (weather as any) && (
+        <div className="px-4 mb-4">
+          <div className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: 'var(--bg2)', border: '1px solid var(--border2)' }}>
+            <div className="text-4xl">{(weather as any).emoji || '🌤'}</div>
+            <div>
+              <p className="text-2xl font-bold" style={{ color: 'var(--cream)' }}>{(weather as any).temp}°</p>
+              <p className="text-xs capitalize" style={{ color: 'var(--muted)' }}>{(weather as any).description}</p>
+              <p className="text-[9px] opacity-40" style={{ color: 'var(--muted)' }}>{city}</p>
+            </div>
+            <div className="ml-auto text-right">
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>H {(weather as any).high}° · L {(weather as any).low}°</p>
+              <p className="text-[9px] opacity-40" style={{ color: 'var(--muted)' }}>Wind {(weather as any).wind} km/h</p>
+            </div>
           </div>
         </div>
       )}

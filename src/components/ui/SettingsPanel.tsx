@@ -235,6 +235,17 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 Hides content rated above the selected level. Applied to all browse queries.
               </p>
 
+              <SectionTitle>Home Hero Style</SectionTitle>
+              <div className="flex gap-2 mb-4">
+                {([['cinematic','🎬 Cinematic'],['minimal','◻ Minimal'],['spotlight','✦ Spotlight']] as const).map(([id,label]) => (
+                  <button key={id} onClick={() => store.setSetting('heroStyle' as any, id)}
+                    className="flex-1 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wide transition-all"
+                    style={{ background: (store as any).heroStyle === id ? 'var(--accent)' : 'var(--subtle)', color: (store as any).heroStyle === id ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).heroStyle === id ? 'transparent' : 'var(--border2)'}` }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
               <SectionTitle>Sidebar Width</SectionTitle>
               <div className="flex items-center gap-3 mb-4">
                 <input type="range" min="140" max="280" step="10"
@@ -352,6 +363,17 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                   <span className="absolute top-0.5 rounded-full transition-all"
                     style={{ width: 18, height: 18, background: 'white', left: (store as any).autoplayNext ? 20 : 2 }} />
                 </button>
+              </div>
+
+              <SectionTitle>Preferred Subtitle Language</SectionTitle>
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[['','None'],['eng','English'],['fre','French'],['ger','German'],['spa','Spanish'],['jpn','Japanese'],['kor','Korean']].map(([v,l]) => (
+                  <button key={v} onClick={() => store.setSetting('preferredSubLang' as any, v)}
+                    className="px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wide"
+                    style={{ background: (store as any).preferredSubLang === v ? 'var(--accent)' : 'var(--subtle)', color: (store as any).preferredSubLang === v ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).preferredSubLang === v ? 'transparent' : 'var(--border2)'}` }}>
+                    {l}
+                  </button>
+                ))}
               </div>
 
               <SectionTitle>Max Streaming Quality</SectionTitle>

@@ -120,6 +120,12 @@ class ApiClient {
   popular() { return this.get<MediaItem[]>('/api/popular') }
   history() { return this.get<MediaItem[]>('/api/history') }
   random() { return this.get<MediaItem[]>('/api/random') }
+  playlists() { return this.get<any[]>('/api/playlists') }
+  playlistItems(id: string) { return this.get<any[]>(`/api/playlists/${id}/items`) }
+  createPlaylist(name: string, ids: string[] = []) { return this.post<any>('/api/playlists/create', { name, ids }) }
+  addToPlaylist(id: string, ids: string[]) { return this.post<any>(`/api/playlists/${id}/add`, { ids }) }
+  removeFromPlaylist(id: string, ids: string[]) { return this.post<any>(`/api/playlists/${id}/remove`, { ids }) }
+  lyrics(id: string) { return this.get<any>(`/api/items/${id}/lyrics`) }
   instantMix(id: string) { return this.get<any[]>(`/api/items/${id}/instant-mix`) }
   similar(id: string) { return this.get<MediaItem[]>(`/api/items/${id}/similar`) }
   trailer(tmdbId: string, type = 'movie') { return this.get<{ trailerKey: string | null }>(`/api/trailer?tmdbId=${tmdbId}&type=${type}`) }
@@ -183,6 +189,8 @@ class ApiClient {
 
   // ── Stats & Health ────────────────────────────────────────────────────────
   health() { return this.get('/api/health') }
+  adminUsers() { return this.get<any>('/api/admin/users') }
+  adminSessions() { return this.get<any>('/api/admin/sessions') }
   activeSessions() { return this.get<any>('/api/active-sessions') }
   systemStats() { return this.get('/api/system-stats') }
   watchTime() { return this.get('/api/stats/watch-time') }

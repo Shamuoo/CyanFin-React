@@ -242,6 +242,59 @@ async function handleBrowse(pathname, query, session) {
     return item ? mapItem(item, token) : null;
   }
 
+  // ── Playlists ─────────────────────────────────────────────────────────────────
+  if (pathname === '/api/playlists') {
+    const data = await jf.get(
+      `/Users/${userId}/Items?IncludeItemTypes=Playlist&Recursive=true&SortBy=SortName&fields=ChildCount,Overview,ImageTags`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  if (pathname.match(/^\/api\/playlists\/[^/]+\/items$/)) {
+    const plId = pathname.split('/')[3];
+    const data = await jf.get(
+      `/Playlists/${plId}/Items?UserId=${userId}&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags`,
+      token
+    );
+    return (data.Items || []).map(i => mapItem(i, token));
+  }
+
+  if (pathname === '/api/playlists/create' && req.method === 'POST') {
+    const { name, ids = [] } = req._body || {};
+    const result = await jf.post(
+      `/Playlists?Name=${encodeURIComponent(name)}&Ids=${ids.join(',')}&UserId=${userId}&MediaType=Unknown`,
+      {}, token
+    );
+    return { id: result.Id, success: true };
+  }
+
+  if (pathname.match(/^\/api\/playlists\/[^/]+\/add$/) && req.method === 'POST') {
+    const plId = pathname.split('/')[3];
+    const { ids = [] } = req._body || {};
+    await jf.post(`/Playlists/${plId}/Items?Ids=${ids.join(',')}&UserId=${userId}`, {}, token);
+    return { success: true };
+  }
+
+  if (pathname.match(/^\/api\/playlists\/[^/]+\/remove$/) && req.method === 'POST') {
+    const plId = pathname.split('/')[3];
+    const { ids = [] } = req._body || {};
+    await jf.del(`/Playlists/${plId}/Items?EntryIds=${ids.join(',')}&UserId=${userId}`, token);
+    return { success: true };
+  }
+
+  // ── Lyrics (Jellyfin .lrc sidecar) ──────────────────────────────────────────
+  if (pathname.match(/^\/api\/items\/[^/]+\/lyrics$/)) {
+    const trackId = pathname.split('/')[3];
+    try {
+      const data = await jf.get(`/Audio/${trackId}/Lyrics`, token);
+      // Returns {Lyrics:[{Start:ticks, Text:"line"},...]} or raw LRC text
+      return data;
+    } catch {
+      return { Lyrics: [] };
+    }
+  }
+
   // ── Watch history ──────────────────────────────────────────────────────────────
   if (pathname === '/api/watch-history') {
     const limit = parseInt(query.limit || '100');

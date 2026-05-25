@@ -148,9 +148,20 @@ function ChangelogModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function App() {
+  const [showChangelog, setShowChangelog] = useState(false)
+
+  useEffect(() => {
+    const VERSION = '0.18.6'
+    const seen = localStorage.getItem('cf_changelog_seen')
+    if (seen !== VERSION) {
+      setTimeout(() => setShowChangelog(true), 2000)
+      localStorage.setItem('cf_changelog_seen', VERSION)
+    }
+  }, [])
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
         <BrowserRouter>
           <ErrorBoundary>
             <Routes>
