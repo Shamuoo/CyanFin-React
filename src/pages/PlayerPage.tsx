@@ -18,6 +18,12 @@ type Chapter = { name: string; startPositionTicks: number }
 type SubStream = { index: number; title: string; language?: string; isDefault?: boolean }
 type Panel = 'none' | 'subtitles' | 'chapters'
 
+function formatTime(s: number) {
+  if (!s || isNaN(s)) return '0:00'
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = Math.floor(s % 60)
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`
+}
+
 export default function PlayerPage() {
   const { playingItem, setPlayingItem } = useStore()
   const { skipLength = 10, autoplayNext = true, subtitleSize = 100, subtitleColor = '#ffffff', subtitleBg = true, preferredSubLang = '' } = useStore() as any
@@ -51,10 +57,13 @@ export default function PlayerPage() {
   // Subtitles
   const [subtitleStreams, setSubtitleStreams] = useState<SubStream[]>([])
   const [activeSubIndex, setActiveSubIndex] = useState<number>(-1) // -1 = off
+  const [audioStreams, setAudioStreams] = useState<any[]>([])
+  const [selectedAudioIndex, setSelectedAudioIndex] = useState<number>(-1)
 
   // Next episode
   const [nextEpisode, setNextEpisode] = useState<MediaItem | null>(null)
   const [showNextCard, setShowNextCard] = useState(false)
+  const [nextCountdown, setNextCountdown] = useState<number | null>(null)
   const [subtitleOffset, setSubtitleOffset] = useState(0)  // ms offset
   const [speedMenu, setSpeedMenu] = useState(false)
   const [bookmarks, setBookmarks] = useState<{ time: number; label: string }[]>(() => {
@@ -90,6 +99,7 @@ export default function PlayerPage() {
   const [sleepLeft, setSleepLeft] = useState<number | null>(null)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const [trickplayPos, setTrickplayPos] = useState<{ x: number; time: number } | null>(null)
+  const [trickplayData, setTrickplayData] = useState<any>(null)
   const [trickplayAvailable, setTrickplayAvailable] = useState(false)
   const [qualityMenu, setQualityMenu] = useState(false)
   const [introData, setIntroData] = useState<{ IntroStart?: number; IntroEnd?: number } | null>(null)
@@ -210,7 +220,12 @@ export default function PlayerPage() {
     // Check trickplay
     fetch(`/api/trickplay?id=${playingItem.id}`, { credentials: 'include' })
       .then(r => r.json())
-      .then(d => setTrickplayAvailable(d.available))
+.then(d => {
+        setTrickplayAvailable(d.available)
+        if (d.available && d.tileWidth && d.tileHeight && d.interval) {
+          setTrickplayData(d)
+        }
+      })
       .catch(() => {})
 
     // Intro skipper
@@ -296,6 +311,24 @@ export default function PlayerPage() {
     if (duration - currentTime < 120 && !showNextCard) setShowNextCard(true)
   }, [currentTime, duration, nextEpisode, showNextCard])
 
+  // Countdown timer when Up Next appears
+  useEffect(() => {
+    if (!showNextCard || !autoplayNext) return
+    setNextCountdown(12)
+    const interval = setInterval(() => {
+      setNextCountdown(n => {
+        if (n === null || n <= 1) { clearInterval(interval); return null }
+        return n - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [showNextCard, autoplayNext])
+
+  // Auto-play when countdown hits 0
+  useEffect(() => {
+    if (nextCountdown === 0) playNextEpisode()
+  }, [nextCountdown])
+
   // ── Subtitles — apply to video element ──
   useEffect(() => {
     const video = videoRef.current; if (!video) return
@@ -348,6 +381,25 @@ export default function PlayerPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [navigate, setPlayingItem, openPanel, showControls])
 
+
+  // ── Audio track switching ───────────────────────────────────────────────────────
+  // HLS: can't swap mid-stream easily, so we restart at current position with new audio index
+  // For direct play, the browser handles it natively via the video element's audio tracks
+  const switchAudio = async (index: number) => {
+    if (!playingItem?.id || !videoRef.current) return
+    setSelectedAudioIndex(index)
+    const pos = videoRef.current.currentTime
+    try {
+      const info = await api.playbackInfo(playingItem.id, undefined, index)
+      if (info?.streamUrl) {
+        const v = videoRef.current
+        v.pause()
+        v.src = info.streamUrl
+        v.currentTime = pos
+        v.play().catch(() => {})
+      }
+    } catch { /* ignore */ }
+  }
 
   // ── Jellyfin playback session reporting ──
   const reportingRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
@@ -484,7 +536,7 @@ export default function PlayerPage() {
 
       {/* Next episode card */}
       <AnimatePresence>
-        {showNextCard && nextEpisode && (
+        {showNextCard && nextEpisode && autoplayNext && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
             className="absolute bottom-28 right-8 flex flex-col gap-2 p-4 rounded-xl"
             style={{ background: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(12px)', width: 280 }}

@@ -1,41 +1,33 @@
-import { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'com.cyanfin.app',
   appName: 'CyanFin',
   webDir: 'server/public',
   server: {
-    // Change to your CyanFin server IP — same machine or another Unraid box
+    // Change this to your CyanFin server URL for production APK
+    // For dev: comment out and use npx cap run android --livereload
     url: 'http://192.168.1.125:3002',
-    cleartext: true,
-    androidScheme: 'https',
+    cleartext: true, // Required for HTTP (non-HTTPS) Jellyfin servers
   },
   android: {
+    // Android TV: set to true when building for TV
     allowMixedContent: true,
-    captureInput: true,
+    captureInput: false,
     webContentsDebuggingEnabled: false,
-    backgroundColor: '#080604',
-  },
-  ios: {
-    contentInset: 'automatic',
-    allowsLinkPreview: false,
-    backgroundColor: '#080604',
+    // TV-specific: overscan + large display handling
+    initialFocus: false,
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1200,
+      launchAutoHide: true,
       backgroundColor: '#080604',
       showSpinner: false,
     },
-    StatusBar: {
-      style: 'dark',
-      backgroundColor: '#080604',
-    },
     Keyboard: {
       resize: 'body',
-      style: 'dark',
     },
   },
-};
+}
 
-export default config;
+export default config

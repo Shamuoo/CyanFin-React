@@ -61,6 +61,7 @@ interface AppState {
   preferredSubLang: string
   customCSS: string
   heroStyle: 'cinematic' | 'minimal' | 'spotlight'
+  show3D: boolean
   sidebarWidth: number
   ageFilter: string
   fontStyle: 'default' | 'rounded' | 'mono' | 'serif'
@@ -130,7 +131,8 @@ export const useStore = create<AppState>()(
       maxBitrate: 0,
       preferredSubLang: '',  // e.g. 'eng' — auto-select this subtitle language
       customCSS: '',
-      heroStyle: 'cinematic' as 'cinematic' | 'minimal' | 'spotlight',
+      heroStyle: 'cinematic',
+      show3D: false,
       sidebarWidth: 200,
       ageFilter: '',  // 0 = no limit, otherwise Mbps
       listView: false,

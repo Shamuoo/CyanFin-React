@@ -34,8 +34,8 @@ const ALL_SECTIONS = [
 ]
 
 // Fixed rows always shown first, genre rows randomised
-const FIXED_TOP = ['nextup','continue','because','newmovies','recent']
-const FIXED_BOTTOM = ['history','random','best3d']
+const FIXED_TOP = ['nextup','continue','because','newmovies','recent','trending']
+const FIXED_BOTTOM = ['history','random']
 const GENRE_ROWS = ALL_SECTIONS.map(s => s.key).filter(k => !FIXED_TOP.includes(k) && !FIXED_BOTTOM.includes(k))
 
 function shuffleOnce<T>(arr: T[], seed = 1): T[] {
@@ -50,7 +50,7 @@ const DEFAULT_ORDER = [
   ...shuffleOnce(GENRE_ROWS),
   ...FIXED_BOTTOM,
 ]
-const DEFAULT_HIDDEN = ['best3d','thriller','animation']
+const DEFAULT_HIDDEN = ['best3d','animation','romance','crime','family']
 
 export default function HomePage() {
   const { setDetailItemId, setPlayingItem, homeSectionOrder, homeSectionHidden, setHomeSections } = useStore()

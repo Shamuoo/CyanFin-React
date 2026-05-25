@@ -235,6 +235,20 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 Hides content rated above the selected level. Applied to all browse queries.
               </p>
 
+              <SectionTitle>3D Content</SectionTitle>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs font-bold" style={{ color: 'var(--cream)' }}>Show 3D Movies</p>
+                  <p className="text-[9px]" style={{ color: 'var(--muted)' }}>Show "Best in 3D" row on home</p>
+                </div>
+                <button onClick={() => store.setSetting('show3D' as any, !(store as any).show3D)}
+                  className="relative rounded-full flex-shrink-0"
+                  style={{ width: 40, height: 22, background: (store as any).show3D ? 'var(--accent)' : 'var(--border2)' }}>
+                  <span className="absolute top-0.5 rounded-full transition-all"
+                    style={{ width: 18, height: 18, background: 'white', left: (store as any).show3D ? 20 : 2 }} />
+                </button>
+              </div>
+
               <SectionTitle>Home Hero Style</SectionTitle>
               <div className="flex gap-2 mb-4">
                 {([['cinematic','🎬 Cinematic'],['minimal','◻ Minimal'],['spotlight','✦ Spotlight']] as const).map(([id,label]) => (

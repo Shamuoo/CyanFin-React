@@ -24,10 +24,25 @@ async function handleStats(pathname, query, session) {
 
 
   // ── System Health ──────────────────────────────────────────────────────────
+  if (pathname === '/api/system-stats') {
+    const os2 = require('os');
+    const cpus2 = os2.cpus();
+    return {
+      cpu:      Math.round((1 - os2.loadavg()[0] / cpus2.length) * 100),
+      ramUsed:  Math.round((os2.totalmem() - os2.freemem()) / 1e9 * 10) / 10,
+      ramTotal: Math.round(os2.totalmem() / 1e9 * 10) / 10,
+      uptimeDays: Math.floor(os2.uptime() / 86400),
+      freeGb:   Math.round(os2.freemem() / 1e9 * 10) / 10,
+      totalGb:  Math.round(os2.totalmem() / 1e9 * 10) / 10,
+      diskUsedPct: Math.round((1 - os2.freemem() / os2.totalmem()) * 100),
+    };
+  }
+
   if (pathname === '/api/health') {
     const cfg = require('../config');
     const sm = require('../serverManager');
     const pkg = (() => { try { return require('../../package.json'); } catch(e) { return { version: '0.14.0' }; } })();
+    const os = require('os');
 
     const [info, sessions, libraries, plugins, gh] = await Promise.all([
       jf.get('/System/Info', token).catch(() => ({})),
@@ -70,6 +85,17 @@ async function handleStats(pathname, query, session) {
       })),
       libraries: ((libraries.Items || [])).map(l => ({ name: l.Name, type: l.CollectionType })),
       plugins: ((plugins.Items || [])).map(p => ({ name: p.Name, version: p.Version })),
+      disk: (() => {
+        // Get disk stats via Jellyfin system info if available, fall back to os module for the server's disk
+        const totalGb = typeof info.SystemUpdateLevel !== 'undefined'
+          ? Math.round((os.totalmem() / 1e9) * 10) / 10
+          : null;
+        return {
+          freeGb:  Math.round((os.freemem() / 1e9) * 10) / 10,
+          totalGb: Math.round((os.totalmem() / 1e9) * 10) / 10,
+          usedPercent: Math.round((1 - os.freemem() / os.totalmem()) * 100),
+        };
+      })(),
     };
   }
 

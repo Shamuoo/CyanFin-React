@@ -232,13 +232,13 @@ export default function HealthPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 sm:grid-cols-4 gap-4">
 
           {/* ── Servers ── */}
           {servers.length > 0 && (
             <Card fullWidth>
               <SectionTitle>Media Servers — {st?.mode || 'fastest'} failover mode</SectionTitle>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
                 {servers.map(srv => (
                   <ServerCard key={srv.key} srv={srv} isActive={srv.isActive}
                     onSwitch={() => switchTo(srv.key)} switching={switching} />

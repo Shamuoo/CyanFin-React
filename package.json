@@ -1,7 +1,7 @@
 {
   "name": "cyanfin-react",
   "private": true,
-  "version": "0.18.6",
+  "version": "0.19.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,11 @@
     "electron:build": "electron-builder",
     "electron:win": "electron-builder --win",
     "electron:mac": "electron-builder --mac",
-    "electron:portable": "electron-builder --win portable"
+    "electron:portable": "electron-builder --win portable",
+    "android:phone": "bash scripts/build-android.sh phone",
+    "android:tv": "bash scripts/build-android.sh tv",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
