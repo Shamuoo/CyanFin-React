@@ -112,11 +112,23 @@ export default function MediaCard({ item, onClick, width = 110 }: Props) {
           </div>
         )}
 
-        {/* Progress bar */}
+        {/* Progress bar (flat) */}
         {item.userData?.playedPercentage && item.userData.playedPercentage > 0 && item.userData.playedPercentage < 100 && (
-          <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <div className="h-full" style={{ width: `${item.userData.playedPercentage}%`, background: 'var(--accent)' }} />
-          </div>
+          <>
+            {/* Bottom bar */}
+            <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              <div className="h-full" style={{ width: `${item.userData.playedPercentage}%`, background: 'var(--accent)' }} />
+            </div>
+            {/* Corner arc ring */}
+            <div className="absolute top-1.5 right-1.5" style={{
+              width: 22, height: 22,
+              borderRadius: '50%',
+              background: `conic-gradient(var(--accent) ${item.userData.playedPercentage}%, transparent ${item.userData.playedPercentage}%)`,
+              padding: 2,
+            }}>
+              <div className="w-full h-full rounded-full" style={{ background: 'rgba(0,0,0,0.7)' }} />
+            </div>
+          </>
         )}
       </div>
 

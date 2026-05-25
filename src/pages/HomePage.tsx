@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useRef, useCallback, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -34,6 +35,12 @@ const ALL_SECTIONS = [
 ]
 
 // Fixed rows always shown first, genre rows randomised
+const GENRE_MAP: Record<string, string> = {
+  action: 'Action', comedy: 'Comedy', drama: 'Drama', scifi: 'Science Fiction',
+  horror: 'Horror', thriller: 'Thriller', documentary: 'Documentary',
+  animation: 'Animation', romance: 'Romance', crime: 'Crime', family: 'Family',
+}
+
 const FIXED_TOP = ['nextup','continue','because','newmovies','recent','trending']
 const FIXED_BOTTOM = ['history','random']
 const GENRE_ROWS = ALL_SECTIONS.map(s => s.key).filter(k => !FIXED_TOP.includes(k) && !FIXED_BOTTOM.includes(k))
@@ -271,7 +278,7 @@ export default function HomePage() {
       {sections
         .filter(s => !hidden.includes(s.key))
         .map(sec => (
-          <SectionRow key={sec.key} label={sec.label} queryFn={sec.query} />
+          <SectionRow key={sec.key} sectionKey={sec.key} label={sec.label} queryFn={sec.query} />
         ))
       }
 
@@ -280,8 +287,9 @@ export default function HomePage() {
   )
 }
 
-function SectionRow({ label, queryFn }: { label: string; queryFn: () => Promise<MediaItem[]> }) {
+function SectionRow({ sectionKey, label, queryFn }: { sectionKey: string; label: string; queryFn: () => Promise<MediaItem[]> }) {
   const { setDetailItemId } = useStore()
+  const navigate = useNavigate()
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['home-section', label],
     queryFn,
@@ -289,5 +297,7 @@ function SectionRow({ label, queryFn }: { label: string; queryFn: () => Promise<
   })
   const data = Array.isArray(rawData) ? rawData : (rawData as any)?.items || []
   if (!isLoading && !data.length) return null
-  return <MediaRow title={label} items={data} loading={isLoading} onItemClick={item => setDetailItemId(item.id)} />
+  const genre = GENRE_MAP[sectionKey]
+  const handleTitleClick = genre ? () => navigate(`/movies?genre=${encodeURIComponent(genre)}`) : undefined
+  return <MediaRow title={label} items={data} loading={isLoading} onItemClick={item => setDetailItemId(item.id)} onTitleClick={handleTitleClick} />
 }

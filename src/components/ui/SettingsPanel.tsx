@@ -249,6 +249,20 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
 
+              <SectionTitle>Hero Trailer Autoplay</SectionTitle>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs font-bold" style={{ color: 'var(--cream)' }}>Play trailer in hero</p>
+                  <p className="text-[9px]" style={{ color: 'var(--muted)' }}>Muted trailer plays after 3s on home</p>
+                </div>
+                <button onClick={() => store.setSetting('heroTrailerAutoplay' as any, !(store as any).heroTrailerAutoplay)}
+                  className="relative rounded-full flex-shrink-0"
+                  style={{ width: 40, height: 22, background: (store as any).heroTrailerAutoplay !== false ? 'var(--accent)' : 'var(--border2)' }}>
+                  <span className="absolute top-0.5 rounded-full transition-all"
+                    style={{ width: 18, height: 18, background: 'white', left: (store as any).heroTrailerAutoplay !== false ? 20 : 2 }} />
+                </button>
+              </div>
+
               <SectionTitle>Home Hero Style</SectionTitle>
               <div className="flex gap-2 mb-4">
                 {([['cinematic','🎬 Cinematic'],['minimal','◻ Minimal'],['spotlight','✦ Spotlight']] as const).map(([id,label]) => (

@@ -10,9 +10,10 @@ interface Props {
   onItemClick?: (item: MediaItem) => void
   cardWidth?: number
   loading?: boolean
+  onTitleClick?: () => void
 }
 
-export default function MediaRow({ title, items, onItemClick, cardWidth = 110, loading }: Props) {
+export default function MediaRow({ title, items, onItemClick, cardWidth = 110, loading, onTitleClick }: Props) {
   const { compactMode } = useStore() as any
   const safeItems = Array.isArray(items) ? items : []
   if (!safeItems.length && !loading) return null
@@ -27,6 +28,7 @@ export default function MediaRow({ title, items, onItemClick, cardWidth = 110, l
     )
   }
 
+  const TitleEl = onTitleClick ? 'button' : 'p'
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-2.5" style={{ padding: `0 var(--pad)`, gap: compactMode ? 8 : undefined }}>

@@ -1,8 +1,13 @@
 # CyanFin
 
+> **⚠️ AI-Generated Codebase**
+> This project was built entirely using Claude (Anthropic) as the development environment. All code — frontend, backend, build scripts, and configuration — was written by Claude Sonnet via the claude.ai chat interface. No human code was written. The project is maintained by pushing AI-generated patches to this repository.
+>
+> This means: the code works, but it may not follow every conventional best practice. If you find bugs or want to contribute improvements, PRs are welcome.
+
 A cinematic self-hosted media client for Jellyfin and Plex. Built with React 19, TypeScript, Vite, Tailwind v4, and a lightweight Node.js proxy server.
 
-**v0.19.0**
+**v0.19.1**
 
 ---
 

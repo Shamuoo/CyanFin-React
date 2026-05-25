@@ -103,6 +103,12 @@ export default function MusicPage() {
   const { setDetailItemId } = useStore()
   const qc = useQueryClient()
 
+  const { data: recentArtists } = useQuery({
+    queryKey: ['recent-artists'],
+    queryFn: () => api.get<any[]>('/api/music/recent-artists').catch(() => []),
+    staleTime: 5 * 60_000,
+  })
+
   const { data: albums = [], isLoading } = useQuery({ queryKey: ['albums'], queryFn: () => api.albums() as Promise<any[]> })
   const { data: playlists = [] } = useQuery({ queryKey: ['playlists'], queryFn: () => api.playlists() })
 

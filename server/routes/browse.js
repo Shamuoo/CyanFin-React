@@ -165,6 +165,18 @@ async function handleBrowse(pathname, query, session) {
   }
 
 
+  // ── Recently played artists ─────────────────────────────────────────────────
+  if (pathname === '/api/music/recent-artists') {
+    const data = await jf.get(
+      `/Users/${userId}/Items?IncludeItemTypes=MusicArtist&SortBy=DatePlayed&SortOrder=Descending&Limit=10&fields=PrimaryImageAspectRatio`,
+      token
+    ).catch(() => ({ Items: [] }));
+    return (data.Items || []).map(a => ({
+      id: a.Id, name: a.Name,
+      imageUrl: a.PrimaryImageTag ? `/proxy/image?id=${a.Id}&type=Primary&w=120` : null,
+    }));
+  }
+
   // ── People directory ─────────────────────────────────────────────────────────
   if (pathname === '/api/people') {
     const { limit = '200', q = '', startIndex = '0' } = query;

@@ -602,22 +602,33 @@ export default function PlayerPage() {
         {openPanel === 'chapters' && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
             className="absolute right-4 bottom-20 rounded-xl overflow-hidden"
-            style={{ background: 'rgba(0,0,0,0.92)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)', width: 240, maxHeight: 360 }}
+            style={{ background: 'rgba(0,0,0,0.92)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)', width: 290, maxHeight: 400 }}
             onClick={e => e.stopPropagation()}>
             <p className="text-[8px] font-bold tracking-widest uppercase px-4 pt-3 pb-2" style={{ color: 'var(--accent)', opacity: 0.5 }}>Chapters</p>
             <div className="overflow-y-auto scrollbar-hide" style={{ maxHeight: 300 }}>
-              {chapters.map((ch, i) => {
+              {chapters.map((ch: any, i: number) => {
                 const isActive = activeChapter?.startPositionTicks === ch.startPositionTicks
                 return (
                   <button key={i} onClick={() => { if (videoRef.current) videoRef.current.currentTime = ch.startPositionTicks / 10_000_000; setOpenPanel('none') }}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-all hover:bg-white/5"
+                    className="w-full text-left px-3 py-2 flex items-center gap-3 transition-all hover:bg-white/5"
                     style={{ background: isActive ? 'rgba(201,168,76,0.08)' : 'transparent' }}>
-                    <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--muted)', width: 36 }}>
-                      {fmtTime(ch.startPositionTicks / 10_000_000)}
-                    </span>
-                    <span className="text-[11px] truncate" style={{ color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.65)' }}>
-                      {isActive ? '▶ ' : ''}{ch.name || `Chapter ${i + 1}`}
-                    </span>
+                    {/* Chapter thumbnail */}
+                    <div className="flex-shrink-0 rounded overflow-hidden" style={{ width: 72, height: 40, background: 'rgba(255,255,255,0.06)' }}>
+                      {ch.imageTag
+                        ? <img src={`/proxy/image?id=${playingItem?.id}&type=Chapter&index=${i}&tag=${ch.imageTag}&w=144`}
+                            alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center text-[8px] font-mono"
+                            style={{ color: 'rgba(255,255,255,0.25)' }}>{fmtTime(ch.startPositionTicks / 10_000_000)}</div>
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] truncate" style={{ color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.65)' }}>
+                        {isActive ? '▶ ' : ''}{ch.name || `Chapter ${i + 1}`}
+                      </p>
+                      <p className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        {fmtTime(ch.startPositionTicks / 10_000_000)}
+                      </p>
+                    </div>
                   </button>
                 )
               })}

@@ -60,6 +60,7 @@ interface AppState {
   maxBitrate: number
   preferredSubLang: string
   customCSS: string
+  heroTrailerAutoplay: boolean
   heroStyle: 'cinematic' | 'minimal' | 'spotlight'
   show3D: boolean
   sidebarWidth: number
@@ -131,7 +132,8 @@ export const useStore = create<AppState>()(
       maxBitrate: 0,
       preferredSubLang: '',  // e.g. 'eng' — auto-select this subtitle language
       customCSS: '',
-      heroStyle: 'cinematic',
+      heroTrailerAutoplay: true,
+      heroStyle: 'cinematic' as const,
       show3D: false,
       sidebarWidth: 200,
       ageFilter: '',  // 0 = no limit, otherwise Mbps
