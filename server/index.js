@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.19.1';
+const VERSION = '0.19.2';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -612,7 +612,7 @@ async function handler(req, res) {
       if (itemsResult !== null) return json(res, itemsResult);
 
       // Stats
-      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname === '/api/servers/all' || pathname === '/api/servers/speedtest' || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/')) {
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/')) {
         const statsResult = await handleStats(pathname, parsed.query, session);
         if (statsResult !== null) return json(res, statsResult);
       }
@@ -643,6 +643,45 @@ async function handler(req, res) {
       }
 
       // Servers switch / check
+      // ── HA Server Management API ─────────────────────────────────────────────────
+      if (pathname === '/api/servers/status') {
+        return sm.getStatus();
+      }
+
+      if (pathname === '/api/servers/check') {
+        return sm.checkAll();
+      }
+
+      if (pathname === '/api/servers/speedtest') {
+        return sm.runSpeedTests();
+      }
+
+      if (pathname === '/api/servers/ping' && req.method === 'POST') {
+        const { url, apiKey, token } = req._body || {};
+        if (!url) return { error: 'No URL' };
+        const s = { id: 'test', name: 'Test', url, apiKey: apiKey || '', token, priority: 0, enabled: true };
+        const pinged = await sm.pingServer(s);
+        const speeded = pinged.ok ? await sm.speedTestServer(pinged) : pinged;
+        return speeded;
+      }
+
+      if (pathname === '/api/servers/save' && req.method === 'POST') {
+        const { jellyfin, plex } = req._body || {};
+        sm.saveServers(jellyfin, plex);
+        await sm.checkAll();
+        return sm.getStatus();
+      }
+
+      if (pathname === '/api/servers/mode' && req.method === 'POST') {
+        const { mode } = req._body || {};
+        return sm.setMode(mode);
+      }
+
+      if (pathname === '/api/servers/force' && req.method === 'POST') {
+        const { serverId } = req._body || {};
+        return sm.forceActive(serverId);
+      }
+
       if (pathname === '/api/servers/switch' && req.method === 'POST') {
         sm.forceSwitch(body.server);
         return json(res, sm.getStatus());

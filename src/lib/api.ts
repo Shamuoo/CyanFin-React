@@ -189,6 +189,7 @@ class ApiClient {
 
   // ── Stats & Health ────────────────────────────────────────────────────────
   health() { return this.get('/api/health') }
+  haStatus()  { return this.get<any>('/api/servers/status') }
   adminUsers() { return this.get<any>('/api/admin/users') }
   adminSessions() { return this.get<any>('/api/admin/sessions') }
   activeSessions() { return this.get<any>('/api/active-sessions') }

@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2,
-         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2 } from 'lucide-react'
+         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -79,6 +79,7 @@ export default function Layout() {
     { to: '/history',     icon: Clock,      label: 'History' },
     { to: '/people',      icon: Users,      label: 'People' },
     { to: '/studios',     icon: Building2,  label: 'Studios' },
+    { to: '/servers',     icon: ServerIcon, label: 'Servers',  adminOnly: true },
     { to: '/downloads',  icon: Download,   label: 'Downloads' },
   ]
   const adminLinks = [

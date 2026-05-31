@@ -23,6 +23,7 @@ import CollectionsPage from '@/pages/CollectionsPage'
 import HistoryPage from '@/pages/HistoryPage'
 import PeoplePage from '@/pages/PeoplePage'
 import StudiosPage from '@/pages/StudiosPage'
+import ServersPage from '@/pages/ServersPage'
 import DownloadsPage from '@/pages/DownloadsPage'
 import PlayerPage from '@/pages/PlayerPage'
 
@@ -189,6 +190,7 @@ export default function App() {
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
+                  <Route path="/servers" element={<ErrorBoundary><ServersPage /></ErrorBoundary>} />
                   <Route path="/people" element={<ErrorBoundary><PeoplePage /></ErrorBoundary>} />
                   <Route path="/studios" element={<ErrorBoundary><StudiosPage /></ErrorBoundary>} />
                   <Route path="/history" element={<ErrorBoundary><HistoryPage /></ErrorBoundary>} />
