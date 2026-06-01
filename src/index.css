@@ -382,3 +382,45 @@ button:active, a:active {
   backdrop-filter: blur(60px) saturate(1.8) !important;
   -webkit-backdrop-filter: blur(60px) saturate(1.8) !important;
 }
+
+/* ── TV Mode — D-pad focus ring ──────────────────────────────────────────────── */
+[data-device="tv"] *:focus,
+[data-layout="tv"] *:focus {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 3px !important;
+  border-radius: 4px;
+}
+
+[data-device="tv"] *:focus-visible,
+[data-layout="tv"] *:focus-visible {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(201,168,76,0.18) !important;
+}
+
+/* TV overscan safe zone — 5% inset on all sides */
+.tv-overscan {
+  padding: 5vh 5vw !important;
+}
+
+[data-device="tv"] .tv-safe,
+[data-layout="tv"] .tv-safe {
+  padding-left: 5vw;
+  padding-right: 5vw;
+}
+
+/* TV larger cards in rows */
+[data-device="tv"] .media-row-scroll,
+[data-layout="tv"] .media-row-scroll {
+  gap: 20px !important;
+}
+
+/* TV: bigger focus scale */
+[data-device="tv"] button:focus,
+[data-layout="tv"] button:focus,
+[data-device="tv"] a:focus,
+[data-layout="tv"] a:focus {
+  transform: scale(1.08);
+  z-index: 2;
+  position: relative;
+}

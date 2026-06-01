@@ -65,6 +65,8 @@ interface AppState {
   show3D: boolean
   sidebarWidth: number
   ageFilter: string
+  parentalPin: string
+  parentalRating: string
   fontStyle: 'default' | 'rounded' | 'mono' | 'serif'
   subtitleSize: number
   subtitleColor: string
@@ -136,7 +138,9 @@ export const useStore = create<AppState>()(
       heroStyle: 'cinematic' as const,
       show3D: false,
       sidebarWidth: 200,
-      ageFilter: '',  // 0 = no limit, otherwise Mbps
+      ageFilter: '',
+      parentalPin: '',
+      parentalRating: '',  // 'G'|'PG'|'PG-13'|'R'|'NC-17'|''  // 0 = no limit, otherwise Mbps
       listView: false,
       fontStyle: 'default',
       subtitleSize: 100,      // % of default

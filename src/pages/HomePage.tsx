@@ -14,6 +14,7 @@ const ALL_SECTIONS = [
   { key: 'continue',    label: 'Continue Watching',    query: () => api.continueWatching() },
   { key: 'recent',      label: 'Recently Added',       query: () => api.recentlyAdded() },
   { key: 'popular',     label: 'Popular',              query: () => api.popular() },
+  { key: 'watchlist',   label: 'Shared Watchlist',      query: async () => { const d = await api.sharedWatchlist(); return d.items || [] } },
   { key: 'history',     label: 'Watch History',        query: () => api.history() },
   { key: 'shows',       label: 'TV Shows',             query: () => api.shows({ sort: 'DateCreated', order: 'Descending', limit: 20 }).then(r => r.items || []) },
   { key: 'toprated',    label: 'Top Rated',            query: () => api.movies({ sort: 'CommunityRating', order: 'Descending', limit: 20 }).then(r => r.items || []) },
@@ -287,7 +288,7 @@ export default function HomePage() {
   )
 }
 
-function SectionRow({ sectionKey, label, queryFn }: { sectionKey: string; label: string; queryFn: () => Promise<MediaItem[]> }) {
+function SectionRow({ sectionKey, label, queryFn, cardWidth }: { sectionKey: string; label: string; queryFn: () => Promise<MediaItem[]>; cardWidth?: number }) {
   const { setDetailItemId } = useStore()
   const navigate = useNavigate()
   const { data: rawData, isLoading } = useQuery({
@@ -299,5 +300,5 @@ function SectionRow({ sectionKey, label, queryFn }: { sectionKey: string; label:
   if (!isLoading && !data.length) return null
   const genre = GENRE_MAP[sectionKey]
   const handleTitleClick = genre ? () => navigate(`/movies?genre=${encodeURIComponent(genre)}`) : undefined
-  return <MediaRow title={label} items={data} loading={isLoading} onItemClick={item => setDetailItemId(item.id)} onTitleClick={handleTitleClick} />
+  return <MediaRow title={label} items={data} loading={isLoading} onItemClick={item => setDetailItemId(item.id)} onTitleClick={handleTitleClick} cardWidth={cardWidth} />
 }

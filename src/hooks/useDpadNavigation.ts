@@ -20,15 +20,12 @@ function nearest(els: HTMLElement[], from: DOMRect, dir: 'left'|'right'|'up'|'do
     const dx = ex - cx
     const dy = ey - cy
 
-    // Must be in the right direction
     const inDir = dir === 'right' ? dx > 4 :
                   dir === 'left'  ? dx < -4 :
                   dir === 'down'  ? dy > 4 :
                                     dy < -4
-
     if (!inDir) continue
 
-    // Score: primary axis distance + small penalty for perpendicular drift
     const primary = dir === 'left' || dir === 'right' ? Math.abs(dx) : Math.abs(dy)
     const perp    = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx)
     const score   = primary + perp * 0.3
@@ -45,6 +42,26 @@ export function useDpadNavigation(enabled = true) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!enabled$.current) return
+      // Skip when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      // Enter / OK — click focused element
+      if (e.key === 'Enter') {
+        const focused = document.activeElement as HTMLElement
+        if (focused && focused !== document.body) {
+          focused.click()
+          e.preventDefault()
+        }
+        return
+      }
+
+      // Back / BrowserBack — go back
+      if (e.key === 'Escape' || e.key === 'BrowserBack' || e.key === 'GoBack') {
+        window.history.back()
+        e.preventDefault()
+        return
+      }
 
       const DIRS: Record<string, 'left'|'right'|'up'|'down'> = {
         ArrowLeft: 'left', ArrowRight: 'right',
@@ -53,19 +70,19 @@ export function useDpadNavigation(enabled = true) {
       const dir = DIRS[e.key]
       if (!dir) return
 
-      // Enter / OK button
-      if (e.key === 'Enter' || e.key === 'Return') {
-        const focused = document.activeElement as HTMLElement
-        if (focused && focused !== document.body) { focused.click(); e.preventDefault() }
-        return
-      }
-
       const focused = document.activeElement as HTMLElement
       const els = getVisible()
       if (!els.length) return
 
-      const fromRect = focused?.getBoundingClientRect() ?? { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => {} }
-      const target = nearest(els, fromRect as DOMRect, dir)
+      // If nothing focused yet, focus first visible element
+      if (!focused || focused === document.body) {
+        els[0]?.focus()
+        e.preventDefault()
+        return
+      }
+
+      const fromRect = focused.getBoundingClientRect()
+      const target = nearest(els.filter(el => el !== focused), fromRect, dir)
 
       if (target) {
         target.focus()

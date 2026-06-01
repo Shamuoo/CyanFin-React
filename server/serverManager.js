@@ -23,6 +23,9 @@ const PING_TIMEOUT = 5_000;   // per-server ping timeout ms
 const SPEED_BYTES  = 1024 * 512; // 512KB speed test target
 
 // ── State ─────────────────────────────────────────────────────────────────────
+const HISTORY_LEN = 30;
+let latencyHistory = {}; // { [serverId]: number[] }
+
 let state = {
   jellyfin: [],     // { id, name, url, apiKey, priority, enabled, ok, latency, speedMbps, version, lastCheck, consecutiveFails }
   plex: [],         // { id, name, url, token, priority, enabled, ok, latency, speedMbps, lastCheck }
@@ -208,6 +211,13 @@ async function checkAll() {
     if (prev?.ok === false && s.ok)  alertDiscord(`✅ **${s.name}** is back online`);
   });
 
+  // Record latency history
+  [...jfResults, ...plexResults].forEach(s => {
+    if (!latencyHistory[s.id]) latencyHistory[s.id] = [];
+    latencyHistory[s.id].push(s.latency || 0);
+    if (latencyHistory[s.id].length > HISTORY_LEN) latencyHistory[s.id].shift();
+  });
+
   state.jellyfin = jfResults;
   state.plex     = plexResults;
 
@@ -222,6 +232,10 @@ async function checkAll() {
 
   if (prevActive !== state.activeJfId) {
     console.log(`[HA] Switched Jellyfin → ${state.activeJfId} (${activeJf?.name})`);
+    // Re-authenticate all sessions against new server
+    try { require('./auth').reAuthAll(state.activeJfId).catch(() => {}); } catch {}
+    // Emit event so auth layer can re-authenticate sessions against new server
+    process.emit('cyanfin:server-switch', { from: prevActive, to: state.activeJfId, server: activeJf });
     alertDiscord(`⚡ Load-balanced to **${activeJf?.name}** (${activeJf?.latency}ms)`);
   }
 
@@ -245,8 +259,8 @@ async function runSpeedTests() {
 function getStatus() {
   const mode = cfg.get('JELLYFIN_MODE') || state.mode || 'fastest';
   return {
-    jellyfin:    state.jellyfin.map(s => ({ ...s, apiKey: undefined, isActive: s.id === state.activeJfId })),
-    plex:        state.plex.map(s => ({ ...s, token: undefined })),
+    jellyfin:    state.jellyfin.map(s => ({ ...s, apiKey: undefined, isActive: s.id === state.activeJfId, latencyHistory: latencyHistory[s.id] || [] })),
+    plex:        state.plex.map(s => ({ ...s, token: undefined, latencyHistory: latencyHistory[s.id] || [] })),
     activeJfId:  state.activeJfId,
     mode,
     isOffline:   state.isOffline,

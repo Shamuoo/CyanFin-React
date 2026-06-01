@@ -24,6 +24,7 @@ import HistoryPage from '@/pages/HistoryPage'
 import PeoplePage from '@/pages/PeoplePage'
 import StudiosPage from '@/pages/StudiosPage'
 import ServersPage from '@/pages/ServersPage'
+import UsersPage from '@/pages/UsersPage'
 import DownloadsPage from '@/pages/DownloadsPage'
 import PlayerPage from '@/pages/PlayerPage'
 
@@ -124,6 +125,24 @@ function Spinner() {
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
+function OfflineBanner() {
+  const { data: status } = useQuery({
+    queryKey: ['ha-status-banner'],
+    queryFn:  () => api.get<any>('/api/servers/status'),
+    refetchInterval: 10_000,
+    staleTime: 8_000,
+  })
+  const offline = (status as any)?.isOffline
+  if (!offline) return null
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[999] flex items-center justify-center gap-2 py-2 text-xs font-bold"
+      style={{ background: '#e74c3c', color: 'white', letterSpacing: '0.05em' }}>
+      <span className="animate-pulse">⚠</span>
+      All servers unreachable — retrying every 10s
+    </div>
+  )
+}
+
 function ChangelogModal({ onClose }: { onClose: () => void }) {
   const { data } = useQuery({ queryKey: ['changelog'], queryFn: () => api.changelog(), staleTime: Infinity })
   const cl = (data as any)?.changelog || ''
@@ -162,6 +181,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <OfflineBanner />
         {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
         <BrowserRouter>
           <ErrorBoundary>
@@ -190,6 +210,7 @@ export default function App() {
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
+                  <Route path="/users" element={<ErrorBoundary><UsersPage /></ErrorBoundary>} />
                   <Route path="/servers" element={<ErrorBoundary><ServersPage /></ErrorBoundary>} />
                   <Route path="/people" element={<ErrorBoundary><PeoplePage /></ErrorBoundary>} />
                   <Route path="/studios" element={<ErrorBoundary><StudiosPage /></ErrorBoundary>} />

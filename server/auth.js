@@ -94,4 +94,61 @@ function clearSessionCookie(res) {
   res.setHeader('Set-Cookie', 'cf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
 }
 
+// Re-authenticate all active sessions against a newly-active server
+async function reAuthAll(targetServerId) {
+  const cfg  = require('./config');
+  const jfMod = require('./jellyfin');
+  const sm   = require('./serverManager');
+  const servers = sm.getJellyfinServers();
+  const target  = servers.find(s => s.id === targetServerId);
+  if (!target) return;
+
+  let count = 0;
+  for (const session of Object.values(sessions)) {
+    if (!session.username || !session._password) continue;
+    if (session.tokens && session.tokens[targetServerId]) continue; // already have token
+    try {
+      const savedUrl = jfMod.getBaseUrl();
+      jfMod.init(target.url, target.apiKey || '');
+      const result = await jfMod.authenticate(session.username, session._password);
+      jfMod.init(savedUrl, cfg.get('JELLYFIN_API_KEY') || '');
+      if (result?.AccessToken) {
+        if (!session.tokens) session.tokens = {};
+        session.tokens[targetServerId] = result.AccessToken;
+        count++;
+        console.log('[auth] Re-authed ' + session.username + ' → ' + target.name);
+      }
+    } catch (e) {
+      console.log('[auth] Re-auth failed for ' + session.username + ':', e.message);
+    }
+  }
+  if (count) saveSessions();
+  return count;
+}
+
 module.exports = { createSession, getSession, deleteSession, getSessionFromRequest, setSessionCookie, clearSessionCookie };
+
+// ── Re-authenticate sessions on server failover ────────────────────────────
+process.on('cyanfin:server-switch', async ({ to, server }) => {
+  if (!server?.url) return;
+  const sessions = getAllSessions();
+  const jf = require('./jellyfin');
+  console.log(`[auth] Re-authing ${sessions.length} sessions against ${server.name}`);
+  for (const session of sessions) {
+    if (!session.username || !session._password) continue; // can't re-auth without stored creds
+    try {
+      const savedUrl = jf.getBaseUrl();
+      jf.init(server.url, server.apiKey || '');
+      const result = await jf.authenticate(session.username, session._password);
+      jf.init(savedUrl, ''); // restore (checkAll will set it properly)
+      if (result?.AccessToken) {
+        if (!session.tokens) session.tokens = {};
+        session.tokens[to] = result.AccessToken;
+        console.log(`[auth] Re-authed ${session.username} → ${server.name}`);
+      }
+    } catch (e) {
+      console.log(`[auth] Re-auth failed for ${session.username}:`, e.message);
+    }
+  }
+  saveSessions();
+});

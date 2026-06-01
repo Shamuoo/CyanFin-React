@@ -23,6 +23,19 @@ interface HAStatus {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+function Sparkline({ points }: { points: number[] }) {
+  if (!points || points.length < 2) return null
+  const max = Math.max(...points, 1)
+  const W = 64, H = 20
+  const pts = points.map((v, i) => `${(i / (points.length - 1)) * W},${H - (v / max) * H}`).join(' ')
+  const color = points[points.length - 1] < 50 ? '#2ecc71' : points[points.length - 1] < 150 ? '#f39c12' : '#e74c3c'
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" opacity={0.7} />
+    </svg>
+  )
+}
+
 function StatusDot({ ok, size = 8 }: { ok?: boolean; size?: number }) {
   return (
     <span className="relative flex-shrink-0" style={{ width: size, height: size }}>
@@ -90,7 +103,10 @@ function ServerCard({
           </div>
           <p className="text-[9px] truncate mt-0.5" style={{ color: 'var(--muted)', opacity: 0.5 }}>{server.url}</p>
         </div>
-        <LatencyBar ms={server.latency} />
+        <div className="flex flex-col items-end gap-1">
+          <LatencyBar ms={server.latency} />
+          <Sparkline points={(server as any).latencyHistory || []} />
+        </div>
         <button onClick={() => setExpanded(e => !e)} className="p-1 hover:opacity-70 ml-1">
           <ChevronDown size={14} style={{ color: 'var(--muted)', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>

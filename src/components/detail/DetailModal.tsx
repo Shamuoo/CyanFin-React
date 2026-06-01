@@ -125,7 +125,7 @@ function IntegrationActions({ item }: { item: MediaItem }) {
 
   const toggleWatchlist = async () => {
     try {
-      if (inWatchlist) { await api.removeFromWatchlist(item.id); setInWatchlist(false); toast.info('Removed from watchlist') }
+      if (inWatchlist) { await api.removeFromWatchlist(item.id, item.id); setInWatchlist(false); toast.info('Removed from watchlist') }
       else { await api.addToWatchlist(item.id); setInWatchlist(true); toast.success('Added to watchlist') }
     } catch(e: any) { toast.error(e.message) }
   }

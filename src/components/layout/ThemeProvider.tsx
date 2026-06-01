@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useStore } from '@/lib/store'
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
-  const { theme, layout, pureBlack, accentColor, fontStyle, customCSS } = useStore() as any
+  const { theme, layout, pureBlack, accentColor, fontStyle, customCSS, ageFilter } = useStore() as any
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -20,6 +20,7 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
     let styleTag = document.getElementById('cf-custom-css') as HTMLStyleElement
     if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = 'cf-custom-css'; document.head.appendChild(styleTag) }
     styleTag.textContent = customCSS || ''
+    ;(window as any).__cfAgeFilter = ageFilter || ''
     // Custom accent colour
     if (accentColor) {
       document.documentElement.style.setProperty('--accent', accentColor)
@@ -30,7 +31,7 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
       document.documentElement.style.removeProperty('--accent2')
       document.documentElement.style.removeProperty('--border')
     }
-  }, [theme, layout, pureBlack, accentColor, fontStyle, customCSS])
+  }, [theme, layout, pureBlack, accentColor, fontStyle, customCSS, ageFilter])
 
   return <>{children}</>
 }

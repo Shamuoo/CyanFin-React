@@ -58,6 +58,7 @@ export default function PlayerPage() {
   const [subtitleStreams, setSubtitleStreams] = useState<SubStream[]>([])
   const [activeSubIndex, setActiveSubIndex] = useState<number>(-1) // -1 = off
   const [audioStreams, setAudioStreams] = useState<any[]>([])
+  const [hdrBadge, setHdrBadge] = useState<string | null>(null)
   const [selectedAudioIndex, setSelectedAudioIndex] = useState<number>(-1)
 
   // Next episode
@@ -102,6 +103,17 @@ export default function PlayerPage() {
   const [trickplayData, setTrickplayData] = useState<any>(null)
   const [trickplayAvailable, setTrickplayAvailable] = useState(false)
   const [qualityMenu, setQualityMenu] = useState(false)
+  const hdrLabel = (() => {
+    const streams = (playingItem as any)?.mediaStreams || []
+    const video = streams.find((s: any) => s.type === 'Video' || s.Type === 'Video')
+    if (!video) return null
+    const title = (video.displayTitle || video.DisplayTitle || '').toLowerCase()
+    if (title.includes('dolby vision') || title.includes('dv')) return 'DOLBY VISION'
+    if (title.includes('hdr10+'))  return 'HDR10+'
+    if (title.includes('hdr10'))   return 'HDR10'
+    if (title.includes('hdr'))     return 'HDR'
+    return null
+  })()
   const [introData, setIntroData] = useState<{ IntroStart?: number; IntroEnd?: number } | null>(null)
   const [showSkipIntro, setShowSkipIntro] = useState(false)
   const currentChapter = chapters.find((ch, i) => {
@@ -374,13 +386,45 @@ export default function PlayerPage() {
         case 'f': case 'F': document.fullscreenElement ? document.exitFullscreen() : containerRef.current?.requestFullscreen(); break
         case 'm': case 'M': v.muted = !v.muted; setMuted(v.muted); break
         case 'c': case 'C': setOpenPanel(p => p === 'subtitles' ? 'none' : 'subtitles'); showControls(); break
-        case 'Escape': if (openPanel !== 'none') { setOpenPanel('none') } else if (!document.fullscreenElement) { setPlayingItem(null); navigate('/') }; break
+        case 'Escape':
+          if (openPanel !== 'none') { setOpenPanel('none') }
+          else if (document.fullscreenElement) { document.exitFullscreen() }
+          else { setPlayingItem(null); navigate('/') }
+          break
+        case 'Enter':
+          e.preventDefault()
+          { const v = videoRef.current; if (v && openPanel === 'none') { v.paused ? v.play() : v.pause() } }
+          break
+        case 'BrowserBack':
+        case 'GoBack':
+          setPlayingItem(null); navigate('/')
+          e.preventDefault()
+          break
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [navigate, setPlayingItem, openPanel, showControls])
 
+
+  // ── Auto Picture-in-Picture on tab switch ───────────────────────────────────
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!videoRef.current) return
+      if (document.hidden) {
+        if (document.pictureInPictureEnabled && !document.pictureInPictureElement) {
+          videoRef.current.requestPictureInPicture().catch(() => {})
+        }
+      } else {
+        if (document.pictureInPictureElement) {
+          document.exitPictureInPicture().catch(() => {})
+          videoRef.current.focus()
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
 
   // ── Audio track switching ───────────────────────────────────────────────────────
   // HLS: can't swap mid-stream easily, so we restart at current position with new audio index
@@ -639,6 +683,27 @@ export default function PlayerPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* HDR / Dolby Vision badge */}
+      {hdrLabel && (
+        <div className="absolute top-4 right-4 pointer-events-none"
+          style={{ zIndex: 5, padding: '3px 8px', borderRadius: 4,
+            background: hdrLabel.includes('DOLBY') ? 'rgba(0,123,255,0.9)' : 'rgba(255,165,0,0.9)',
+            color: 'white', fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
+          {hdrLabel}
+        </div>
+      )}
+
+      {/* HDR/DV badge */}
+      {hdrBadge && (
+        <div className="absolute top-4 left-20 pointer-events-none"
+          style={{ zIndex: 5, opacity: controlsVisible ? 1 : 0.6, transition: 'opacity 0.3s' }}>
+          <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
+            style={{ background: hdrBadge.includes('Dolby') ? 'rgba(180,100,255,0.85)' : 'rgba(255,160,30,0.85)', color: 'white', letterSpacing: '0.15em' }}>
+            {hdrBadge}
+          </span>
+        </div>
+      )}
 
       {/* Skip intro button */}
       {showSkipIntro && introData?.IntroEnd && (

@@ -128,7 +128,7 @@ async function handleBrowse(pathname, query, session) {
             quality = '', unwatched = '', type = 'Movie,Episode,Series', limit = '50' } = query;
     let url = `/Users/${userId}/Items?Recursive=true&IncludeItemTypes=${encodeURIComponent(type)}&Limit=${limit}` +
       `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags` +
-      `&SortBy=SortName&SortOrder=Ascending`;
+      `&SortBy=SortName&SortOrder=Ascending${ratingParam}`;
     if (q)          url += `&SearchTerm=${encodeURIComponent(q)}`;
     if (genre)      url += `&Genres=${encodeURIComponent(genre)}`;
     if (year)       url += `&Years=${year}`;

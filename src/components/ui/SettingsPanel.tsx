@@ -221,6 +221,29 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <p className="text-[8px] mt-1" style={{ color: 'var(--muted)', opacity: 0.4 }}>Shown as a subtle overlay behind all content</p>
               </div>
 
+              <SectionTitle>Parental Controls</SectionTitle>
+              <p className="text-[9px] mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }}>
+                Hides content above this rating. Set a PIN to lock changes.
+              </p>
+              <div className="flex gap-2 mb-3 flex-wrap">
+                {[['','Off'],['G','G'],['PG','PG'],['PG-13','PG-13'],['R','R'],['NC-17','NC-17']].map(([v,l]) => (
+                  <button key={v} onClick={() => store.setSetting('parentalRating' as any, v)}
+                    className="px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wide"
+                    style={{ background: (store as any).parentalRating === v ? 'var(--accent)' : 'var(--subtle)', color: (store as any).parentalRating === v ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).parentalRating === v ? 'transparent' : 'var(--border2)'}` }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  type="password" placeholder="Parental PIN (4 digits)"
+                  value={(store as any).parentalPin || ''}
+                  onChange={e => store.setSetting('parentalPin' as any, e.target.value.replace(/\D/,'').slice(0,4))}
+                  className="flex-1 px-3 py-1.5 rounded-xl text-xs outline-none"
+                  style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
+                <span className="text-[9px]" style={{ color: 'var(--muted)', opacity: 0.4 }}>PIN locks settings</span>
+              </div>
+
               <SectionTitle>Content Rating Filter</SectionTitle>
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[['','All'],['G','G'],['PG','PG'],['PG-13','PG-13'],['R','R'],['NC-17','NC-17']].map(([v,l]) => (

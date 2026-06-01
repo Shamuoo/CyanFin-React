@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2,
-         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon } from 'lucide-react'
+         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -37,8 +37,10 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const { sidebarWidth = 200 } = useStore() as any
   const { isTV, isPhone } = useDevice()
+  const { layout: storedLayout } = useStore() as any
+  const tvMode = isTV || storedLayout === 'tv'
 
-  useDpadNavigation(isTV)
+  useDpadNavigation(tvMode)
 
   const { data: serverStatus } = useQuery({
     queryKey: ['servers-status-nav'], queryFn: api.serversStatus.bind(api),
@@ -67,7 +69,7 @@ export default function Layout() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-device',
-      isTV ? 'tv' : isPhone ? 'phone' : 'desktop')
+      tvMode ? 'tv' : isPhone ? 'phone' : 'desktop')
   }, [isTV, isPhone])
 
   const navLinks = [
@@ -80,6 +82,7 @@ export default function Layout() {
     { to: '/people',      icon: Users,      label: 'People' },
     { to: '/studios',     icon: Building2,  label: 'Studios' },
     { to: '/servers',     icon: ServerIcon, label: 'Servers',  adminOnly: true },
+    { to: '/users',       icon: UserCog,    label: 'Users',    adminOnly: true },
     { to: '/downloads',  icon: Download,   label: 'Downloads' },
   ]
   const adminLinks = [
@@ -107,7 +110,7 @@ export default function Layout() {
   )
 
   // ── TV Layout ──────────────────────────────────────────────────────────────
-  if (isTV) {
+  if (tvMode) {
     return (
       <div className="h-screen flex overflow-hidden" style={{ background: 'var(--bg)' }}>
         <aside className="flex flex-col flex-shrink-0 py-8 px-3 gap-1"
@@ -137,7 +140,7 @@ export default function Layout() {
             </button>
           </div>
         </aside>
-        <main className="flex-1 overflow-hidden"><Outlet /></main>
+        <main className="flex-1 overflow-hidden" style={{ padding: '2vh 2vw' }}><Outlet /></main>
         <Screensaver /><ToastContainer />
         {aiOpen && <AINavigator onClose={() => setAiOpen(false)} />}
         {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
