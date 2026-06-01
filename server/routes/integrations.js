@@ -290,3 +290,39 @@ async function handleIntegrations(pathname, query, body, session) {
 }
 
 module.exports = { handleIntegrations };
+
+// ── Trakt.tv integration ──────────────────────────────────────────────────────
+async function traktRequest(method, path, body, accessToken) {
+  const clientId = cfg.get('TRAKT_CLIENT_ID') || '';
+  const https = require('https');
+  return new Promise(resolve => {
+    const payload = body ? JSON.stringify(body) : '';
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId,
+      ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
+      ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+    };
+    const opts = { hostname: 'api.trakt.tv', path, method, headers, timeout: 8000 };
+    const req = https.request(opts, res => {
+      let d = ''; res.on('data', c => d += c);
+      res.on('end', () => { try { resolve(d ? JSON.parse(d) : { ok: true }); } catch { resolve({}); } });
+    });
+    req.on('error', () => resolve({}));
+    req.on('timeout', () => { req.destroy(); resolve({}); });
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+module.exports.traktScrobble = async function(item, accessToken, action = 'scrobble') {
+  if (!accessToken || !cfg.get('TRAKT_CLIENT_ID')) return;
+  const isMovie = item.type === 'Movie';
+  const body = {
+    progress: action === 'stop' ? 100 : 50,
+    ...(isMovie ? { movie: { title: item.title, year: item.year, ids: { imdb: item.imdb, tmdb: item.tmdb } } }
+                : { episode: { title: item.title, season: item.season, number: item.episode, ids: { tvdb: item.tvdb } }, show: { title: item.seriesTitle, ids: {} } }),
+  };
+  return traktRequest('POST', `/scrobble/${action}`, body, accessToken);
+};

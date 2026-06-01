@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.19.3';
+const VERSION = '0.19.4';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -612,7 +612,7 @@ async function handler(req, res) {
       if (itemsResult !== null) return json(res, itemsResult);
 
       // Stats
-      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/push/') || pathname.startsWith('/api/party/') || pathname.startsWith('/api/trakt/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
         const statsResult = await handleStats(pathname, parsed.query, session);
         if (statsResult !== null) return json(res, statsResult);
       }
@@ -749,6 +749,7 @@ server.listen(PORT, () => {
   console.log(`   Jellyfin: ${cfg.get('JELLYFIN_URL') || '(not configured)'}`);
   console.log(`   TMDB: ${cfg.get('TMDB_API_KEY') ? 'enabled' : 'disabled'}\n`);
   sm.start();
+  watchParty.start(server);
 });
 
 process.on('SIGTERM', () => { sm.stop(); server.close(() => process.exit(0)); });

@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2,
-         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog } from 'lucide-react'
+         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog, ListMusic } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -77,7 +77,8 @@ export default function Layout() {
     { to: '/movies',     icon: Film,       label: 'Movies' },
     { to: '/shows',      icon: Tv,         label: 'TV Shows' },
     ...(showMusic ? [{ to: '/music', icon: Music, label: 'Music' }] : []),
-    { to: '/collections', icon: Star,      label: 'Collections' },
+    { to: '/collections',      icon: Star,      label: 'Collections' },
+    { to: '/smart-playlists', icon: ListMusic, label: 'Smart Lists' },
     { to: '/history',     icon: Clock,      label: 'History' },
     { to: '/people',      icon: Users,      label: 'People' },
     { to: '/studios',     icon: Building2,  label: 'Studios' },

@@ -1,7 +1,9 @@
 {
   "name": "cyanfin-server",
-  "version": "0.19.3",
+  "version": "0.19.4",
   "description": "CyanFin server",
   "main": "index.js",
-  "dependencies": {}
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
 }

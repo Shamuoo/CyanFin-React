@@ -16,7 +16,7 @@ function fmtTime(s: number) {
 
 type Chapter = { name: string; startPositionTicks: number }
 type SubStream = { index: number; title: string; language?: string; isDefault?: boolean }
-type Panel = 'none' | 'subtitles' | 'chapters'
+type Panel = 'none' | 'subtitles' | 'chapters' | 'audio' | 'quality'
 
 function formatTime(s: number) {
   if (!s || isNaN(s)) return '0:00'
@@ -103,6 +103,9 @@ export default function PlayerPage() {
   const [trickplayData, setTrickplayData] = useState<any>(null)
   const [trickplayAvailable, setTrickplayAvailable] = useState(false)
   const [qualityMenu, setQualityMenu] = useState(false)
+  const [extSubs, setExtSubs] = useState<any[]>([])
+  const [extSubLang, setExtSubLang] = useState('eng')
+  const [subSearching, setSubSearching] = useState(false)
   const hdrLabel = (() => {
     const streams = (playingItem as any)?.mediaStreams || []
     const video = streams.find((s: any) => s.type === 'Video' || s.Type === 'Video')
@@ -429,6 +432,15 @@ export default function PlayerPage() {
   // ── Audio track switching ───────────────────────────────────────────────────────
   // HLS: can't swap mid-stream easily, so we restart at current position with new audio index
   // For direct play, the browser handles it natively via the video element's audio tracks
+  const searchExtSubs = async (lang: string) => {
+    if (!playingItem?.id) return
+    setSubSearching(true)
+    const r = await fetch(`/api/items/${playingItem.id}/external-subtitles?lang=${lang}`, { credentials: 'include' })
+      .then(r => r.json()).catch(() => [])
+    setExtSubs(Array.isArray(r) ? r : [])
+    setSubSearching(false)
+  }
+
   const switchAudio = async (index: number) => {
     if (!playingItem?.id || !videoRef.current) return
     setSelectedAudioIndex(index)
@@ -834,13 +846,13 @@ export default function PlayerPage() {
       </div>
       {watchPartyOpen && (
         <WatchParty
+          itemId={playingItem?.id || ''}
           onClose={() => setWatchPartyOpen(false)}
-          itemId={playingItem?.id}
-          itemTitle={playingItem?.title}
-          currentTime={currentTime}
-          isPaused={!playing}
-          onSeek={t => { if (videoRef.current) videoRef.current.currentTime = t }}
-          onPause={p => { if (p) videoRef.current?.pause(); else videoRef.current?.play() }}
+          onSeek={ms => { if (videoRef.current) videoRef.current.currentTime = ms / 1000 }}
+          onPlay={() => videoRef.current?.play()}
+          onPause={() => videoRef.current?.pause()}
+          getCurrentMs={() => (videoRef.current?.currentTime || 0) * 1000}
+          username={(window as any).__cfUsername || 'Guest'}
         />
       )}
     </div>

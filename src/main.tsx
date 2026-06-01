@@ -36,6 +36,17 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
   }
 }
 
+// Register service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('[SW] registered', reg.scope);
+      // Store registration globally for push subscription
+      (window as any).__swReg = reg;
+    }).catch(e => console.log('[SW] failed', e));
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>

@@ -253,6 +253,23 @@ async function handleItems(pathname, query, session, req) {
       ItemId: itemId, MediaSourceId: mediaSourceId,
       PositionTicks: positionTicks, PlayMethod: 'DirectPlay',
     }, token).catch(() => {});
+    // Trakt scrobble on stop
+    try {
+      const traktToken = session.traktToken;
+      if (traktToken) {
+        const { traktScrobble } = require('./integrations');
+        const itemData = await jf.get(`/Items/${itemId}?fields=ProviderIds,ProductionYear,IndexNumber,ParentIndexNumber,SeriesName`, token).catch(() => null);
+        if (itemData) {
+          traktScrobble({
+            type: itemData.Type, title: itemData.Name, year: itemData.ProductionYear,
+            imdb: itemData.ProviderIds?.Imdb, tmdb: itemData.ProviderIds?.Tmdb,
+            tvdb: itemData.ProviderIds?.Tvdb, season: itemData.ParentIndexNumber,
+            episode: itemData.IndexNumber, seriesTitle: itemData.SeriesName,
+          }, traktToken, 'scrobble').catch(() => {});
+        }
+      }
+    } catch {}
+
     // Auto-mark as played if watched >85%
     if (runtimeTicks && positionTicks / runtimeTicks > 0.85) {
       await jf.post(`/Users/${userId}/PlayedItems/${itemId}`, {}, token).catch(() => {});

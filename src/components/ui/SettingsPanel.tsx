@@ -438,6 +438,43 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
 
+              <SectionTitle>Trakt.tv</SectionTitle>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs font-bold" style={{ color: 'var(--cream)' }}>Scrobble to Trakt</p>
+                  <p className="text-[9px]" style={{ color: 'var(--muted)' }}>Auto-post watched films + shows</p>
+                </div>
+                <button onClick={() => {
+                  const id = prompt('Enter your Trakt OAuth token (from trakt.tv/settings → Your API Apps → OAuth):')
+                  if (id) { store.setSetting('traktConnected' as any, true); localStorage.setItem('cf_trakt_token', id); alert('Trakt connected!'); }
+                }}
+                  className="px-3 py-1.5 rounded-full text-[9px] font-bold hover:opacity-80"
+                  style={{ background: (store as any).traktConnected ? 'rgba(46,204,113,0.15)' : 'var(--accent)', color: (store as any).traktConnected ? '#2ecc71' : 'var(--bg)', border: (store as any).traktConnected ? '1px solid #2ecc71' : 'none' }}>
+                  {(store as any).traktConnected ? '✓ Connected' : 'Connect'}
+                </button>
+              </div>
+
+              <SectionTitle>Push Notifications</SectionTitle>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs" style={{ color: 'var(--cream)' }}>New content + server alerts</p>
+                <button onClick={async () => {
+                  if (!('Notification' in window)) { return; }
+                  const perm = await Notification.requestPermission();
+                  if (perm !== 'granted') return;
+                  const reg = (window as any).__swReg;
+                  if (!reg) return;
+                  const vapid = await fetch('/api/push/vapid-key', { credentials: 'include' }).then(r => r.json()).catch(() => ({}));
+                  if (!vapid.key) { alert('VAPID key not configured on server'); return; }
+                  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapid.key });
+                  await fetch('/api/push/subscribe', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub }) });
+                  alert('Push notifications enabled!');
+                }}
+                  className="px-3 py-1.5 rounded-full text-[9px] font-bold hover:opacity-80"
+                  style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+                  Enable
+                </button>
+              </div>
+
               <SectionTitle>Resume Threshold</SectionTitle>
               <p className="text-[9px] mb-2" style={{ color: 'var(--muted)' }}>
                 Show "Resume" if watched more than {(store as any).resumeThreshold}%

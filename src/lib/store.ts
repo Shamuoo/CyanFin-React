@@ -63,6 +63,7 @@ interface AppState {
   heroTrailerAutoplay: boolean
   heroStyle: 'cinematic' | 'minimal' | 'spotlight'
   show3D: boolean
+  traktConnected: boolean
   sidebarWidth: number
   ageFilter: string
   parentalPin: string
@@ -137,6 +138,7 @@ export const useStore = create<AppState>()(
       heroTrailerAutoplay: true,
       heroStyle: 'cinematic' as const,
       show3D: false,
+      traktConnected: false,
       sidebarWidth: 200,
       ageFilter: '',
       parentalPin: '',
