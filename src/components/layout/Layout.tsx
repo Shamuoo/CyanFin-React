@@ -46,6 +46,11 @@ export default function Layout() {
     queryKey: ['servers-status-nav'], queryFn: api.serversStatus.bind(api),
     refetchInterval: 30_000, staleTime: 15_000, enabled: !!user, retry: false,
   })
+  const _jf = (serverStatus as any)?.jellyfin || []
+  const _allOk  = _jf.length > 0 && _jf.every((s: any) => s.ok)
+  const _anyOk  = _jf.some((s: any) => s.ok)
+  const navDotColor = !(serverStatus as any) ? null : !_anyOk ? '#e74c3c' : !_allOk ? '#f39c12' : '#2ecc71'
+
   const { data: weather } = useQuery({
     queryKey: ['weather-nav', (store as any).city],
     queryFn: () => api.weather((store as any).city || 'Sydney'),
@@ -125,7 +130,11 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-[--accent] ${
                   isActive ? 'bg-[--accent] text-[--bg]' : 'text-[--muted] hover:bg-white/10 hover:text-white'}`}>
-              <Icon size={20} /> {label}
+              <Icon size={20} />
+              <span className="flex-1">{label}</span>
+              {to === '/servers' && navDotColor && (
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: navDotColor, boxShadow: `0 0 5px ${navDotColor}` }} />
+              )}
             </NavLink>
           ))}
           <div className="mt-auto space-y-2 pt-4" style={{ borderTop: '1px solid var(--border2)' }}>

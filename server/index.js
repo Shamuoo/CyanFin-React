@@ -23,7 +23,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.19.4';
+const VERSION = '0.19.5';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -505,6 +505,24 @@ async function handler(req, res) {
   // servers switch/check handled below after body read
 
   // ── PROXY: images ─────────────────────────────────────────────────────────
+  // Subtitle proxy — converts Jellyfin subtitles to WebVTT for <track> elements
+  if (pathname === '/proxy/subtitles') {
+    const itemId = parsed.query.id;
+    const index  = parseInt(parsed.query.index||'0');
+    const tok    = parsed.query.token || (session?.token) || '';
+    if (!itemId || !tok) { res.writeHead(400); res.end(); return; }
+    const cfg = require('./config');
+    const jfUrl = cfg.get('JELLYFIN_URL');
+    const subUrl = `${jfUrl}/Videos/${itemId}/${itemId}/Subtitles/${index}/Stream.vtt?api_key=${tok}`;
+    const http2 = require('http'), https2 = require('https');
+    const lib = subUrl.startsWith('https') ? https2 : http2;
+    lib.get(subUrl, upstream => {
+      res.writeHead(upstream.statusCode, { 'Content-Type': 'text/vtt; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+      upstream.pipe(res);
+    }).on('error', () => { res.writeHead(500); res.end(); });
+    return;
+  }
+
   if (pathname === '/proxy/image') {
     const session = auth.getSessionFromRequest(req);
     const { id, type = 'Primary', w = '400' } = parsed.query;
