@@ -16,7 +16,8 @@ RUN cd server && npm install --production
 
 # Server source
 COPY server/index.js server/config.js server/auth.js server/jellyfin.js \
-     server/serverManager.js server/plexClient.js server/tmdb.js ./server/
+     server/serverManager.js server/plexClient.js server/tmdb.js \
+     server/legacy.js server/watchParty.js ./server/
 COPY server/routes/ ./server/routes/
 
 # Built frontend
