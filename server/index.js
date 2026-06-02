@@ -2,6 +2,7 @@
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
+const watchParty = require('./watchParty');
 const path = require('path');
 const url = require('url');
 
