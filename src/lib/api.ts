@@ -131,6 +131,8 @@ class ApiClient {
   sharedWatchlist() { return this.get<any>('/api/watchlist/shared') }
   addToSharedWatchlist(itemId: string) { return this.post<any>('/api/watchlist/shared/add', { itemId }) }
   removeFromSharedWatchlist(playlistId: string, entryId: string) { return this.delete(`/api/watchlist/shared/${playlistId}?entryId=${entryId}`) }
+  movies3d(start = 0, limit = 40) { return this.get<any>(`/api/movies/3d?start=${start}&limit=${limit}`) }
+  movies4k(start = 0, limit = 40, sort = 'CommunityRating') { return this.get<any>(`/api/movies/4k?start=${start}&limit=${limit}&sort=${sort}`) }
   best4k() { return this.get<any[]>('/api/best4k') }
   instantMix(id: string) { return this.get<any[]>(`/api/items/${id}/instant-mix`) }
   similar(id: string) { return this.get<MediaItem[]>(`/api/items/${id}/similar`) }
@@ -219,6 +221,9 @@ class ApiClient {
   libQuality() { return this.get('/api/library/quality-report') }
   libMissing() { return this.get('/api/library/missing-content') }
   libVersions() { return this.get('/api/library/versions-report') }
+  metadataIssues(type = 'Movie') { return this.get<any>(`/api/library/metadata-issues?type=${type}`) }
+  identifyItem(itemId: string, body: any) { return this.post<any>(`/api/library/identify/${itemId}`, body) }
+  autoFixMetadata(itemIds: string[]) { return this.post<any>('/api/library/auto-fix-metadata', { itemIds }) }
   languageAudit(lang = 'eng', type = 'Movie') { return this.get<any>(`/api/library/language-audit?lang=${lang}&type=${type}`) }
   libScan() { return this.get('/api/library/scan') }
   libSyncDiff() { return this.get<any>('/api/library/sync-diff') }

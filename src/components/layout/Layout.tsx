@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2,
-         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog, ListMusic, Languages } from 'lucide-react'
+         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog, ListMusic, Languages, FilePen, Box } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'

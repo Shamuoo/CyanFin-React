@@ -263,6 +263,80 @@ async function handleLibrary(pathname, query, session, req) {
   }
 
   // ── Language audit — find items without English audio/subtitles ─────────────
+  // ── Metadata issues scan ──────────────────────────────────────────────────────
+  if (pathname === '/api/library/metadata-issues') {
+    const type = query.type || 'Movie';
+    const data = await jf.get(
+      `/Users/${userId}/Items?IncludeItemTypes=${type}&Recursive=true&Limit=500` +
+      `&fields=Overview,Genres,ProductionYear,ProviderIds,ImageTags,BackdropImageTags,People&SortBy=SortName`,
+      token
+    );
+    const items = (data.Items || []);
+    const issues = [];
+    for (const item of items) {
+      const problems = [];
+      if (!item.Overview)                          problems.push('no_overview');
+      if (!item.ImageTags?.Primary)                problems.push('no_poster');
+      if (!item.BackdropImageTags?.length && !item.BackdropImageTags?.[0]) problems.push('no_backdrop');
+      if (!item.ProductionYear)                    problems.push('no_year');
+      if (!item.Genres?.length)                    problems.push('no_genres');
+      if (!item.ProviderIds?.Imdb && !item.ProviderIds?.Tmdb && !item.ProviderIds?.Tvdb) problems.push('no_ids');
+      if (!item.People?.length && type === 'Movie') problems.push('no_cast');
+      if (problems.length) {
+        issues.push({
+          id: item.Id, name: item.Name, year: item.ProductionYear,
+          problems,
+          imageUrl: item.ImageTags?.Primary ? `/proxy/image?id=${item.Id}&type=Primary&w=120` : null,
+        });
+      }
+    }
+    return { issues, total: items.length };
+  }
+
+  // ── Refresh metadata for one item ─────────────────────────────────────────────
+  if (pathname.match(/^\/api\/library\/identify\/[^/]+$/) && req.method === 'POST') {
+    const itemId = pathname.split('/')[4];
+    const { name, year, imdb, tmdb } = req._body || {};
+    // Use Jellyfin's RemoteSearch to find the right match
+    const searchBody = {
+      SearchInfo: {
+        Name: name, Year: year,
+        ProviderIds: { ...(imdb ? { Imdb: imdb } : {}), ...(tmdb ? { Tmdb: String(tmdb) } : {}) },
+        ItemType: 'Movie',
+      },
+    };
+    try {
+      // 1. Search for matches
+      const results = await jf.post(`/Items/RemoteSearch/Movie`, searchBody, token);
+      const best = (results || [])[0];
+      if (!best) return { ok: false, error: 'No results found' };
+      // 2. Apply the best match
+      await jf.post(`/Items/RemoteSearch/Apply/${itemId}?ReplaceAllImages=false`, best, token);
+      // 3. Refresh metadata
+      await jf.post(`/Items/${itemId}/Refresh?MetadataRefreshMode=FullRefresh&ImageRefreshMode=FullRefresh&ReplaceAllImages=false`, {}, token);
+      return { ok: true, name: best.Name, year: best.ProductionYear };
+    } catch(e) {
+      // Fallback: just trigger a metadata refresh
+      await jf.post(`/Items/${itemId}/Refresh?MetadataRefreshMode=FullRefresh&ImageRefreshMode=FullRefresh`, {}, token).catch(() => {});
+      return { ok: true, refreshed: true };
+    }
+  }
+
+  // ── Auto-fix: refresh metadata for all items with issues ─────────────────────
+  if (pathname === '/api/library/auto-fix-metadata' && req.method === 'POST') {
+    const { itemIds = [] } = req._body || {};
+    let fixed = 0;
+    for (const id of itemIds.slice(0, 50)) { // cap at 50 at a time
+      try {
+        await jf.post(`/Items/${id}/Refresh?MetadataRefreshMode=FullRefresh&ImageRefreshMode=FullRefresh&ReplaceAllImages=false`, {}, token);
+        fixed++;
+        // Small delay to not hammer Jellyfin
+        await new Promise(r => setTimeout(r, 300));
+      } catch {}
+    }
+    return { ok: true, fixed, total: itemIds.length };
+  }
+
   if (pathname === '/api/library/language-audit') {
     const lang = query.lang || 'eng';
     const type = query.type || 'Movie';

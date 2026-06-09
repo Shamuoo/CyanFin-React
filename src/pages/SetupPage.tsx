@@ -94,6 +94,7 @@ export default function SetupPage() {
     setSaving(true)
     try {
       await api.post('/api/config', form)
+      localStorage.setItem('cf_setup_saved', String(Date.now()))
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {}
@@ -108,7 +109,9 @@ export default function SetupPage() {
   const finish = async () => {
     await saveStep()
     store.setOnboarded(true)
-    window.location.href = '/'
+    // Force a full page reload so the server re-reads the new config
+    // and AuthGuard sees configured=true cleanly
+    window.location.replace('/login')
   }
 
   const canNext = () => {

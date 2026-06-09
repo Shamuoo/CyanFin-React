@@ -27,6 +27,9 @@ import ServersPage from '@/pages/ServersPage'
 import UsersPage from '@/pages/UsersPage'
 import SmartPlaylistsPage from '@/pages/SmartPlaylistsPage'
 import LanguageAuditPage from '@/pages/LanguageAuditPage'
+import MetadataFixPage from '@/pages/MetadataFixPage'
+import MoviesFiltered3D from '@/pages/MoviesFiltered3D'
+import MoviesFiltered4K from '@/pages/MoviesFiltered4K'
 import DownloadsPage from '@/pages/DownloadsPage'
 import PlayerPage from '@/pages/PlayerPage'
 
@@ -107,8 +110,9 @@ function AuthGuard() {
   if (checkingServer) return <Spinner />
 
   // ONLY show setup if server has no Jellyfin URL configured
-  // Never trigger from localStorage flag on minor updates
-  if (serverInfo && !serverInfo.configured) {
+  // Grace period: if we just saved config (< 5s ago), don't redirect back to setup
+  const justSaved = Date.now() - parseInt(localStorage.getItem('cf_setup_saved') || '0') < 5000
+  if (serverInfo && !serverInfo.configured && !justSaved) {
     return <Navigate to="/setup" replace />
   }
 
@@ -212,6 +216,9 @@ export default function App() {
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
+                  <Route path="/movies/3d" element={<ErrorBoundary><MoviesFiltered3D /></ErrorBoundary>} />
+                  <Route path="/movies/4k" element={<ErrorBoundary><MoviesFiltered4K /></ErrorBoundary>} />
+                  <Route path="/metadata-fix" element={<ErrorBoundary><MetadataFixPage /></ErrorBoundary>} />
                   <Route path="/language-audit" element={<ErrorBoundary><LanguageAuditPage /></ErrorBoundary>} />
                   <Route path="/smart-playlists" element={<ErrorBoundary><SmartPlaylistsPage /></ErrorBoundary>} />
                   <Route path="/users" element={<ErrorBoundary><UsersPage /></ErrorBoundary>} />

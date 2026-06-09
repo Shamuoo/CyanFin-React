@@ -24,7 +24,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.20.0';
+const VERSION = '0.20.1';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
