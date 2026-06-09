@@ -162,8 +162,8 @@ async function handler(req, res) {
   if (pathname === '/api/public/info') {
     return json(res, {
       version: VERSION,
-      hasJellyfin: !!cfg.get('JELLYFIN_URL'),
-      configured: !!cfg.get('JELLYFIN_URL'),
+      hasJellyfin: !!(cfg.get('JELLYFIN_URL') || cfg.get('JELLYFIN_SERVERS')),
+      configured:  !!(cfg.get('JELLYFIN_URL') || cfg.get('JELLYFIN_SERVERS')),
       hasPlex: !!(cfg.get('PLEX_URL') && cfg.get('PLEX_TOKEN')),
       ...cfg.getPublic(),
     });
@@ -362,7 +362,7 @@ async function handler(req, res) {
     const body = await readBody(req);
     const { username, password } = body;
     try {
-      const currentUrl = cfg.get('JELLYFIN_URL');
+      const currentUrl = cfg.get('JELLYFIN_URL') || (() => { try { return JSON.parse(cfg.get('JELLYFIN_SERVERS') || '[]')[0]?.url } catch { return null } })();
       if (!currentUrl) return json(res, { error: 'Not configured' }, 503);
       const result = await jf.authenticate(username, password);
       const [backupToken] = await Promise.all([
@@ -384,7 +384,7 @@ async function handler(req, res) {
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     const body = await readBody(req);
     try {
-      const currentUrl = cfg.get('JELLYFIN_URL');
+      const currentUrl = cfg.get('JELLYFIN_URL') || (() => { try { return JSON.parse(cfg.get('JELLYFIN_SERVERS') || '[]')[0]?.url } catch { return null } })();
       if (!currentUrl) return json(res, { error: 'Jellyfin server not configured. Please complete setup first.' }, 503);
       if (currentUrl && !jf.getBaseUrl()) jf.init(currentUrl, cfg.get('JELLYFIN_API_KEY') || '');
 
@@ -474,6 +474,10 @@ async function handler(req, res) {
     const body = await readBody(req);
     const result = cfg.saveConfig(body);
     if (result.success) {
+      // Reinitialise Jellyfin client + HA manager with new config
+      const newUrl = cfg.get('JELLYFIN_URL') || (() => { try { return JSON.parse(cfg.get('JELLYFIN_SERVERS') || '[]')[0]?.url } catch { return null } })()
+      const newKey = cfg.get('JELLYFIN_API_KEY') || ''
+      if (newUrl) { jf.init(newUrl, newKey); sm.stop(); sm.start(); }
       jf.init(cfg.get('JELLYFIN_URL'), cfg.get('JELLYFIN_API_KEY') || '');
       tmdb.init(cfg.get('TMDB_API_KEY'));
       sm.stop(); sm.start();
