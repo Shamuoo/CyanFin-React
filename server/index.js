@@ -161,10 +161,14 @@ async function handler(req, res) {
 
   // ── PUBLIC: server info (no auth needed) ─────────────────────────────────
   if (pathname === '/api/public/info') {
+    const jfUrl = cfg.get('JELLYFIN_URL');
+    const jfServers = cfg.get('JELLYFIN_SERVERS');
+    const isConfigured = !!(jfUrl || jfServers);
+    console.log('[publicInfo] JELLYFIN_URL:', jfUrl || '(empty)', '| JELLYFIN_SERVERS:', jfServers ? 'set' : '(empty)', '| configured:', isConfigured);
     return json(res, {
       version: VERSION,
-      hasJellyfin: !!(cfg.get('JELLYFIN_URL') || cfg.get('JELLYFIN_SERVERS')),
-      configured:  !!(cfg.get('JELLYFIN_URL') || cfg.get('JELLYFIN_SERVERS')),
+      hasJellyfin: isConfigured,
+      configured:  isConfigured,
       hasPlex: !!(cfg.get('PLEX_URL') && cfg.get('PLEX_TOKEN')),
       ...cfg.getPublic(),
     });
