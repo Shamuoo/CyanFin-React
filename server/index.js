@@ -467,7 +467,7 @@ async function handler(req, res) {
   // ── CONFIG ────────────────────────────────────────────────────────────────
   if (pathname === '/api/config/save' && req.method === 'POST') {
     // Allow unauthenticated only during initial setup (no Jellyfin URL set)
-    const isSetup = !cfg.get('JELLYFIN_URL');
+    const isSetup = !cfg.get('JELLYFIN_URL') && !cfg.get('JELLYFIN_SERVERS');
     if (!isSetup) {
       const session = auth.getSessionFromRequest(req);
       if (!session) return json(res, { error: 'Not logged in' }, 401);

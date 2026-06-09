@@ -93,7 +93,7 @@ export default function SetupPage() {
   const saveStep = async () => {
     setSaving(true)
     try {
-      await api.post('/api/config', form)
+      await api.saveConfig(form)
       localStorage.setItem('cf_setup_saved', String(Date.now()))
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
