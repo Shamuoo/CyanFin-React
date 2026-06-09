@@ -465,16 +465,7 @@ async function handler(req, res) {
   }
 
   // ── CONFIG ────────────────────────────────────────────────────────────────
-  if (pathname === '/api/config/save' && req.method === 'POST') {
-    // Allow unauthenticated from setup page (identified by presence of JELLYFIN_URL in body)
-    // After login, Settings uses the same endpoint with an active session
-    const session = auth.getSessionFromRequest(req);
-    const bodyPreview = req._body || {};
-    const isSetupCall = !!(bodyPreview.JELLYFIN_URL || bodyPreview.JELLYFIN_SERVERS);
-    if (!isSetupCall && !session) {
-      return json(res, { error: 'Not logged in' }, 401);
-    }
-    const body = await readBody(req);
+  if (pathname === '/api/config/save-DISABLED') {
     const result = cfg.saveConfig(body);
     if (result.success) {
       // Reinitialise Jellyfin client + HA manager with new config
@@ -613,6 +604,26 @@ async function handler(req, res) {
       }).on('error', () => { res.writeHead(502); res.end(); }).end();
     } catch(e) { res.writeHead(500); res.end(); }
     return;
+  }
+
+  // ── CONFIG SAVE — allowed before auth wall (setup has no session) ─────────────
+  if (pathname === '/api/config/save' && req.method === 'POST') {
+    const body = await readBody(req);
+    const sessionCheck = auth.getSessionFromRequest(req);
+    // Setup calls contain JELLYFIN_URL — allow unauthenticated
+    // Settings calls require a session
+    const isSetupCall = !!(body.JELLYFIN_URL || body.JELLYFIN_SERVERS);
+    if (!isSetupCall && !sessionCheck) {
+      return json(res, { error: 'Not logged in' }, 401);
+    }
+    const result = cfg.saveConfig(body);
+    if (result.success) {
+      const newUrl = cfg.get('JELLYFIN_URL') || (() => { try { return JSON.parse(cfg.get('JELLYFIN_SERVERS') || '[]')[0]?.url } catch { return null } })();
+      const newKey = cfg.get('JELLYFIN_API_KEY') || '';
+      if (newUrl) { jf.init(newUrl, newKey); sm.stop(); sm.start(); }
+      tmdb.init(cfg.get('TMDB_API_KEY'));
+    }
+    return json(res, result);
   }
 
   // ── AUTHENTICATED API ROUTES ──────────────────────────────────────────────
