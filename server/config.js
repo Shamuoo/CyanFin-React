@@ -29,6 +29,14 @@ const SCHEMA = {
   DISCORD_WEBHOOK_URL:    { type: 'url',    label: 'Discord Webhook URL' },
   CYANFIN_BACKUP_URL:     { type: 'url',    label: 'Backup CyanFin URL' },
   HOME_SECTIONS:          { type: 'json',   label: 'Home Sections Config' },
+  JELLYFIN_SERVERS:       { type: 'json',   label: 'Jellyfin Servers Array' },
+  PLEX_SERVERS:           { type: 'json',   label: 'Plex Servers Array' },
+  SERVER_ROLES:           { type: 'json',   label: 'Server Roles' },
+  JELLYFIN_MODE:          { type: 'string', label: 'Load Balancing Mode' },
+  VAPID_PUBLIC_KEY:       { type: 'string', label: 'VAPID Public Key' },
+  VAPID_PRIVATE_KEY:      { type: 'string', label: 'VAPID Private Key', secret: true },
+  TRAKT_CLIENT_ID:        { type: 'string', label: 'Trakt Client ID', secret: true },
+  TRAKT_ACCESS_TOKEN:     { type: 'string', label: 'Trakt Access Token', secret: true },
 };
 
 let _cfg = {};
@@ -110,7 +118,7 @@ function getPublic() {
 function validate(updates) {
   const errors = [];
   for (const [key, val] of Object.entries(updates)) {
-    if (!SCHEMA[key]) { errors.push(`Unknown key: ${key}`); continue; }
+    if (!SCHEMA[key]) { continue; } // skip unknown keys silently
     const schema = SCHEMA[key];
     if (!val) continue; // empty = delete
     if (schema.type === 'url') {
@@ -126,6 +134,8 @@ function validate(updates) {
 }
 
 function saveConfig(updates) {
+  console.log('[config] saveConfig called with keys:', Object.keys(updates).join(', '));
+  console.log('[config] CONFIG_PATH:', CONFIG_PATH);
   const errors = validate(updates);
   if (errors.length) return { success: false, errors };
 
@@ -148,6 +158,8 @@ function saveConfig(updates) {
     fs.writeFileSync(tmpPath, JSON.stringify(_cfg, null, 2));
     fs.renameSync(tmpPath, CONFIG_PATH);
     console.log('[config] Saved:', saved.join(', '));
+    console.log('[config] File written to:', CONFIG_PATH);
+    console.log('[config] _cfg.JELLYFIN_URL now:', _cfg.JELLYFIN_URL || '(empty)');
   } catch(e) {
     console.error('[config] Save failed:', e.message);
     return { success: false, errors: ['Could not write config file: ' + e.message] };
