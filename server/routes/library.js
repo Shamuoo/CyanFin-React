@@ -337,6 +337,40 @@ async function handleLibrary(pathname, query, session, req) {
     return { ok: true, fixed, total: itemIds.length };
   }
 
+  // ── Missing episodes finder ──────────────────────────────────────────────────
+  if (pathname === '/api/library/missing-episodes') {
+    // Get all series
+    const shows = await jf.get(
+      `/Users/${userId}/Items?IncludeItemTypes=Series&Recursive=true&Limit=200&SortBy=SortName&fields=ProviderIds`,
+      token
+    );
+    const issues = [];
+    for (const show of (shows.Items || []).slice(0, 100)) {
+      const seasons = await jf.get(`/Shows/${show.Id}/Seasons?userId=${userId}`, token).catch(() => ({ Items: [] }));
+      for (const season of (seasons.Items || [])) {
+        if (!season.IndexNumber) continue;
+        const eps = await jf.get(
+          `/Shows/${show.Id}/Episodes?seasonId=${season.Id}&userId=${userId}&fields=IndexNumber`,
+          token
+        ).catch(() => ({ Items: [] }));
+        const epNums = (eps.Items || []).map(e => e.IndexNumber).filter(n => n != null).sort((a,b) => a-b);
+        if (!epNums.length) continue;
+        const missing = [];
+        for (let n = epNums[0]; n <= epNums[epNums.length-1]; n++) {
+          if (!epNums.includes(n)) missing.push(n);
+        }
+        if (missing.length) {
+          issues.push({
+            showId: show.Id, showName: show.Name, season: season.IndexNumber,
+            missing, present: epNums.length,
+            imageUrl: show.ImageTags?.Primary ? `/proxy/image?id=${show.Id}&type=Primary&w=80` : null,
+          });
+        }
+      }
+    }
+    return { issues, showsScanned: Math.min(shows.TotalRecordCount||0, 100) };
+  }
+
   if (pathname === '/api/library/language-audit') {
     const lang = query.lang || 'eng';
     const type = query.type || 'Movie';

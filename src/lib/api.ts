@@ -195,6 +195,11 @@ class ApiClient {
 
   // ── Stats & Health ────────────────────────────────────────────────────────
   health() { return this.get('/api/health') }
+  clusterStats()  { return this.get<any>('/api/cluster/stats') }
+  clusterJobs()   { return this.get<any>('/api/cluster/jobs') }
+  clusterRole(serverId: string, role: string) { return this.post('/api/cluster/roles', { serverId, role }) }
+  clusterScan(serverId: string) { return this.post('/api/cluster/scan', { serverId }) }
+  pretranscode(serverId: string, itemId: string, maxBitrate?: number) { return this.post('/api/cluster/pretranscode', { serverId, itemId, maxBitrate }) }
   haStatus()  { return this.get<any>('/api/servers/status') }
   adminUsers() { return this.get<any>('/api/admin/users') }
   adminSessions() { return this.get<any>('/api/admin/sessions') }
@@ -221,6 +226,7 @@ class ApiClient {
   libQuality() { return this.get('/api/library/quality-report') }
   libMissing() { return this.get('/api/library/missing-content') }
   libVersions() { return this.get('/api/library/versions-report') }
+  missingEpisodes() { return this.get<any>('/api/library/missing-episodes') }
   metadataIssues(type = 'Movie') { return this.get<any>(`/api/library/metadata-issues?type=${type}`) }
   identifyItem(itemId: string, body: any) { return this.post<any>(`/api/library/identify/${itemId}`, body) }
   autoFixMetadata(itemIds: string[]) { return this.post<any>('/api/library/auto-fix-metadata', { itemIds }) }

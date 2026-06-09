@@ -259,7 +259,11 @@ async function runSpeedTests() {
 function getStatus() {
   const mode = cfg.get('JELLYFIN_MODE') || state.mode || 'fastest';
   return {
-    jellyfin:    state.jellyfin.map(s => ({ ...s, apiKey: undefined, isActive: s.id === state.activeJfId, latencyHistory: latencyHistory[s.id] || [] })),
+    jellyfin:    state.jellyfin.map(s => {
+      let role = 'primary';
+      try { const roles = JSON.parse(cfg.get('SERVER_ROLES') || '{}'); role = roles[s.id] || 'primary'; } catch {}
+      return { ...s, apiKey: undefined, isActive: s.id === state.activeJfId, latencyHistory: latencyHistory[s.id] || [], role };
+    }),
     plex:        state.plex.map(s => ({ ...s, token: undefined, latencyHistory: latencyHistory[s.id] || [] })),
     activeJfId:  state.activeJfId,
     mode,

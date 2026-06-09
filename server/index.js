@@ -3,6 +3,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const watchParty = require('./watchParty');
+const cluster   = require('./cluster');
 const path = require('path');
 const url = require('url');
 
@@ -24,7 +25,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.20.1';
+const VERSION = '0.20.2';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -635,7 +636,7 @@ async function handler(req, res) {
       if (itemsResult !== null) return json(res, itemsResult);
 
       // Stats
-      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/cache/') || pathname.startsWith('/api/push/') || pathname.startsWith('/api/party/') || pathname.startsWith('/api/trakt/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname.startsWith('/api/cluster/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/cache/') || pathname.startsWith('/api/push/') || pathname.startsWith('/api/party/') || pathname.startsWith('/api/trakt/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
         const statsResult = await handleStats(pathname, parsed.query, session);
         if (statsResult !== null) return json(res, statsResult);
       }
@@ -666,6 +667,79 @@ async function handler(req, res) {
       }
 
       // Servers switch / check
+      // ── Jellyfin webhook receiver ─────────────────────────────────────────────────
+  // Configure in Jellyfin → Dashboard → Plugins → Webhook → Add → URL = http://your-ip:3002/webhook
+  if (pathname === '/webhook' && req.method === 'POST') {
+    try {
+      const event = req._body || {};
+      const type = event.NotificationType || event.Event || '';
+      console.log('[webhook]', type, event.ItemName || '');
+      const cache = require('./cache');
+
+      // React to different event types
+      if (type.includes('ItemAdded') || type.includes('library')) {
+        // Bust home caches so new items appear
+        cache.bustPattern(/^(recent|pop|best|trending)/);
+        console.log('[webhook] Cache busted for new library item');
+      }
+      if (type.includes('PlaybackStart')) {
+        cache.bustPattern(/^active/);
+      }
+      if (type.includes('RefreshComplete') || type.includes('ScanComplete')) {
+        cache.bustPattern(/.*/); // full cache bust after scan
+        console.log('[webhook] Full cache bust after scan complete');
+      }
+      // Future: push notification trigger would go here
+      return { ok: true, received: type };
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // ── Cluster API ───────────────────────────────────────────────────────────────
+      if (pathname === '/api/cluster/stats') {
+        return cluster.getClusterStats();
+      }
+
+      if (pathname === '/api/cluster/roles' && req.method === 'POST') {
+        const { serverId, role } = req._body || {};
+        if (!serverId || !role) return { error: 'serverId and role required' };
+        cluster.setRole(serverId, role);
+        return { ok: true, serverId, role };
+      }
+
+      if (pathname === '/api/cluster/scan' && req.method === 'POST') {
+        const { serverId } = req._body || {};
+        const server = sm.getJellyfinServers().find(s => s.id === serverId) || sm.getJellyfinServers()[0];
+        if (!server) return { error: 'No server available' };
+        const job = cluster.triggerScan(server.id);
+        return { ok: true, jobId: job.id };
+      }
+
+      if (pathname === '/api/cluster/pretranscode' && req.method === 'POST') {
+        const { serverId, itemId, maxBitrate } = req._body || {};
+        const job = cluster.pretranscode(serverId, itemId, userId, token, maxBitrate);
+        return { ok: true, jobId: job.id };
+      }
+
+      if (pathname === '/api/cluster/metadata' && req.method === 'POST') {
+        const { serverId, itemIds } = req._body || {};
+        const job = cluster.triggerMetadata(serverId, itemIds);
+        return { ok: true, jobId: job.id };
+      }
+
+      if (pathname === '/api/cluster/route' && req.method === 'POST') {
+        // Choose best server for a given playback request
+        const { itemId, maxBitrate, requiresTranscode } = req._body || {};
+        const server = await cluster.routePlayback(itemId, maxBitrate, requiresTranscode);
+        if (!server) return { serverId: null, url: null };
+        return { serverId: server.id, name: server.name, url: server.url };
+      }
+
+      if (pathname === '/api/cluster/jobs') {
+        return { jobs: cluster.getJobs().slice(-50) };
+      }
+
       // ── Cross-server item matching ─────────────────────────────────────────────
       if (pathname === '/api/servers/match-item' && req.method === 'POST') {
         const { itemId } = req._body || {};

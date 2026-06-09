@@ -28,6 +28,7 @@ import UsersPage from '@/pages/UsersPage'
 import SmartPlaylistsPage from '@/pages/SmartPlaylistsPage'
 import LanguageAuditPage from '@/pages/LanguageAuditPage'
 import MetadataFixPage from '@/pages/MetadataFixPage'
+import ClusterPage from '@/pages/ClusterPage'
 import MoviesFiltered3D from '@/pages/MoviesFiltered3D'
 import MoviesFiltered4K from '@/pages/MoviesFiltered4K'
 import DownloadsPage from '@/pages/DownloadsPage'
@@ -218,6 +219,7 @@ export default function App() {
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
                   <Route path="/movies/3d" element={<ErrorBoundary><MoviesFiltered3D /></ErrorBoundary>} />
                   <Route path="/movies/4k" element={<ErrorBoundary><MoviesFiltered4K /></ErrorBoundary>} />
+                  <Route path="/cluster" element={<ErrorBoundary><ClusterPage /></ErrorBoundary>} />
                   <Route path="/metadata-fix" element={<ErrorBoundary><MetadataFixPage /></ErrorBoundary>} />
                   <Route path="/language-audit" element={<ErrorBoundary><LanguageAuditPage /></ErrorBoundary>} />
                   <Route path="/smart-playlists" element={<ErrorBoundary><SmartPlaylistsPage /></ErrorBoundary>} />
