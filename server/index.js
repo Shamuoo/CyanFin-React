@@ -466,11 +466,13 @@ async function handler(req, res) {
 
   // ── CONFIG ────────────────────────────────────────────────────────────────
   if (pathname === '/api/config/save' && req.method === 'POST') {
-    // Allow unauthenticated only during initial setup (no Jellyfin URL set)
-    const isSetup = !cfg.get('JELLYFIN_URL') && !cfg.get('JELLYFIN_SERVERS');
-    if (!isSetup) {
-      const session = auth.getSessionFromRequest(req);
-      if (!session) return json(res, { error: 'Not logged in' }, 401);
+    // Allow unauthenticated from setup page (identified by presence of JELLYFIN_URL in body)
+    // After login, Settings uses the same endpoint with an active session
+    const session = auth.getSessionFromRequest(req);
+    const bodyPreview = req._body || {};
+    const isSetupCall = !!(bodyPreview.JELLYFIN_URL || bodyPreview.JELLYFIN_SERVERS);
+    if (!isSetupCall && !session) {
+      return json(res, { error: 'Not logged in' }, 401);
     }
     const body = await readBody(req);
     const result = cfg.saveConfig(body);
