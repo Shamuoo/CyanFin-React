@@ -26,6 +26,7 @@ import StudiosPage from '@/pages/StudiosPage'
 import ServersPage from '@/pages/ServersPage'
 import UsersPage from '@/pages/UsersPage'
 import SmartPlaylistsPage from '@/pages/SmartPlaylistsPage'
+import LanguageAuditPage from '@/pages/LanguageAuditPage'
 import DownloadsPage from '@/pages/DownloadsPage'
 import PlayerPage from '@/pages/PlayerPage'
 
@@ -172,7 +173,7 @@ export default function App() {
   const [showChangelog, setShowChangelog] = useState(false)
 
   useEffect(() => {
-    const VERSION = '0.19.1'
+    const VERSION = '0.19.6'
     const seen = localStorage.getItem('cf_changelog_seen')
     if (seen !== VERSION) {
       setTimeout(() => setShowChangelog(true), 2000)
@@ -211,6 +212,7 @@ export default function App() {
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />
+                  <Route path="/language-audit" element={<ErrorBoundary><LanguageAuditPage /></ErrorBoundary>} />
                   <Route path="/smart-playlists" element={<ErrorBoundary><SmartPlaylistsPage /></ErrorBoundary>} />
                   <Route path="/users" element={<ErrorBoundary><UsersPage /></ErrorBoundary>} />
                   <Route path="/servers" element={<ErrorBoundary><ServersPage /></ErrorBoundary>} />

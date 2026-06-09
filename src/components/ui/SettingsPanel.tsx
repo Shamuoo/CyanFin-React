@@ -297,6 +297,19 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
 
+              <SectionTitle>Cache</SectionTitle>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs" style={{ color: 'var(--cream)' }}>Clear library cache</p>
+                <button onClick={async () => {
+                  await fetch('/api/cache/bust', { method: 'POST', credentials: 'include' })
+                  window.location.reload()
+                }}
+                  className="px-3 py-1.5 rounded-full text-[9px] font-bold hover:opacity-80"
+                  style={{ background: 'var(--subtle)', border: '1px solid var(--border2)', color: 'var(--muted)' }}>
+                  🗑 Clear Cache
+                </button>
+              </div>
+
               <SectionTitle>Sidebar Width</SectionTitle>
               <div className="flex items-center gap-3 mb-4">
                 <input type="range" min="140" max="280" step="10"
@@ -414,6 +427,19 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                   <span className="absolute top-0.5 rounded-full transition-all"
                     style={{ width: 18, height: 18, background: 'white', left: (store as any).autoplayNext ? 20 : 2 }} />
                 </button>
+              </div>
+
+              <SectionTitle>Subtitle Preview</SectionTitle>
+              <div className="rounded-xl p-3 mb-4 text-center relative overflow-hidden"
+                style={{ background: 'var(--bg3)', border: '1px solid var(--border2)' }}>
+                <p style={{
+                  fontSize: `${((store as any).subtitleSize || 100) / 100 * 16}px`,
+                  color: (store as any).subtitleColor || '#fff',
+                  fontWeight: 700,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                  background: (store as any).subtitleBg ? 'rgba(0,0,0,0.6)' : 'transparent',
+                  padding: '2px 8px', borderRadius: 4, display: 'inline-block',
+                }}>Sample subtitle text</p>
               </div>
 
               <SectionTitle>Preferred Subtitle Language</SectionTitle>

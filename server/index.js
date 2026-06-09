@@ -24,7 +24,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.19.5';
+const VERSION = '0.20.0';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -631,7 +631,7 @@ async function handler(req, res) {
       if (itemsResult !== null) return json(res, itemsResult);
 
       // Stats
-      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/push/') || pathname.startsWith('/api/party/') || pathname.startsWith('/api/trakt/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/cache/') || pathname.startsWith('/api/push/') || pathname.startsWith('/api/party/') || pathname.startsWith('/api/trakt/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
         const statsResult = await handleStats(pathname, parsed.query, session);
         if (statsResult !== null) return json(res, statsResult);
       }
@@ -662,6 +662,14 @@ async function handler(req, res) {
       }
 
       // Servers switch / check
+      // ── Cross-server item matching ─────────────────────────────────────────────
+      if (pathname === '/api/servers/match-item' && req.method === 'POST') {
+        const { itemId } = req._body || {};
+        if (!itemId) return { error: 'No itemId' };
+        const results = await sm.matchItemAllServers(itemId);
+        return { matches: results };
+      }
+
       // ── HA Server Management API ─────────────────────────────────────────────────
       if (pathname === '/api/servers/status') {
         return sm.getStatus();

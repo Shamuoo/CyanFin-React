@@ -26,6 +26,13 @@ const SUGGESTIONS = [
 ]
 
 export default function AINavigator({ onClose }: Props) {
+  // Check if AI is configured
+  const [configured, setConfigured] = useState<boolean | null>(null)
+  useEffect(() => {
+    fetch('/api/config', { credentials: 'include' }).then(r => r.json())
+      .then(c => setConfigured(!!(c.ANTHROPIC_API_KEY || c.GEMINI_API_KEY)))
+      .catch(() => setConfigured(false))
+  }, [])
   const { setDetailItemId, setPlayingItem, aiProvider } = useStore()
   const navigate = useNavigate()
   const [messages, setMessages] = useState<Message[]>([

@@ -10,10 +10,10 @@ import type { MediaItem } from '@/types'
 type View = 'grid' | 'seasons' | 'episodes'
 
 export default function ShowsPage() {
-  const { setDetailItemId, setPlayingItem } = useStore()
+  const { setDetailItemId, setPlayingItem, cardSize = 'medium' } = useStore() as any
   const [sort, setSort] = useState('SortName')
   const [plexSource, setPlexSource] = useState(false)
-  const { cardSize = 'medium' } = useStore() as any
+  const [genreFilter, setGenreFilter] = useState('')
   const cardMin = cardSize === 'small' ? 90 : cardSize === 'large' ? 180 : 130
   const [order, setOrder] = useState('Ascending')
   const [genre, setGenre] = useState('')

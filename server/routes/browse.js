@@ -9,81 +9,7 @@ const plex = require('../plexClient');
 const sm   = require('../serverManager');
 const { mapItem, dedup } = require('./media');
 
-// ── Offline cache ──────────────────────────────────────────────────────────────
-function getCacheFile(userId, key) {
-  try {
-    const cfg = require('../config');
-    const cacheDir = cfg.getCachePath('cache');
-    return path.join(cacheDir, `library_${userId}_${key}.json`);
-  } catch { return null; }
-}
-
-function readCache(userId, key) {
-  try {
-    const f = getCacheFile(userId, key);
-    if (!f || !fs.existsSync(f)) return null;
-    const data = JSON.parse(fs.readFileSync(f, 'utf8'));
-    return { data: data.data, ts: data.ts, stale: true };
-  } catch { return null; }
-}
-
-function writeCache(userId, key, data) {
-  try {
-    const f = getCacheFile(userId, key);
-    if (!f) return;
-    fs.writeFileSync(f, JSON.stringify({ ts: Date.now(), data }));
-  } catch { /* ignore */ }
-}
-
-// Wraps a fetch with cache fallback
-async function withCache(userId, key, fetchFn) {
-  try {
-    const result = await fetchFn();
-    writeCache(userId, key, result);
-    return result;
-  } catch(e) {
-    if (e.status === 401 || e.status === 403) throw e; // don't serve stale on auth errors
-    const cached = readCache(userId, key);
-    if (cached) {
-      console.log(`[offline] Serving cached ${key} for user ${userId}`);
-      return cached.data;
-    }
-    throw e;
-  }
-}
-
-
-
-// ── Source-aware fetch ────────────────────────────────────────────────────────
-
-function usePlex() { return sm.isPlexFallback(); }
-
-
-// ── Offline cache ─────────────────────────────────────────────────────────────
-// Wraps any fetch: on success caches to disk, on failure returns cached data
-function withCache(userId, key, fetchFn) {
-  const cfg = require('../config');
-  const cacheDir = cfg.getCachePath('cache');
-  const cacheFile = require('path').join(cacheDir, `lib_${String(userId).slice(0,8)}_${key.replace(/[^a-z0-9]/gi,'_')}.json`);
-  const fs = require('fs');
-
-  return fetchFn()
-    .then(data => {
-      try { fs.writeFileSync(cacheFile, JSON.stringify({ ts: Date.now(), data })); } catch {}
-      return data;
-    })
-    .catch(err => {
-      if (err?.status === 401 || String(err?.message).includes('Unauthorized')) throw err;
-      try {
-        if (fs.existsSync(cacheFile)) {
-          const { data } = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-          console.log(`[offline] Serving cached ${key}`);
-          return data;
-        }
-      } catch {}
-      throw err;
-    });
-}
+const cache = require('../cache');
 
 async function handleBrowse(pathname, query, session) {
   const token  = sm.getActiveToken(session);
@@ -335,7 +261,7 @@ async function handleBrowse(pathname, query, session) {
   // ── Popular ────────────────────────────────────────────────────────────────
   if (pathname === '/api/popular') {
     if (fromPlex) return plex.getPopular(20).catch(() => []);
-    return withCache(userId, 'popular', async () => {
+    return cache.get(`pop_${userId}`, cache.TTL.MED, async () => {
       const data = await jf.get(
         `/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true` +
         `&SortBy=PlayCount,CommunityRating&SortOrder=Descending&Limit=20` +

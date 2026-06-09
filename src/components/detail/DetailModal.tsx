@@ -578,17 +578,36 @@ function DetailContent({ item, onClose, onPlay, jellyfinUrl }: {
         {/* Version / audio pickers */}
         {mediaSources.length > 1 && (
           <div className="mb-5">
-            <p className="text-[8px] font-bold tracking-[0.25em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }}>Version</p>
-            <div className="flex gap-2 flex-wrap">
-              {mediaSources.map(s => (
-                <button key={s.id} onClick={() => setSelectedSourceId(s.id)}
-                  className="text-[10px] px-3 py-1.5 rounded-full font-bold transition-all"
-                  style={{ background: selectedSourceId === s.id ? 'var(--accent)' : 'var(--subtle)',
-                    color: selectedSourceId === s.id ? 'var(--bg)' : 'var(--muted)',
-                    border: `1px solid ${selectedSourceId === s.id ? 'var(--accent)' : 'var(--border2)'}` }}>
-                  {s.name || s.container}
-                </button>
-              ))}
+            <p className="text-[8px] font-bold tracking-[0.25em] uppercase mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }}>
+              {mediaSources.length} Versions Available
+            </p>
+            <div className="space-y-1.5">
+              {mediaSources.map(s => {
+                const vs = s as any
+                const video = vs.videoStreams?.[0] || {}
+                const audio = vs.audioStreams?.[0] || {}
+                const res = video.width >= 3840 ? '4K' : video.width >= 1920 ? '1080p' : video.width >= 1280 ? '720p' : video.width ? `${video.height}p` : ''
+                const hdr = (video.videoRangeType || '').includes('HDR') || (video.displayTitle || '').includes('HDR') ? ' HDR' : ''
+                const dv  = (video.videoRangeType || '').includes('Dolby') || (video.displayTitle || '').includes('DoVi') ? ' DV' : ''
+                const codec = (video.codec || '').toUpperCase()
+                const size = vs.size ? ` · ${(vs.size / 1e9).toFixed(1)} GB` : ''
+                const isSelected = selectedSourceId === s.id
+                return (
+                  <button key={s.id} onClick={() => setSelectedSourceId(s.id)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:opacity-80"
+                    style={{ background: isSelected ? 'rgba(201,168,76,0.1)' : 'var(--bg3)', border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border2)'}` }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold truncate" style={{ color: isSelected ? 'var(--accent)' : 'var(--cream)' }}>
+                        {vs.name || s.container?.toUpperCase() || 'Version'}
+                      </p>
+                      <p className="text-[9px] mt-0.5" style={{ color: 'var(--muted)', opacity: 0.6 }}>
+                        {[res + hdr + dv, codec, audio.language?.toUpperCase(), size].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                    {isSelected && <span style={{ color: 'var(--accent)', fontSize: 12 }}>✓</span>}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

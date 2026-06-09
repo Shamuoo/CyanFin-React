@@ -41,6 +41,19 @@ function getCachePath(subdir) {
   return cacheDir;
 }
 
+function migrateConfig(c) {
+  // v0.19 → v0.20: auto-build JELLYFIN_SERVERS array from legacy single-server fields
+  if (c.JELLYFIN_URL && !c.JELLYFIN_SERVERS) {
+    const servers = [{ id: 'jf-primary', name: 'Primary', url: c.JELLYFIN_URL, apiKey: c.JELLYFIN_API_KEY || '', priority: 0, enabled: true }];
+    if (c.JELLYFIN_BACKUP_URL) {
+      servers.push({ id: 'jf-backup', name: 'Backup', url: c.JELLYFIN_BACKUP_URL, apiKey: c.JELLYFIN_BACKUP_API_KEY || c.JELLYFIN_API_KEY || '', priority: 1, enabled: true });
+    }
+    c.JELLYFIN_SERVERS = JSON.stringify(servers);
+    console.log('[config] Migrated legacy single-server config to JELLYFIN_SERVERS array');
+  }
+  return c;
+}
+
 function loadConfig() {
   // Start from env vars
   for (const key of Object.keys(SCHEMA)) {
@@ -51,7 +64,8 @@ function loadConfig() {
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     if (fs.existsSync(CONFIG_PATH)) {
-      const file = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      const raw  = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      const file = migrateConfig(raw);
       Object.assign(_cfg, file);
     }
   } catch(e) {
@@ -129,7 +143,10 @@ function saveConfig(updates) {
   try {
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(_cfg, null, 2));
+    // Atomic write: write to .tmp then rename, never corrupts the main file
+    const tmpPath = CONFIG_PATH + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(_cfg, null, 2));
+    fs.renameSync(tmpPath, CONFIG_PATH);
     console.log('[config] Saved:', saved.join(', '));
   } catch(e) {
     console.error('[config] Save failed:', e.message);

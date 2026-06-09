@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2,
-         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog, ListMusic } from 'lucide-react'
+         Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog, ListMusic, Languages } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -150,7 +150,7 @@ export default function Layout() {
             </button>
           </div>
         </aside>
-        <main className="flex-1 overflow-hidden" style={{ padding: '2vh 2vw' }}><Outlet /></main>
+        <main className="flex-1 overflow-hidden"><Outlet /></main>
         <Screensaver /><ToastContainer />
         {aiOpen && <AINavigator onClose={() => setAiOpen(false)} />}
         {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}

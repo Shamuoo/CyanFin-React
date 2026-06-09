@@ -285,7 +285,9 @@ export default function PlayerPage() {
   useEffect(() => {
     const video = videoRef.current; if (!video) return
     const on = (ev: string, fn: EventListener) => video.addEventListener(ev, fn)
-    on('play', (() => { setPlaying(true); showControls() }) as EventListener)
+    on('play', (() => { setPlaying(true); setBuffering(false); showControls() }) as EventListener)
+    on('waiting', (() => setBuffering(true)) as EventListener)
+    on('canplay', (() => setBuffering(false)) as EventListener)
     on('pause', (() => { setPlaying(false); setControlsVisible(true); clearTimeout(hideTimer.current) }) as EventListener)
     on('waiting', (() => setBuffering(true)) as EventListener)
     on('canplay', (() => setBuffering(false)) as EventListener)
@@ -714,6 +716,13 @@ export default function PlayerPage() {
             style={{ background: hdrBadge.includes('Dolby') ? 'rgba(180,100,255,0.85)' : 'rgba(255,160,30,0.85)', color: 'white', letterSpacing: '0.15em' }}>
             {hdrBadge}
           </span>
+        </div>
+      )}
+
+      {/* Buffering spinner */}
+      {buffering && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
+          <div className="w-12 h-12 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.2)', borderTopColor: 'white' }} />
         </div>
       )}
 

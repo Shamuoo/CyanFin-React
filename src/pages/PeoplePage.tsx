@@ -43,7 +43,7 @@ export default function PeoplePage() {
         </div>
       )}
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))' }}>
         {people.map((p: any, i: number) => (
           <motion.button key={p.id}
             initial={{ opacity: 0, y: 6 }}

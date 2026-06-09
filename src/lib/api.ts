@@ -219,6 +219,7 @@ class ApiClient {
   libQuality() { return this.get('/api/library/quality-report') }
   libMissing() { return this.get('/api/library/missing-content') }
   libVersions() { return this.get('/api/library/versions-report') }
+  languageAudit(lang = 'eng', type = 'Movie') { return this.get<any>(`/api/library/language-audit?lang=${lang}&type=${type}`) }
   libScan() { return this.get('/api/library/scan') }
   libSyncDiff() { return this.get<any>('/api/library/sync-diff') }
   allServerLibraries() { return this.get<any>('/api/library/all-servers') }

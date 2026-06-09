@@ -262,6 +262,43 @@ async function handleLibrary(pathname, query, session, req) {
     return { ok: true, message: 'Library scan triggered' };
   }
 
+  // ── Language audit — find items without English audio/subtitles ─────────────
+  if (pathname === '/api/library/language-audit') {
+    const lang = query.lang || 'eng';
+    const type = query.type || 'Movie';
+    // Fetch all items with media stream info
+    const data = await jf.get(
+      `/Users/${userId}/Items?IncludeItemTypes=${type}&Recursive=true&Limit=500` +
+      `&fields=MediaStreams,ProviderIds,ProductionYear&SortBy=SortName`,
+      token
+    );
+    const items = data.Items || [];
+    const issues = [];
+    for (const item of items) {
+      const streams = item.MediaStreams || [];
+      const audioTracks = streams.filter(s => s.Type === 'Audio');
+      const subTracks   = streams.filter(s => s.Type === 'Subtitle');
+      const hasLangAudio = audioTracks.some(s =>
+        (s.Language || '').toLowerCase().startsWith(lang.toLowerCase()) ||
+        (s.DisplayTitle || '').toLowerCase().includes('english') && lang === 'eng'
+      );
+      const hasLangSub = subTracks.some(s =>
+        (s.Language || '').toLowerCase().startsWith(lang.toLowerCase())
+      );
+      const audioLangs  = [...new Set(audioTracks.map(s => s.Language || 'unknown'))];
+      const subLangs    = [...new Set(subTracks.map(s => s.Language || 'unknown'))];
+      if (!hasLangAudio) {
+        issues.push({
+          id: item.Id, name: item.Name, year: item.ProductionYear,
+          issue: 'no_' + lang + '_audio',
+          audioLangs, subLangs,
+          imageUrl: item.ImageTags?.Primary ? `/proxy/image?id=${item.Id}&type=Primary&w=120` : null,
+        });
+      }
+    }
+    return { issues, total: items.length, lang };
+  }
+
   if (pathname === '/api/library/quality-report') {
     const data = await jf.get(`/Users/${userId}/Items?IncludeItemTypes=Movie&Recursive=true&Limit=300&fields=MediaStreams,ProductionYear&SortBy=SortName`, token);
     const qOrder = ['4K', '1080p', '720p', '480p', 'SD'];

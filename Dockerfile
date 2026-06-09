@@ -14,11 +14,8 @@ WORKDIR /app
 COPY server/package*.json ./server/
 RUN cd server && npm install --production
 
-# Server source
-COPY server/index.js server/config.js server/auth.js server/jellyfin.js \
-     server/serverManager.js server/plexClient.js server/tmdb.js \
-     server/legacy.js server/watchParty.js ./server/
-COPY server/routes/ ./server/routes/
+# Server source — copy everything so new files are never missed
+COPY server/ ./server/
 
 # Built frontend
 COPY --from=builder /build/server/public ./server/public

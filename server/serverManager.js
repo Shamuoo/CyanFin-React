@@ -130,7 +130,7 @@ async function pingServer(server) {
   return {
     ...server, ok: r.ok, latency: r.latency,
     version: r.data?.Version || r.data?.version || null,
-    serverName: r.data?.ServerName || r.data?.friendlyName || server.name,
+    serverName: r.data?.ServerName || r.data?.FriendlyName || r.data?.friendlyName || server.name,
     lastCheck: Date.now(), consecutiveFails: r.ok ? 0 : ((server.consecutiveFails || 0) + 1),
   };
 }
@@ -353,20 +353,86 @@ function stop() {
   if (_interval) { clearInterval(_interval); _interval = null; }
 }
 
-// Cross-server item match
+// Cross-server item match — tries multiple strategies in order
 async function getMatchingItemId(itemId, targetServerId) {
   try {
-    const sourceKey = state.jellyfin.find(s => s.id === state.activeJfId)?.apiKey || cfg.get('JELLYFIN_API_KEY');
-    const data = await httpGet(`${jf.getBaseUrl()}/Items/${itemId}?fields=ProviderIds&api_key=${sourceKey}`);
-    const ids = data.data?.ProviderIds;
-    if (!ids) return null;
+    const active = state.jellyfin.find(s => s.id === state.activeJfId);
     const target = state.jellyfin.find(s => s.id === targetServerId);
-    if (!target) return null;
-    const q = ids.Imdb ? `imdb.${ids.Imdb}` : ids.Tmdb ? `tmdb.${ids.Tmdb}` : null;
-    if (!q) return null;
-    const r = await httpGet(`${target.url}/Items?AnyProviderIdEquals=${encodeURIComponent(q)}&Recursive=true&Limit=1&api_key=${target.apiKey}`);
-    return r.data?.Items?.[0]?.Id || null;
-  } catch { return null; }
+    if (!active || !target) return null;
+
+    // Get source item metadata
+    const srcRes = await httpGet(
+      `${active.url}/Items/${itemId}?fields=ProviderIds,Name,ProductionYear,IndexNumber,ParentIndexNumber,SeriesName&api_key=${active.apiKey}`,
+      {}, 6000
+    );
+    const src = srcRes.data;
+    if (!src) return null;
+
+    // Strategy 1: External IDs (IMDB, TMDB, TVDB) — most reliable
+    const ids = src.ProviderIds || {};
+    const idPairs = [
+      ids.Imdb  ? `imdb.${ids.Imdb}` : null,
+      ids.Tmdb  ? `tmdb.${ids.Tmdb}` : null,
+      ids.Tvdb  ? `tvdb.${ids.Tvdb}` : null,
+    ].filter(Boolean);
+
+    for (const q of idPairs) {
+      const r = await httpGet(
+        `${target.url}/Items?AnyProviderIdEquals=${encodeURIComponent(q)}&Recursive=true&Limit=1&api_key=${target.apiKey}`,
+        {}, 6000
+      );
+      const match = r.data?.Items?.[0];
+      if (match) { console.log(`[HA] Matched ${src.Name} via ${q.split('.')[0]}`); return match.Id; }
+    }
+
+    // Strategy 2: Exact name + year match
+    const name = encodeURIComponent(src.Name || '');
+    const year = src.ProductionYear;
+    if (name) {
+      const r = await httpGet(
+        `${target.url}/Items?SearchTerm=${name}&Recursive=true&Limit=10&api_key=${target.apiKey}`,
+        {}, 6000
+      );
+      const items = r.data?.Items || [];
+      // Find exact name + year match
+      const match = items.find(i =>
+        i.Name?.toLowerCase() === src.Name?.toLowerCase() &&
+        (!year || !i.ProductionYear || Math.abs(i.ProductionYear - year) <= 1)
+      );
+      if (match) { console.log(`[HA] Matched ${src.Name} via name+year`); return match.Id; }
+    }
+
+    // Strategy 3: Episode matching via S/E numbers
+    if (src.Type === 'Episode' && src.SeriesName) {
+      const showName = encodeURIComponent(src.SeriesName);
+      const showRes = await httpGet(
+        `${target.url}/Items?SearchTerm=${showName}&IncludeItemTypes=Series&Recursive=true&Limit=3&api_key=${target.apiKey}`,
+        {}, 6000
+      );
+      const show = showRes.data?.Items?.[0];
+      if (show) {
+        const epRes = await httpGet(
+          `${target.url}/Shows/${show.Id}/Episodes?Season=${src.ParentIndexNumber}&api_key=${target.apiKey}`,
+          {}, 6000
+        );
+        const ep = (epRes.data?.Items || []).find(e => e.IndexNumber === src.IndexNumber);
+        if (ep) { console.log(`[HA] Matched episode ${src.SeriesName} S${src.ParentIndexNumber}E${src.IndexNumber}`); return ep.Id; }
+      }
+    }
+
+    console.log(`[HA] No match found for ${src.Name} on ${target.name}`);
+    return null;
+  } catch (e) { console.log('[HA] Match error:', e.message); return null; }
+}
+
+// Match item across all servers simultaneously
+async function matchItemAllServers(itemId) {
+  const others = state.jellyfin.filter(s => s.id !== state.activeJfId && s.ok && s.enabled);
+  const results = {};
+  await Promise.all(others.map(async srv => {
+    results[srv.id] = await getMatchingItemId(itemId, srv.id);
+  }));
+  return results; // { serverId: matchedItemId | null }
 }
 
 // ── Single export object ──────────────────────────────────────────────────────
@@ -378,6 +444,7 @@ module.exports = {
   getActiveToken, authenticateBackup,
   isPlexFallback, isOffline,
   getMatchingItemId,
+  matchItemAllServers,
   // Legacy compat
   forceSwitch: (s) => forceActive(s),
   pingJellyfin: (url) => httpGet(url + '/System/Info/Public').then(r => ({ ok: r.ok, latency: r.latency, name: r.data?.ServerName, version: r.data?.Version })),

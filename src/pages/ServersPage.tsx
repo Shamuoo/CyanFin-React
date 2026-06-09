@@ -180,69 +180,142 @@ function ServerCard({
 
 function AddServerModal({ type, onClose, onAdd }: { type: 'jellyfin' | 'plex'; onClose: () => void; onAdd: (s: any) => void }) {
   const [form, setForm] = useState({ name: '', url: '', apiKey: '', token: '' })
+  const [phase, setPhase] = useState<'url' | 'auth' | 'confirm'>('url')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
 
-  const test = async () => {
+  const testUrl = async () => {
     if (!form.url) return
     setTesting(true)
+    // Normalise URL
+    let url = form.url.trim().replace(/\/$/, '')
+    if (!url.startsWith('http')) url = 'http://' + url
+    setForm(f => ({ ...f, url }))
+    const r = await api.post<any>('/api/servers/ping', { url, apiKey: '', token: '' }).catch(() => null)
+    setTestResult(r)
+    setTesting(false)
+    if (r?.ok) {
+      // Auto-fill name from server
+      if (!form.name && r.serverName) setForm(f => ({ ...f, name: r.serverName, url }))
+      setPhase('auth')
+    }
+  }
+
+  const testFull = async () => {
+    setTesting(true)
     const r = await api.post<any>('/api/servers/ping', {
-      url: form.url, apiKey: form.apiKey || undefined, token: form.token || undefined,
+      url: form.url,
+      apiKey: form.apiKey || undefined,
+      token: form.token || undefined,
     }).catch(() => null)
     setTestResult(r)
     setTesting(false)
+    if (r?.ok) setPhase('confirm')
   }
 
   const add = () => {
     if (!form.url) return
-    onAdd({ ...form, id: `${type}-${Date.now()}`, priority: 99, enabled: true })
+    const name = form.name || (type === 'jellyfin' ? 'Jellyfin' : 'Plex') + ' Server'
+    onAdd({ ...form, name, id: `${type}-${Date.now()}`, priority: 99, enabled: true })
     onClose()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         className="w-full max-w-sm rounded-2xl overflow-hidden"
         style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border2)' }}>
-          <p className="text-sm font-bold" style={{ color: 'var(--cream)' }}>Add {type === 'jellyfin' ? 'Jellyfin' : 'Plex'} Server</p>
-          <button onClick={onClose} style={{ color: 'var(--muted)' }}>✕</button>
+          <div>
+            <p className="text-sm font-bold" style={{ color: 'var(--cream)' }}>Add {type === 'jellyfin' ? 'Jellyfin' : 'Plex'} Server</p>
+            <p className="text-[9px]" style={{ color: 'var(--muted)', opacity: 0.4 }}>
+              {phase === 'url' ? 'Enter server address' : phase === 'auth' ? 'Authentication' : 'Ready to add'}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ color: 'var(--muted)', fontSize: 18, lineHeight: 1 }}>✕</button>
         </div>
-        <div className="px-5 py-4 space-y-3">
-          {(['name', 'url', type === 'jellyfin' ? 'apiKey' : 'token'] as const).map(field => (
-            <div key={field}>
-              <p className="text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--muted)', opacity: 0.4 }}>
-                {field === 'apiKey' ? 'API Key' : field === 'token' ? 'Plex Token' : field.charAt(0).toUpperCase() + field.slice(1)}
-              </p>
-              <input value={(form as any)[field]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                placeholder={field === 'url' ? 'http://192.168.1.100:8096' : ''}
-                type={field === 'apiKey' || field === 'token' ? 'password' : 'text'}
-                className="w-full px-3 py-2 rounded-xl text-xs outline-none"
-                style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
-            </div>
-          ))}
 
-          {/* Test result */}
+        <div className="px-5 py-4 space-y-3">
+          {/* Phase 1: URL */}
+          <div>
+            <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--muted)', opacity: 0.4 }}>Server URL</p>
+            <input value={form.url} onChange={e => { setForm(f => ({ ...f, url: e.target.value })); setPhase('url'); setTestResult(null) }}
+              placeholder={type === 'jellyfin' ? 'http://192.168.1.100:8096' : 'http://192.168.1.100:32400'}
+              className="w-full px-3 py-2.5 rounded-xl text-xs outline-none"
+              style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }}
+              onKeyDown={e => e.key === 'Enter' && testUrl()} />
+          </div>
+
+          {/* Phase 2: Auth */}
+          {phase !== 'url' && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+              {form.name && (
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--muted)', opacity: 0.4 }}>Display Name</p>
+                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl text-xs outline-none"
+                    style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
+                </div>
+              )}
+              <div>
+                <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--muted)', opacity: 0.4 }}>
+                  {type === 'jellyfin' ? 'API Key (optional)' : 'Plex Token'}
+                </p>
+                <input value={type === 'jellyfin' ? form.apiKey : form.token}
+                  onChange={e => setForm(f => type === 'jellyfin' ? { ...f, apiKey: e.target.value } : { ...f, token: e.target.value })}
+                  type="password" placeholder={type === 'jellyfin' ? 'Dashboard → Admin → API Keys' : 'Settings → Plex Web → Developer'}
+                  className="w-full px-3 py-2.5 rounded-xl text-xs outline-none"
+                  style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Result badge */}
           {testResult && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: testResult.ok ? 'rgba(46,204,113,0.08)' : 'rgba(231,76,60,0.08)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+              style={{ background: testResult.ok ? 'rgba(46,204,113,0.08)' : 'rgba(231,76,60,0.08)' }}>
               {testResult.ok ? <CheckCircle size={12} color="#2ecc71" /> : <XCircle size={12} color="#e74c3c" />}
               <span className="text-[10px]" style={{ color: testResult.ok ? '#2ecc71' : '#e74c3c' }}>
-                {testResult.ok ? `Online · ${testResult.latency}ms${testResult.speedMbps ? ` · ${testResult.speedMbps} Mbps` : ''}` : 'Unreachable'}
+                {testResult.ok
+                  ? `${testResult.serverName || 'Online'} · ${testResult.latency}ms${testResult.speedMbps ? ` · ${testResult.speedMbps} Mbps` : ''}`
+                  : 'Cannot connect — check URL and ensure server is reachable'}
               </span>
             </div>
           )}
         </div>
-        <div className="flex gap-2 px-5 pb-4">
-          <button onClick={test} disabled={!form.url || testing}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-bold disabled:opacity-30"
-            style={{ background: 'var(--subtle)', border: '1px solid var(--border2)', color: 'var(--muted)' }}>
-            {testing ? <RefreshCw size={11} className="animate-spin" /> : <Zap size={11} />} Test
-          </button>
-          <button onClick={add} disabled={!form.url}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-bold disabled:opacity-30"
-            style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
-            <Plus size={11} /> Add Server
-          </button>
+
+        <div className="flex gap-2 px-5 pb-5">
+          {phase === 'url' && (
+            <button onClick={testUrl} disabled={!form.url || testing}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold disabled:opacity-30"
+              style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+              {testing ? <RefreshCw size={11} className="animate-spin" /> : <Zap size={11} />}
+              {testing ? 'Connecting…' : 'Connect'}
+            </button>
+          )}
+          {phase === 'auth' && (
+            <>
+              <button onClick={testFull} disabled={testing}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold disabled:opacity-30"
+                style={{ background: 'var(--subtle)', border: '1px solid var(--border2)', color: 'var(--muted)' }}>
+                {testing ? <RefreshCw size={11} className="animate-spin" /> : <Zap size={11} />}
+                Test Auth
+              </button>
+              <button onClick={add}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold"
+                style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+                <Plus size={11} /> Add Server
+              </button>
+            </>
+          )}
+          {phase === 'confirm' && (
+            <button onClick={add}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold"
+              style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+              <CheckCircle size={11} /> Add Server
+            </button>
+          )}
         </div>
       </motion.div>
     </div>

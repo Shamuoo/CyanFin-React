@@ -83,7 +83,7 @@ export default function HomePage() {
     .filter(Boolean) as typeof ALL_SECTIONS
 
   // Hero
-  const { data: heroRecent } = useQuery({ queryKey: ['hero-recent'], queryFn: () => api.recentlyAdded(), staleTime: 60_000 })
+  const { data: heroRecent } = useQuery({ queryKey: ['home-section', 'Recently Added'], queryFn: () => api.recentlyAdded(), staleTime: 8 * 60_000 })
   const heroItems = (heroRecent as any[] || []).filter((i: any) => i.backdropUrl).slice(0, 8)
   const [heroIdx, setHeroIdx] = useState(0)
   useEffect(() => {
@@ -294,7 +294,7 @@ function SectionRow({ sectionKey, label, queryFn, cardWidth }: { sectionKey: str
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['home-section', label],
     queryFn,
-    staleTime: 5 * 60_000,
+    staleTime: 8 * 60_000,  // server caches for 10min so stay fresh 8min
   })
   const data = Array.isArray(rawData) ? rawData : (rawData as any)?.items || []
   if (!isLoading && !data.length) return null
