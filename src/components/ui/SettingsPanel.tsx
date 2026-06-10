@@ -429,6 +429,29 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
 
+              <SectionTitle>Parental Controls</SectionTitle>
+              <div className="mb-4">
+                <p className="text-[9px] mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>
+                  Set a maximum content rating. Applied to your Jellyfin account.
+                </p>
+                <select
+                  value={(store as any).ageFilter || ''}
+                  onChange={async e => {
+                    const rating = e.target.value
+                    store.setSetting('ageFilter' as any, rating)
+                    await fetch('/api/parental/set', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maxRating: rating }) })
+                  }}
+                  className="w-full px-3 py-2 rounded-xl text-xs outline-none"
+                  style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }}>
+                  <option value="">No limit</option>
+                  <option value="G">G</option>
+                  <option value="PG">PG</option>
+                  <option value="PG-13">PG-13</option>
+                  <option value="R">R</option>
+                  <option value="NC-17">NC-17</option>
+                </select>
+              </div>
+
               <SectionTitle>Subtitle Preview</SectionTitle>
               <div className="rounded-xl p-3 mb-4 text-center relative overflow-hidden"
                 style={{ background: 'var(--bg3)', border: '1px solid var(--border2)' }}>

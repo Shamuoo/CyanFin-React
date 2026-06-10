@@ -25,7 +25,7 @@ cfg.loadConfig();
 tmdb.init(cfg.get('TMDB_API_KEY'));
 
 const PORT = parseInt(process.env.PORT || '3000');
-const VERSION = '0.20.2';
+const VERSION = '0.20.3';
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
 const MIME = {
@@ -654,7 +654,7 @@ async function handler(req, res) {
       if (itemsResult !== null) return json(res, itemsResult);
 
       // Stats
-      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname.startsWith('/api/cluster/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/cache/') || pathname.startsWith('/api/push/') || pathname.startsWith('/api/party/') || pathname.startsWith('/api/trakt/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
+      if (pathname.startsWith('/api/stats/') || pathname === '/api/health' || pathname === '/api/system-stats' || pathname === '/api/weather' || pathname.startsWith('/api/servers/') || pathname.startsWith('/api/cluster/') || pathname === '/api/active-sessions' || pathname === '/api/changelog' || pathname.startsWith('/api/admin/') || pathname.startsWith('/api/parental/') || pathname.startsWith('/api/cache/') || pathname.startsWith('/api/push/') || pathname.startsWith('/api/party/') || pathname.startsWith('/api/trakt/') || pathname.startsWith('/api/scheduled-tasks') || pathname === '/api/tasks' || pathname.match(/^\/api\/tasks\//)) {
         const statsResult = await handleStats(pathname, parsed.query, session);
         if (statsResult !== null) return json(res, statsResult);
       }

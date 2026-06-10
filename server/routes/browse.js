@@ -22,6 +22,25 @@ async function handleBrowse(pathname, query, session) {
   const userId = session.userId;
   const fromPlex = !!(query.source === 'plex' || session.plexSource);
 
+  // ── Home batch — all home sections in one request ───────────────────────────
+  if (pathname === '/api/home/batch') {
+    const sections = query.sections ? query.sections.split(',') : [
+      'recently-added','popular','continue-watching','new-episodes',
+      'best4k','recently-released','top-rated'
+    ];
+    const results = await Promise.allSettled(
+      sections.map(async s => {
+        try {
+          const data = await handleBrowse(`/api/${s}`, query, session);
+          return { key: s, data };
+        } catch { return { key: s, data: [] }; }
+      })
+    );
+    const out = {};
+    results.forEach(r => { if (r.status === 'fulfilled') out[r.value.key] = r.value.data; });
+    return out;
+  }
+
   // ── Recently Added ─────────────────────────────────────────────────────────
   if (pathname === '/api/recently-added') {
     if (fromPlex) return plex.getRecentlyAdded(24).catch(() => []);

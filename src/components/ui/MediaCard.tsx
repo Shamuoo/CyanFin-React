@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import type { MediaItem } from '@/types'
 import api from '@/lib/api'
 import { useStore } from '@/lib/store'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface Props {
   item: MediaItem

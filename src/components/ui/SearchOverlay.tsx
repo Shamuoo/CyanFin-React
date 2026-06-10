@@ -53,7 +53,7 @@ export default function SearchOverlay({ onClose }: Props) {
 
       {/* Results */}
       <div className="w-full max-w-2xl overflow-y-auto scrollbar-hide" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-        {results.map(item => (
+        {results.map((item: any) => (
           <button key={item.id} onClick={() => { setDetailItemId(item.id); onClose() }}
             className="w-full flex gap-3 p-3 rounded-lg text-left transition-all hover:bg-white/5 mb-1">
             <img src={item.posterUrl || undefined} alt="" className="w-10 h-[60px] object-cover rounded flex-shrink-0"

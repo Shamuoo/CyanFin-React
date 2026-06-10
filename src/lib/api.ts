@@ -141,7 +141,7 @@ class ApiClient {
   wikipedia(name: string) { return this.get<{ extract: string; thumbnail: string | null; url: string | null; description: string | null } | null>(`/api/wikipedia?name=${encodeURIComponent(name)}`) }
   best3D() { return this.get<MediaItem[]>('/api/best-3d') }
   nowPlaying() { return this.get<NowPlaying | null>('/api/now-playing') }
-  search(q: string) { return this.get<MediaItem[]>(`/api/search?q=${encodeURIComponent(q)}`) }
+  search(q: string, type = '') { return this.get<any>(`/api/search?q=${encodeURIComponent(q)}${type ? '&type=' + type : ''}`) }
   genres(type = 'Movie') { return this.get<{ id: string; name: string }[]>(`/api/genres?type=${type}`) }
   libraries() { return this.get<{ id: string; name: string; type: string; imageUrl?: string }[]>('/api/libraries') }
 

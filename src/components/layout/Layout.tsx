@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2,
+import { Search, Settings, LogOut, Home, Film, Tv, Music, Wrench, BarChart2, TrendingUp,
          Activity, Sparkles, Star, Download, ChevronLeft, ChevronRight, Clock, Users, Building2, ServerIcon, UserCog, ListMusic, Languages, FilePen, Box, Network } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
