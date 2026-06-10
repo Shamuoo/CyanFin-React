@@ -28,6 +28,7 @@ export default function PlayerPage() {
   const { playingItem, setPlayingItem } = useStore()
   const { skipLength = 10, autoplayNext = true, subtitleSize = 100, subtitleColor = '#ffffff', subtitleBg = true, preferredSubLang = '' } = useStore() as any
   const navigate = useNavigate()
+  if (!playingItem) { navigate('/'); return null }
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)

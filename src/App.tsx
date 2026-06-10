@@ -180,7 +180,7 @@ export default function App() {
   const [showChangelog, setShowChangelog] = useState(false)
 
   useEffect(() => {
-    const VERSION = '0.19.6'
+    const VERSION = '0.20.4'
     const seen = localStorage.getItem('cf_changelog_seen')
     if (seen !== VERSION) {
       setTimeout(() => setShowChangelog(true), 2000)

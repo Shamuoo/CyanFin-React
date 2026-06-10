@@ -22,7 +22,7 @@ export default function SearchPage() {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['search', debouncedQ, type],
-    queryFn: () => api.search(debouncedQ, type === 'All' ? undefined : type),
+    queryFn: () => api.search(debouncedQ, type === 'All' ? '' : type),
     enabled: debouncedQ.length >= 2,
     staleTime: 2 * 60_000,
   })

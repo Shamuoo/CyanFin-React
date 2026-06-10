@@ -491,15 +491,18 @@ async function handleBrowse(pathname, query, session) {
 
   // ── Search ─────────────────────────────────────────────────────────────────
   if (pathname === '/api/search') {
-    const q = query.q || '';
-    if (!q) return [];
-    if (fromPlex) return plex.search(q, 20).catch(() => []);
+    const q = query.q || query.search || '';
+    const type = query.type || '';
+    const start = parseInt(query.start || '0');
+    const limit = parseInt(query.limit || '40');
+    if (!q) return { items: [], total: 0 };
+    const typeParam = type && type !== 'All' ? `&IncludeItemTypes=${type}` : '&IncludeItemTypes=Movie,Series,Audio,MusicAlbum,Person';
     const data = await jf.get(
-      `/Users/${userId}/Items?SearchTerm=${encodeURIComponent(q)}&Recursive=true&Limit=20` +
-      `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags`,
+      `/Users/${userId}/Items?SearchTerm=${encodeURIComponent(q)}&Recursive=true&Limit=${limit}&StartIndex=${start}` +
+      typeParam + `&fields=Overview,Genres,ProductionYear,OfficialRating,CommunityRating,MediaStreams,ImageTags,BackdropImageTags,UserData`,
       token
     );
-    return (data.Items || []).map(i => mapItem(i, token));
+    return { items: (data.Items || []).map(i => mapItem(i, token)), total: data.TotalRecordCount || 0 };
   }
 
   // ── Now Playing ────────────────────────────────────────────────────────────

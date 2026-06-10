@@ -364,6 +364,7 @@ export default function ServersPage() {
     await api.get('/api/servers/speedtest')
     qc.invalidateQueries({ queryKey: ['ha-status'] })
     setSpeedTesting(false)
+    qc.invalidateQueries({ queryKey: ['ha-status'] })
     toast.success('Speed tests complete')
   }
 

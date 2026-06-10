@@ -78,24 +78,30 @@ export default function Layout() {
   }, [isTV, isPhone])
 
   const navLinks = [
-    { to: '/',           icon: Home,       label: 'Home',        end: true },
-    { to: '/movies',     icon: Film,       label: 'Movies' },
-    { to: '/shows',      icon: Tv,         label: 'TV Shows' },
+    { to: '/',               icon: Home,       label: 'Home',        end: true },
+    { to: '/movies',         icon: Film,       label: 'Movies' },
+    { to: '/movies/3d',      icon: Box,        label: '3D' },
+    { to: '/movies/4k',      icon: Box,        label: '4K' },
+    { to: '/shows',          icon: Tv,         label: 'TV Shows' },
     ...(showMusic ? [{ to: '/music', icon: Music, label: 'Music' }] : []),
-    { to: '/collections',      icon: Star,      label: 'Collections' },
-    { to: '/smart-playlists', icon: ListMusic, label: 'Smart Lists' },
-    { to: '/history',     icon: Clock,      label: 'History' },
-    { to: '/people',      icon: Users,      label: 'People' },
-    { to: '/studios',     icon: Building2,  label: 'Studios' },
-    { to: '/servers',     icon: ServerIcon, label: 'Servers',  adminOnly: true },
-    { to: '/cluster',     icon: Network,    label: 'Cluster',  adminOnly: true },
-    { to: '/users',       icon: UserCog,    label: 'Users',    adminOnly: true },
-    { to: '/downloads',  icon: Download,   label: 'Downloads' },
+    { to: '/search',         icon: Search,     label: 'Search' },
+    { to: '/collections',    icon: Star,       label: 'Collections' },
+    { to: '/smart-playlists',icon: ListMusic,  label: 'Smart Lists' },
+    { to: '/history',        icon: Clock,      label: 'History' },
+    { to: '/watch-stats',    icon: TrendingUp, label: 'Watch Stats' },
+    { to: '/downloads',      icon: Download,   label: 'Downloads' },
+    { to: '/people',         icon: Users,      label: 'People' },
+    { to: '/studios',        icon: Building2,  label: 'Studios' },
   ]
   const adminLinks = [
-    { to: '/library',    icon: Wrench,     label: 'Library' },
-    { to: '/health',     icon: Activity,   label: 'Health' },
-    { to: '/stats',      icon: BarChart2,  label: 'Stats' },
+    { to: '/health',         icon: Activity,   label: 'Health' },
+    { to: '/stats',          icon: BarChart2,  label: 'Sessions' },
+    { to: '/library',        icon: Wrench,     label: 'Library' },
+    { to: '/language-audit', icon: Languages,  label: 'Languages' },
+    { to: '/metadata-fix',   icon: FilePen,    label: 'Fix Metadata' },
+    { to: '/servers',        icon: ServerIcon, label: 'Servers' },
+    { to: '/cluster',        icon: Network,    label: 'Cluster' },
+    { to: '/users',          icon: UserCog,    label: 'Users' },
   ]
   const isAdmin = !!(user as any)?.isAdmin
 
