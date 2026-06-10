@@ -7,6 +7,7 @@ import {
   ArrowUpDown, CheckCircle, XCircle, Clock, Database,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useQuery as useQueryC } from '@tanstack/react-query'
 import { toast } from '@/components/ui/Toast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -323,8 +324,86 @@ function AddServerModal({ type, onClose, onAdd }: { type: 'jellyfin' | 'plex'; o
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
+function ClusterInlineTab({ servers, activeJfId }: { servers: any[]; activeJfId?: string }) {
+  const qc = useQueryClient()
+  const { data: clusterData } = useQuery({
+    queryKey: ['cluster-stats'], queryFn: () => api.clusterStats(),
+    refetchInterval: 10_000, staleTime: 8_000,
+  })
+  const ROLES = [
+    { id: 'primary', label: 'Primary', color: '#c9a84c' },
+    { id: 'transcoder', label: 'Transcoder', color: '#e74c3c' },
+    { id: 'scanner', label: 'Scanner', color: '#3498db' },
+    { id: 'backup', label: 'Backup', color: '#888' },
+    { id: 'media', label: 'Media', color: '#2ecc71' },
+  ]
+  const clusterServers = (clusterData as any)?.servers || servers
+  return (
+    <div className="space-y-3">
+      <p className="text-[9px] font-bold uppercase tracking-widest" style={{color:'var(--muted)',opacity:0.4}}>Server Roles</p>
+      {clusterServers.map((s: any) => {
+        const roleInfo = ROLES.find(r => r.id === (s.role||'primary')) || ROLES[0]
+        return (
+          <div key={s.id} className="p-3 rounded-xl" style={{background:'var(--bg2)',border:'1px solid var(--border2)'}}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full" style={{background: s.ok?'#2ecc71':'#e74c3c'}}/>
+              <p className="text-sm font-bold flex-1" style={{color:'var(--cream)'}}>{s.name}</p>
+              <span className="text-[8px] px-2 py-0.5 rounded-full font-bold" style={{background:`${roleInfo.color}20`,color:roleInfo.color,border:`1px solid ${roleInfo.color}40`}}>{roleInfo.label}</span>
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {ROLES.map(r => (
+                <button key={r.id} onClick={async () => { await api.clusterRole(s.id, r.id); qc.invalidateQueries({queryKey:['cluster-stats']}); toast.success(`${s.name} → ${r.label}`) }}
+                  className="px-2 py-1 rounded-full text-[8px] font-bold transition-all"
+                  style={{background:(s.role||'primary')===r.id?r.color:'var(--bg3)',color:(s.role||'primary')===r.id?'white':'var(--muted)',border:`1px solid ${(s.role||'primary')===r.id?r.color:'var(--border2)'}`}}>
+                  {r.label}
+                </button>
+              ))}
+              <button onClick={async () => { const r = await api.clusterScan(s.id).catch(()=>null) as any; r?.ok && toast.success('Scan queued') }}
+                className="ml-auto px-2 py-1 rounded-full text-[8px] font-bold hover:opacity-80"
+                style={{background:'var(--subtle)',border:'1px solid var(--border2)',color:'var(--muted)'}}>
+                🔍 Scan
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function JobsInlineTab() {
+  const { data } = useQuery({
+    queryKey: ['cluster-jobs'], queryFn: () => api.clusterJobs(),
+    refetchInterval: 5_000, staleTime: 3_000,
+  })
+  const jobs = (data as any)?.jobs || []
+  const STATUS_COLOR: Record<string,string> = { queued:'#888', running:'#f39c12', done:'#2ecc71', error:'#e74c3c' }
+  const JOB_ICONS: Record<string,string> = { scan:'🔍', metadata:'✏️', pretranscode:'⚙️', speedtest:'⚡' }
+  return (
+    <div>
+      <p className="text-[9px] font-bold uppercase tracking-widest mb-3" style={{color:'var(--muted)',opacity:0.4}}>Job Queue (last 20)</p>
+      {jobs.length === 0
+        ? <p className="text-sm text-center py-8" style={{color:'var(--muted)',opacity:0.2}}>No jobs yet</p>
+        : <div className="space-y-1.5">
+            {[...jobs].reverse().slice(0,20).map((job: any) => (
+              <div key={job.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{background:'var(--bg2)',border:'1px solid var(--border2)'}}>
+                <span>{JOB_ICONS[job.type]||'⚙️'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold" style={{color:'var(--cream)'}}>#{job.id} {job.type} · {job.serverId}</p>
+                  <p className="text-[9px]" style={{color:'var(--muted)',opacity:0.4}}>{job.error || (job.completedAt ? `${Math.round((job.completedAt-job.createdAt)/1000)}s` : job.startedAt ? 'Running…' : 'Queued')}</p>
+                </div>
+                <div className="w-2 h-2 rounded-full" style={{background:STATUS_COLOR[job.status]||'#888'}}/>
+              </div>
+            ))}
+          </div>
+      }
+    </div>
+  )
+}
+
 export default function ServersPage() {
   const qc = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'servers' | 'cluster' | 'jobs'>('servers')
   const [addModal, setAddModal] = useState<'jellyfin' | 'plex' | null>(null)
   const [checking, setChecking] = useState(false)
   const [speedTesting, setSpeedTesting] = useState(false)
@@ -418,7 +497,18 @@ export default function ServersPage() {
           </div>
         </div>
 
-        {/* Status overview bar */}
+        {/* Tab bar */}
+        <div className="flex gap-1 mb-4" style={{ borderBottom: '1px solid var(--border2)' }}>
+          {(['servers','cluster','jobs'] as const).map(t => (
+            <button key={t} onClick={() => setActiveTab(t)}
+              className="px-4 py-2 text-xs font-bold uppercase tracking-wide"
+              style={{ color: activeTab===t?'var(--accent)':'var(--muted)', borderBottom: `2px solid ${activeTab===t?'var(--accent)':'transparent'}`, opacity: activeTab===t?1:0.5 }}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+      {/* Status overview bar */}
         <div className="grid grid-cols-4 gap-2">
           {[
             ['Active', status?.jellyfin.find(s => s.id === status?.activeJfId)?.name ?? '—', Server],
@@ -437,6 +527,7 @@ export default function ServersPage() {
 
       <div className="px-4 pt-5 space-y-6">
 
+        {activeTab === 'servers' && <>
         {/* Load balancing mode */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -527,6 +618,17 @@ export default function ServersPage() {
             )}
           </div>
         </div>
+
+        </>
+        }
+
+        {/* Cluster tab - inline */}
+        {activeTab === 'cluster' && (
+          <ClusterInlineTab servers={status?.jellyfin || []} activeJfId={status?.activeJfId} />
+        )}
+        {activeTab === 'jobs' && (
+          <JobsInlineTab />
+        )}
 
         {/* Last check */}
         {status?.lastCheck && (

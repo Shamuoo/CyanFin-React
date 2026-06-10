@@ -20,6 +20,8 @@ import NowPlayingPage from '@/pages/NowPlayingPage'
 import UpcomingPage from '@/pages/UpcomingPage'
 import PersonPage from '@/pages/PersonPage'
 import CollectionsPage from '@/pages/CollectionsPage'
+import LibraryToolsPage from '@/pages/LibraryToolsPage'
+import AdminPage from '@/pages/AdminPage'
 import HistoryPage from '@/pages/HistoryPage'
 import PeoplePage from '@/pages/PeoplePage'
 import StudiosPage from '@/pages/StudiosPage'
@@ -213,9 +215,11 @@ export default function App() {
                   <Route path="/movies" element={<ErrorBoundary><MoviesPage /></ErrorBoundary>} />
                   <Route path="/shows" element={<ErrorBoundary><ShowsPage /></ErrorBoundary>} />
                   <Route path="/music" element={<ErrorBoundary><MusicPage /></ErrorBoundary>} />
+                  <Route path="/library-tools" element={<ErrorBoundary><LibraryToolsPage /></ErrorBoundary>} />
                   <Route path="/library" element={<ErrorBoundary><LibraryPage /></ErrorBoundary>} />
                   <Route path="/stats" element={<ErrorBoundary><StatsPage /></ErrorBoundary>} />
-                  <Route path="/health" element={<ErrorBoundary><HealthPage /></ErrorBoundary>} />
+                  <Route path="/admin" element={<ErrorBoundary><AdminPage /></ErrorBoundary>} />
+                  <Route path="/health" element={<ErrorBoundary><AdminPage /></ErrorBoundary>} />
                   <Route path="/playing" element={<ErrorBoundary><NowPlayingPage /></ErrorBoundary>} />
                   <Route path="/upcoming" element={<ErrorBoundary><UpcomingPage /></ErrorBoundary>} />
                   <Route path="/person/:id" element={<ErrorBoundary><PersonPage /></ErrorBoundary>} />

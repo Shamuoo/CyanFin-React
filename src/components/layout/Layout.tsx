@@ -94,13 +94,9 @@ export default function Layout() {
     { to: '/studios',        icon: Building2,  label: 'Studios' },
   ]
   const adminLinks = [
-    { to: '/health',         icon: Activity,   label: 'Health' },
-    { to: '/stats',          icon: BarChart2,  label: 'Sessions' },
-    { to: '/library',        icon: Wrench,     label: 'Library' },
-    { to: '/language-audit', icon: Languages,  label: 'Languages' },
-    { to: '/metadata-fix',   icon: FilePen,    label: 'Fix Metadata' },
-    { to: '/servers',        icon: ServerIcon, label: 'Servers' },
-    { to: '/cluster',        icon: Network,    label: 'Cluster' },
+    { to: '/admin',          icon: Activity,   label: 'System' },
+    { to: '/library-tools',  icon: Wrench,     label: 'Library Tools' },
+    { to: '/servers',        icon: ServerIcon, label: 'Servers & Cluster' },
     { to: '/users',          icon: UserCog,    label: 'Users' },
   ]
   const isAdmin = !!(user as any)?.isAdmin

@@ -221,29 +221,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <p className="text-[8px] mt-1" style={{ color: 'var(--muted)', opacity: 0.4 }}>Shown as a subtle overlay behind all content</p>
               </div>
 
-              <SectionTitle>Parental Controls</SectionTitle>
-              <p className="text-[9px] mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }}>
-                Hides content above this rating. Set a PIN to lock changes.
-              </p>
-              <div className="flex gap-2 mb-3 flex-wrap">
-                {[['','Off'],['G','G'],['PG','PG'],['PG-13','PG-13'],['R','R'],['NC-17','NC-17']].map(([v,l]) => (
-                  <button key={v} onClick={() => store.setSetting('parentalRating' as any, v)}
-                    className="px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wide"
-                    style={{ background: (store as any).parentalRating === v ? 'var(--accent)' : 'var(--subtle)', color: (store as any).parentalRating === v ? 'var(--bg)' : 'var(--muted)', border: `1px solid ${(store as any).parentalRating === v ? 'transparent' : 'var(--border2)'}` }}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 mb-4">
-                <input
-                  type="password" placeholder="Parental PIN (4 digits)"
-                  value={(store as any).parentalPin || ''}
-                  onChange={e => store.setSetting('parentalPin' as any, e.target.value.replace(/\D/,'').slice(0,4))}
-                  className="flex-1 px-3 py-1.5 rounded-xl text-xs outline-none"
-                  style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }} />
-                <span className="text-[9px]" style={{ color: 'var(--muted)', opacity: 0.4 }}>PIN locks settings</span>
-              </div>
-
               <SectionTitle>Content Rating Filter</SectionTitle>
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[['','All'],['G','G'],['PG','PG'],['PG-13','PG-13'],['R','R'],['NC-17','NC-17']].map(([v,l]) => (
@@ -295,19 +272,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     {label}
                   </button>
                 ))}
-              </div>
-
-              <SectionTitle>Cache</SectionTitle>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs" style={{ color: 'var(--cream)' }}>Clear library cache</p>
-                <button onClick={async () => {
-                  await fetch('/api/cache/bust', { method: 'POST', credentials: 'include' })
-                  window.location.reload()
-                }}
-                  className="px-3 py-1.5 rounded-full text-[9px] font-bold hover:opacity-80"
-                  style={{ background: 'var(--subtle)', border: '1px solid var(--border2)', color: 'var(--muted)' }}>
-                  🗑 Clear Cache
-                </button>
               </div>
 
               <SectionTitle>Sidebar Width</SectionTitle>
@@ -429,42 +393,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
 
-              <SectionTitle>Parental Controls</SectionTitle>
-              <div className="mb-4">
-                <p className="text-[9px] mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }}>
-                  Set a maximum content rating. Applied to your Jellyfin account.
-                </p>
-                <select
-                  value={(store as any).ageFilter || ''}
-                  onChange={async e => {
-                    const rating = e.target.value
-                    store.setSetting('ageFilter' as any, rating)
-                    await fetch('/api/parental/set', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maxRating: rating }) })
-                  }}
-                  className="w-full px-3 py-2 rounded-xl text-xs outline-none"
-                  style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--cream)' }}>
-                  <option value="">No limit</option>
-                  <option value="G">G</option>
-                  <option value="PG">PG</option>
-                  <option value="PG-13">PG-13</option>
-                  <option value="R">R</option>
-                  <option value="NC-17">NC-17</option>
-                </select>
-              </div>
-
-              <SectionTitle>Subtitle Preview</SectionTitle>
-              <div className="rounded-xl p-3 mb-4 text-center relative overflow-hidden"
-                style={{ background: 'var(--bg3)', border: '1px solid var(--border2)' }}>
-                <p style={{
-                  fontSize: `${((store as any).subtitleSize || 100) / 100 * 16}px`,
-                  color: (store as any).subtitleColor || '#fff',
-                  fontWeight: 700,
-                  textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                  background: (store as any).subtitleBg ? 'rgba(0,0,0,0.6)' : 'transparent',
-                  padding: '2px 8px', borderRadius: 4, display: 'inline-block',
-                }}>Sample subtitle text</p>
-              </div>
-
               <SectionTitle>Preferred Subtitle Language</SectionTitle>
               <div className="flex gap-2 mb-4 flex-wrap">
                 {[['','None'],['eng','English'],['fre','French'],['ger','German'],['spa','Spanish'],['jpn','Japanese'],['kor','Korean']].map(([v,l]) => (
@@ -485,43 +413,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     {l}
                   </button>
                 ))}
-              </div>
-
-              <SectionTitle>Trakt.tv</SectionTitle>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-xs font-bold" style={{ color: 'var(--cream)' }}>Scrobble to Trakt</p>
-                  <p className="text-[9px]" style={{ color: 'var(--muted)' }}>Auto-post watched films + shows</p>
-                </div>
-                <button onClick={() => {
-                  const id = prompt('Enter your Trakt OAuth token (from trakt.tv/settings → Your API Apps → OAuth):')
-                  if (id) { store.setSetting('traktConnected' as any, true); localStorage.setItem('cf_trakt_token', id); alert('Trakt connected!'); }
-                }}
-                  className="px-3 py-1.5 rounded-full text-[9px] font-bold hover:opacity-80"
-                  style={{ background: (store as any).traktConnected ? 'rgba(46,204,113,0.15)' : 'var(--accent)', color: (store as any).traktConnected ? '#2ecc71' : 'var(--bg)', border: (store as any).traktConnected ? '1px solid #2ecc71' : 'none' }}>
-                  {(store as any).traktConnected ? '✓ Connected' : 'Connect'}
-                </button>
-              </div>
-
-              <SectionTitle>Push Notifications</SectionTitle>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs" style={{ color: 'var(--cream)' }}>New content + server alerts</p>
-                <button onClick={async () => {
-                  if (!('Notification' in window)) { return; }
-                  const perm = await Notification.requestPermission();
-                  if (perm !== 'granted') return;
-                  const reg = (window as any).__swReg;
-                  if (!reg) return;
-                  const vapid = await fetch('/api/push/vapid-key', { credentials: 'include' }).then(r => r.json()).catch(() => ({}));
-                  if (!vapid.key) { alert('VAPID key not configured on server'); return; }
-                  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapid.key });
-                  await fetch('/api/push/subscribe', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub }) });
-                  alert('Push notifications enabled!');
-                }}
-                  className="px-3 py-1.5 rounded-full text-[9px] font-bold hover:opacity-80"
-                  style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
-                  Enable
-                </button>
               </div>
 
               <SectionTitle>Resume Threshold</SectionTitle>
