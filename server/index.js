@@ -391,7 +391,8 @@ async function handler(req, res) {
     try {
       const currentUrl = cfg.get('JELLYFIN_URL') || (() => { try { return JSON.parse(cfg.get('JELLYFIN_SERVERS') || '[]')[0]?.url } catch { return null } })();
       if (!currentUrl) return json(res, { error: 'Jellyfin server not configured. Please complete setup first.' }, 503);
-      if (currentUrl && !jf.getBaseUrl()) jf.init(currentUrl, cfg.get('JELLYFIN_API_KEY') || '');
+      // Always ensure jf is pointed at current URL
+      jf.init(currentUrl, cfg.get('JELLYFIN_API_KEY') || '');
 
       // Authenticate against primary server
       const result = await jf.authenticate(body.username, body.password);

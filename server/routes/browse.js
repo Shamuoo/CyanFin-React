@@ -1,20 +1,26 @@
-
-
-const tmdb = require('../tmdb');
 'use strict';
 const fs   = require('fs');
 const path = require('path');
 const jf   = require('../jellyfin');
 const plex = require('../plexClient');
 const sm   = require('../serverManager');
+const tmdb = require('../tmdb');
 const { mapItem, dedup } = require('./media');
-
 const cache = require('../cache');
 
 async function handleBrowse(pathname, query, session) {
+  const cfg = require('../config');
+  const jf  = require('../jellyfin');
+  // Ensure jellyfin client is initialised (may be empty after cold start)
+  if (!jf.getBaseUrl()) {
+    const url = cfg.get('JELLYFIN_URL') || (() => {
+      try { return JSON.parse(cfg.get('JELLYFIN_SERVERS') || '[]')[0]?.url; } catch { return ''; }
+    })();
+    if (url) jf.init(url, cfg.get('JELLYFIN_API_KEY') || '');
+  }
   const token  = sm.getActiveToken(session);
   const userId = session.userId;
-  const fromPlex = usePlex();
+  const fromPlex = !!(query.source === 'plex' || session.plexSource);
 
   // ── Recently Added ─────────────────────────────────────────────────────────
   if (pathname === '/api/recently-added') {
