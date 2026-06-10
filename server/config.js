@@ -10,7 +10,7 @@ const SCHEMA = {
   JELLYFIN_API_KEY:       { type: 'string', label: 'Jellyfin API Key', secret: true },
   JELLYFIN_BACKUP_URL:    { type: 'url',    label: 'Backup Jellyfin URL' },
   JELLYFIN_BACKUP_API_KEY:{ type: 'string', label: 'Backup API Key', secret: true },
-  JELLYFIN_MODE:          { type: 'enum',   values: ['fastest','primary','backup'], default: 'fastest' },
+  JELLYFIN_MODE:          { type: 'string', label: 'Load Balancing Mode', values: ['fastest','round-robin','primary-first','manual'], default: 'fastest' },
   PLEX_URL:               { type: 'url',    label: 'Plex URL' },
   PLEX_TOKEN:             { type: 'string', label: 'Plex Token', secret: true },
   TMDB_API_KEY:           { type: 'string', label: 'TMDB API Key', secret: true },
@@ -32,7 +32,6 @@ const SCHEMA = {
   JELLYFIN_SERVERS:       { type: 'json',   label: 'Jellyfin Servers Array' },
   PLEX_SERVERS:           { type: 'json',   label: 'Plex Servers Array' },
   SERVER_ROLES:           { type: 'json',   label: 'Server Roles' },
-  JELLYFIN_MODE:          { type: 'string', label: 'Load Balancing Mode' },
   VAPID_PUBLIC_KEY:       { type: 'string', label: 'VAPID Public Key' },
   VAPID_PRIVATE_KEY:      { type: 'string', label: 'VAPID Private Key', secret: true },
   TRAKT_CLIENT_ID:        { type: 'string', label: 'Trakt Client ID', secret: true },
@@ -133,6 +132,15 @@ function validate(updates) {
   return errors;
 }
 
+function set(key, value) {
+  // In-memory only set (no disk write) — for runtime state like active server
+  if (value === null || value === undefined || value === '') {
+    delete _cfg[key];
+  } else {
+    _cfg[key] = String(value);
+  }
+}
+
 function saveConfig(updates) {
   console.log('[config] saveConfig called with keys:', Object.keys(updates).join(', '));
   console.log('[config] CONFIG_PATH:', CONFIG_PATH);
@@ -168,4 +176,4 @@ function saveConfig(updates) {
   return { success: true, saved };
 }
 
-module.exports = { loadConfig, get, getAll, getPublic, saveConfig, getCachePath, SCHEMA };
+module.exports = { loadConfig, get, set, getAll, getPublic, saveConfig, getCachePath, SCHEMA };
